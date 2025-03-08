@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Newtonsoft.Json;
-namespace Warframe.Market;
+namespace Warframe.Market.Model.Statistics;
 
 /// <summary>
 /// 表示整个市场数据负载的根对象。

@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
+using System.Data;
 using System.Text.Json.Serialization;
-
-namespace Warframe.Market;
+namespace Warframe.Market.Model.Statistics;
 
 /// <summary>
 /// 表示市场数据中的一个数据条目，包含交易的各种统计信息。
@@ -16,6 +16,9 @@ namespace Warframe.Market;
 /// <param name="OrderType"> 订单类型（买或卖）。 </param>
 /// <param name="Id"> 数据条目的唯一标识符。 </param>
 /// <param name="ModRank"> 排名或优先级（可能用于排序或筛选）。 </param>
+/// <param name="Subtype">物品子类型（可选）</param>
+/// <param name="AmberStars">琥珀星数量（可选）</param>
+/// <param name="CyanStars">青星数量（可选）</param>
 /// <param name="OpenPrice"> 开盘价格（仅当OrderType为"sell"且数据包含开盘信息时适用）。 </param>
 /// <param name="ClosedPrice"> 收盘价格（仅当OrderType为"sell"且数据包含收盘信息时适用）。 </param>
 /// <param name="DonchTop"> Donchian通道上界（仅当数据包含此信息时适用）。 </param>
@@ -31,7 +34,12 @@ public record MarketDataEntry(
 	, [property: JsonPropertyName("order_type"), JsonProperty("order_type")] string? OrderType
 	, [property: JsonPropertyName("id"), JsonProperty("id")] string Id
 	, [property: JsonPropertyName("mod_rank"), JsonProperty("mod_rank")] int? ModRank
+	, [property: JsonPropertyName("subtype"), JsonProperty("subtype")] string? Subtype
+	, [property: JsonPropertyName("amberStars"), JsonProperty("amberStars")] byte? AmberStars
+	, [property: JsonPropertyName("cyanStars"), JsonProperty("cyanStars")] byte? CyanStars
 	, [property: JsonPropertyName("open_price"), JsonProperty("open_price")] float? OpenPrice
 	, [property: JsonPropertyName("closed_price"), JsonProperty("closed_price")] float? ClosedPrice
 	, [property: JsonPropertyName("donch_top"), JsonProperty("donch_top")] float? DonchTop
 	, [property: JsonPropertyName("donch_bot"), JsonProperty("donch_bot")] float? DonchBot);
+
+ 

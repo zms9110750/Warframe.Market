@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using Newtonsoft.Json;
 
-namespace Warframe.Market;
+namespace Warframe.Market.Model.Statistics;
 
 /// <summary>
 /// 表示市场数据中的统计信息项，包含名为Day90和Hour48的数据列表（实际为90天和48小时的数据）。

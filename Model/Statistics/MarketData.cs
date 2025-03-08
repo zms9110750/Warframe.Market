@@ -1,14 +1,10 @@
 ﻿using Newtonsoft.Json;
-using Polly;
-using Polly.CircuitBreaker;
-using Polly.RateLimit;
-using Polly.Timeout;
-using Polly.Wrap;
+using Polly; 
 using System.Net;
 using System.Net.Http.Json;
 using System.Reactive.Linq;
 using System.Text.Json.Serialization;
-namespace Warframe.Market;
+namespace Warframe.Market.Model.Statistics;
 public record MarketData([property: JsonPropertyName("payload"), JsonProperty("payload")] MarketDataPayload Payload)
 {
 	public static IAsyncEnumerable<(string itemName, int? rank, double price)> GetAveragePrice(IEnumerable<string> itemNames)
@@ -20,11 +16,11 @@ public record MarketData([property: JsonPropertyName("payload"), JsonProperty("p
 
 		return itemNames
 			.ToObservable()
-			.Zip(Observable.Interval(TimeSpan.FromMilliseconds(50)), (item, _) => item)
+			.Zip(Observable.Interval(TimeSpan.FromMilliseconds(333)), (item, _) => item)
 			.Select(item => Observable.FromAsync(() =>
 				   http429RetryPolicy.ExecuteAsync(() =>
 					 client.GetFromJsonAsync<MarketData>($"{item.ToLower().Replace(" ", "_")}/statistics")
-						.ContinueWith(response => (item, response.Result!.Payload.GetReferencePrice())) )))
+						.ContinueWith(response => (item, response.Result!.Payload.GetReferencePrice())))))
 			.Merge(maxConcurrent: 5)
 			.SelectMany(result => result.Item2.Select(s => (result.Item1, s.Item1, s.Item2)))
 			.ToAsyncEnumerable();
