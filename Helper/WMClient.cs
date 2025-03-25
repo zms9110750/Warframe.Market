@@ -1,101 +1,72 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using Newtonsoft.Json.Linq;
+﻿using Polly.Retry;
 using Polly;
-using Polly.Retry;
-using System.Diagnostics;
 using System.Net;
-using System.Threading;
-using Warframe.Market.Model;
-using Warframe.Market.Model.ItemType;
 using Warframe.Market.Model.Statistics;
+using System.Net.Http.Json;
+using Warframe.Market.Model.Items;
+using Warframe.Market.Model.ItemsSet;
+using Warframe.Market.Model.LocalItems;
 
 namespace Warframe.Market.Helper;
 
-public class WMClient : HttpClient
+public class WMClient
 {
-	MemoryCache Cache { get; } = new MemoryCache(new MemoryCacheOptions { SizeLimit = 1024 * 1024 * 4, ExpirationScanFrequency = TimeSpan.FromSeconds(5) });
-	AsyncRetryPolicy Http429RetryPolicy { get; } = Policy
-			.Handle<HttpRequestException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
-		 .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: (retryCount) => TimeSpan.FromMilliseconds(Random.Shared.Next(500) + (500 * retryCount))
-		 , onRetry: (ex, delay, retryCount, context) =>
-		 { 
-			 Console.WriteLine($"[WARNING] 触发429重试机制 | 第 {retryCount} 次重试 | " +
-							   $"等待 {delay.TotalSeconds:F1} 秒 | 异常消息: {ex. Message}"); 
-		 });
-	public WMClient(TimeSpan? interval = null)
-	{
-		BaseAddress = new Uri("https://api.warframe.market/v2/");
-		DefaultRequestHeaders.Add("Language", "zh-hans");
-		Throttle = new ThrottleGate(interval ?? TimeSpan.FromSeconds(1.0 / 3));
-	}
+	HttpClient Http { get; }
 	ThrottleGate Throttle { get; }
-	public new async Task<string> GetStringAsync(string url)
+	AsyncRetryPolicy Http429RetryPolicy { get; }
+	public WMClient(TimeSpan? interval = null, HttpClient? http = null, AsyncRetryPolicy? retryPolicy = null)
+	{
+		Http = http ??= new HttpClient();
+		http.DefaultRequestHeaders.Add("Language", "zh-hans");
+		Throttle = new ThrottleGate(interval ?? TimeSpan.FromSeconds(1.0 / 3));
+		Http429RetryPolicy = retryPolicy ?? Policy
+			.Handle<HttpRequestException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
+			.WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: (retryCount) => TimeSpan.FromMilliseconds(Random.Shared.Next(500) + 500 * retryCount));
+	}
+	public async Task<string> GetStringAsync(string url)
 	{
 		await Throttle;
-		var s = await Http429RetryPolicy.ExecuteAsync(() => base.GetStringAsync(url)); 
-		return s;
+		return await Http429RetryPolicy.ExecuteAsync(() => Http.GetStringAsync(url));
 	}
-	public async Task<Item> GetItemAsync(string slug)
+	public async Task<T> GetFromJsonAsync<T>(string url)
 	{
-		if (Cache.TryGetValue<Item>(slug, out var result))
-		{
-			return result!;
-		}
-		JObject js = (JObject)JObject.Parse(await GetStringAsync($"item/{slug}"))["data"]!;
-		if (js.ContainsKey("setRoot"))
-		{
-			result = ParseComponent(js);
-		}
-		else if (js.ContainsKey("reqMasteryRank"))
-		{
-			result = js.ToObject<Equipment>()!;
-		}
-		else
-		{
-			result = ItemCache.Parse(js)!;
-		}
-		Cache.Set(slug, result, new MemoryCacheEntryOptions { Size = js.ToString().Length });
-		return result;
+		await Throttle;
+		return (await Http429RetryPolicy.ExecuteAsync(() => Http.GetFromJsonAsync<T>(url)))!;
 	}
-	public async Task<ItemSet> GetItemSetAsync(string slug)
+	public Task<Model.Versions.Version> GetVersionAsync()
 	{
-		if (Cache.TryGetValue<ItemSet>(slug, out var result))
-		{
-			return result!;
-		}
-		JArray js = (JArray)JObject.Parse(await GetStringAsync($"item/{slug}/set")!)["data"]!["items"]!;
-		result = new ItemSet(js.Select(s => ParseComponent((JObject)s)));
-		foreach (var item in result)
-		{
-			Cache.Set(item.Slug, item, new MemoryCacheEntryOptions { Size = item.ToString().Length });
-			Cache.Set(item.Slug + "/set", result);
-		}
-		return result;
+		return GetFromJsonAsync<Model.Versions.Version>($"https://api.warframe.market/v2/versions");
 	}
-	public async Task<MarketData> GetStatisticsAsync(string slug)
-	{ 
-		if (Cache.TryGetValue<MarketData>(slug + "/Statistics", out var result))
-		{
-			return result!;
-		}
-		JObject js = JObject.Parse(await GetStringAsync($"https://api.warframe.market/v1/items/{slug}/statistics"));
-		result = js.ToObject<MarketData>()!;
-		Cache.Set(slug, result, new MemoryCacheEntryOptions { Size = js.ToString().Length });
-		return result;
-	}
-	private static Component ParseComponent(JObject js)
+	public Task<Item> GetItemAsync(string slug)
 	{
-		if (js.ContainsKey("ducats"))
-		{
-			return js.ToObject<PrimeComponent>()!;
-		}
-		else if (js.ContainsKey("subtypes"))
-		{
-			return js.ToObject<CraftedComponent>()!;
-		}
-		else
-		{
-			return js.ToObject<Component>()!;
-		}
+		return GetFromJsonAsync<Item>($"https://api.warframe.market/v2/item/{slug}");
+	}
+	public Task<Item> GetItemAsync(ItemShort item)
+	{
+		return GetFromJsonAsync<Item>($"https://api.warframe.market/v2/item/{item.Slug}");
+	}
+	public Task<ItemSet> GetItemSetAsync(string slug)
+	{
+		return GetFromJsonAsync<ItemSet>($"https://api.warframe.market/v2/item/{slug}/set");
+	}
+	public Task<ItemSet> GetItemSetAsync(ItemShort item)
+	{
+		return GetFromJsonAsync<ItemSet>($"https://api.warframe.market/v2/item/{item.Slug}/set");
+	}
+	public Task<Statistic> GetStatisticsAsync(string slug)
+	{
+		return GetFromJsonAsync<Statistic>($"https://api.warframe.market/v1/items/{slug}/statistics");
+	}
+	public Task<Statistic> GetStatisticsAsync(ItemShort item)
+	{
+		return GetFromJsonAsync<Statistic>($"https://api.warframe.market/v1/items/{item.Slug}/statistics");
+	}
+	public Task<ItemCache> GetItemsCacheAsync()
+	{
+		return GetFromJsonAsync<ItemCache>($"https://api.warframe.market/v2/items");
+	}
+	public Task<string> GetItemsCacheTextAsync()
+	{
+		return GetStringAsync($"https://api.warframe.market/v2/items");
 	}
 }

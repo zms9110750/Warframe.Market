@@ -1,6 +1,5 @@
-﻿using Newtonsoft.Json;
-using System.Data;
-using System.Text.Json.Serialization;
+﻿using Warframe.Market.Model.Items;
+
 namespace Warframe.Market.Model.Statistics;
 
 /// <summary>
@@ -23,7 +22,7 @@ namespace Warframe.Market.Model.Statistics;
 /// <param name="ClosedPrice"> 收盘价格（仅当OrderType为"sell"且数据包含收盘信息时适用）。 </param>
 /// <param name="DonchTop"> Donchian通道上界（仅当数据包含此信息时适用）。 </param>
 /// <param name="DonchBot"> Donchian通道下界（仅当数据包含此信息时适用）。 </param>
-public record MarketDataEntry(
+public record Entry(
 	[property: JsonPropertyName("datetime"), JsonProperty("datetime")] DateTime Datetime
 	, [property: JsonPropertyName("volume"), JsonProperty("volume")] int Volume
 	, [property: JsonPropertyName("min_price"), JsonProperty("min_price")] float MinPrice
@@ -34,7 +33,7 @@ public record MarketDataEntry(
 	, [property: JsonPropertyName("order_type"), JsonProperty("order_type")] string? OrderType
 	, [property: JsonPropertyName("id"), JsonProperty("id")] string Id
 	, [property: JsonPropertyName("mod_rank"), JsonProperty("mod_rank")] int? ModRank
-	, [property: JsonPropertyName("subtype"), JsonProperty("subtype")] string? Subtype
+	, [property: JsonPropertyName("subtype"), JsonProperty("subtype")] Subtypes? Subtype
 	, [property: JsonPropertyName("amberStars"), JsonProperty("amberStars")] byte? AmberStars
 	, [property: JsonPropertyName("cyanStars"), JsonProperty("cyanStars")] byte? CyanStars
 	, [property: JsonPropertyName("open_price"), JsonProperty("open_price")] float? OpenPrice
@@ -42,4 +41,3 @@ public record MarketDataEntry(
 	, [property: JsonPropertyName("donch_top"), JsonProperty("donch_top")] float? DonchTop
 	, [property: JsonPropertyName("donch_bot"), JsonProperty("donch_bot")] float? DonchBot);
 
- 

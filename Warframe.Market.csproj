@@ -4,28 +4,44 @@
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<LangVersion>preview</LangVersion>
+		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="Configuration\items.json" />
-	  <None Remove="Configuration\赋能包.md" />
+	  <Compile Remove="Helper\ArcaneCollection.cs" />
+	  <Compile Remove="Helper\ItemCache.cs" />
+	</ItemGroup>
+
+
+	<ItemGroup>  
+	  <EmbeddedResource Include="Configuration\赋能包.xml" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <EmbeddedResource Include="Configuration\items.json">
-	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Configuration\赋能包.md" />
-	</ItemGroup>
-
-	<ItemGroup>
+		<PackageReference Include="Autofac" Version="8.2.0" />
+		<PackageReference Include="Autofac.Configuration" Version="7.0.0" /> 
 		<PackageReference Include="BidirectionalDictionary" Version="1.3.0" />
 		<PackageReference Include="Markdig" Version="0.40.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Xml" Version="9.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
 		<PackageReference Include="Polly" Version="8.5.2" />
 		<PackageReference Include="System.Linq.Async" Version="6.0.1" />
 		<PackageReference Include="System.Reactive.Linq" Version="6.0.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Using Include="Newtonsoft.Json" />
+	  <Using Include="System.Text.Json.JsonSerializer">
+	    <Alias>JsonSerializer</Alias>
+	  </Using>
+	  <Using Include="System.Text.Json.Serialization" />
+	  <Using Include="System.Text.Json" />
 	</ItemGroup>
 
 </Project>

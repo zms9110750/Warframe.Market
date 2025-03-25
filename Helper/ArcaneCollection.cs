@@ -83,8 +83,7 @@ public sealed class ArcaneCollection : ILookup<Quality, string>
 	public static IAsyncEnumerable<(string, double)> ShowReferencePrice(ItemCache itemCache, WMClient client)
 	{
 		return Created().ToAsyncEnumerable()
-				.SelectAwait(async s => (s.PackageName, price: 荧尘可买赋能包数量 * await s.GetReferencePrice(itemCache, client)))
-				.OrderByDescending(s => s.Item2);
+				.SelectAwait(async s => (s.PackageName, price: 荧尘可买赋能包数量 * await s.GetReferencePrice(itemCache, client)));
 	}
 
 	public IEnumerator<IGrouping<Quality, string>> GetEnumerator()
