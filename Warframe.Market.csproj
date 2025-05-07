@@ -7,33 +7,35 @@
 		<LangVersion>preview</LangVersion>
 		<OutputType>Exe</OutputType>
 	</PropertyGroup>
-
-	<ItemGroup>
-	  <Compile Remove="Helper\ArcaneCollection.cs" />
-	  <Compile Remove="Helper\ItemCache.cs" />
-	</ItemGroup>
-
+	 
 
 	<ItemGroup>  
 	  <EmbeddedResource Include="Configuration\赋能包.xml" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Autofac" Version="8.2.0" />
-		<PackageReference Include="Autofac.Configuration" Version="7.0.0" /> 
-		<PackageReference Include="BidirectionalDictionary" Version="1.3.0" />
-		<PackageReference Include="Markdig" Version="0.40.0" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Xml" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
-		<PackageReference Include="Polly" Version="8.5.2" />
-		<PackageReference Include="System.Linq.Async" Version="6.0.1" />
-		<PackageReference Include="System.Reactive.Linq" Version="6.0.1" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-	</ItemGroup>
+		<PackageReference Include="Autofac" Version="8.*" />
+		<PackageReference Include="Autofac.Configuration" Version="7.*" /> 
+		<PackageReference Include="BidirectionalDictionary" Version="1.*" />
+		<PackageReference Include="Markdig" Version="0.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Xml" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="9.*" />
+		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.4" />
+		<PackageReference Include="Microsoft.Extensions.Resilience" Version="9.*" />
+		<PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
+		<PackageReference Include="Polly" Version="8.*" />
+		<PackageReference Include="System.Linq.Async" Version="6.*" />
+		<PackageReference Include="System.Reactive.Linq" Version="6.*" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.*" />  
+		<PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.4" />
+		<PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.4.0" /> 
+
+	</ItemGroup> 
 
 	<ItemGroup>
 	  <Using Include="Newtonsoft.Json" />

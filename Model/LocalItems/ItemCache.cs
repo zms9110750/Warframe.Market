@@ -8,26 +8,19 @@ public record ItemCache(
 		[property: JsonPropertyName("data"), JsonProperty("data")] ItemShort[] Data,
 		[property: JsonPropertyName("error"), JsonProperty("error")] string Error)
 {
-	private Dictionary<string, ItemShort> KeyOfItem
+	public Dictionary<string, ItemShort> KeyOfItem
 	{
 		get
 		{
 			if (field == null)
 			{
 				field = [];
-				foreach (var item in Data)
+				foreach (ItemShort item in Data)
 				{
 					field.TryAdd(item.Id, item);
 					field.TryAdd(item.Slug, item);
-					field.TryAdd(item.I18nZH.Name, item);
-					field.TryAdd(item.I18nEN.Name, item);
-				}
-				if (PriceCachePath != null)
-				{
-					foreach (var item in Data)
-					{
-						item.PriceCachePath = PriceCachePath;
-					}
+					field.TryAdd(item.I18n.ZhHans!.Name, item);
+					field.TryAdd(item.I18n.En.Name, item);
 				}
 			}
 			return field;
@@ -55,13 +48,15 @@ public record ItemCache(
 
 	public int Count => KeyOfItem.Count;
 
-	public ItemShort this[string key] => KeyOfItem.GetValueOrDefault(key)!;
-
-	public string? PriceCachePath { get; set; }
+	public ItemShort? this[string key] => KeyOfItem.GetValueOrDefault(key)!;
 
 	public IEnumerable<string> Search(string itemNamePart)
 	{
 		return Trie.Search(itemNamePart.ToCharArray());
+	}
+	public IEnumerable<ItemShort> SearchItems(string itemNamePart)
+	{
+		return Trie.Search(itemNamePart.ToCharArray()).Select(s => this[s]!);
 	}
 
 	public bool ContainsKey(string key)

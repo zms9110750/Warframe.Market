@@ -1,7 +1,10 @@
 ﻿using Autofac;
 using System.Collections;
+using System.Diagnostics;
+using Warframe.Market.Extend;
 using Warframe.Market.Model.Items;
 using Warframe.Market.Model.LocalItems;
+using Warframe.Market.Model.Statistics;
 
 namespace Warframe.Market.Helper;
 public class ArcanePackage(string packageName) : ILookup<Subtypes, string>
@@ -9,26 +12,11 @@ public class ArcanePackage(string packageName) : ILookup<Subtypes, string>
 	public const double PackGainRate = 420.0 * 6 / 200 * 3;
 	public string Name { get; } = packageName;
 	public ItemCache? ItemCache { get; set; }
-	public WMClient? WMClient { get; set; }
 	public IEnumerable<string> this[Subtypes key] => QualityToItems.GetValueOrDefault(key) ?? [];
 	Dictionary<Subtypes, HashSet<string>> QualityToItems { get; } = [];
 	Dictionary<Subtypes, double> Quality { get; } = [];
 	Dictionary<string, Subtypes> QualityByItems { get; } = [];
 	public int Count => QualityToItems.Count;
-
-	public Task<double> PriceAsync { get; set; } = default!;
-
-	public Task<double> GetPriceAsync()
-	{
-		if (PriceAsync != null)
-		{
-			return PriceAsync;
-		}
-		ArgumentNullException.ThrowIfNull(ItemCache);
-		ArgumentNullException.ThrowIfNull(WMClient);
-		return PriceAsync = Task.WhenAll(this.SelectMany(s => s).Select(Selector))
-			.ContinueWith(s => s.Result.Sum() * PackGainRate);
-	}
 	public void Add(Subtypes subtype, double quality, IEnumerable<string> strings)
 	{
 		QualityToItems.Add(subtype, [.. strings]);
@@ -85,14 +73,5 @@ public class ArcanePackage(string packageName) : ILookup<Subtypes, string>
 		{
 			return GetEnumerator();
 		}
-	}
-	private async Task<double> Selector(string item)
-	{
-		var itemShort = ItemCache![item];
-		itemShort.WMClient = WMClient;
-		var price = (await itemShort.GetPriceAsync()).GetReferencePrice(itemShort.PriceFilterMaxRank());
-		price *= GetProbability(itemShort.I18nZH.Name);
-		price /= ItemShort.SyntheticConsumption[itemShort.MaxRank!.Value];
-		return price;
 	}
 }

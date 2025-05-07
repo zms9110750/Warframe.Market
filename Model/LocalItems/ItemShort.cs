@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+using System.ComponentModel.DataAnnotations.Schema;
 using Warframe.Market.Helper;
 using Warframe.Market.Model.Items;
 using Warframe.Market.Model.Statistics;
@@ -25,7 +26,6 @@ public record ItemShort(
 	[property: JsonPropertyName("slug"), JsonProperty("slug")] string Slug,
 	[property: JsonPropertyName("gameRef"), JsonProperty("gameRef")] string GameRef,
 	[property: JsonPropertyName("tags"), JsonProperty("tags")] HashSet<string> Tags,
-	[property: JsonPropertyName("i18n"), JsonProperty("i18n")] Dictionary<string, ItemI18n> I18n,
 	[property: JsonPropertyName("maxRank"), JsonProperty("maxRank")] int? MaxRank,
 	[property: JsonPropertyName("vaulted"), JsonProperty("vaulted")] bool? Vaulted,
 	[property: JsonPropertyName("ducats"), JsonProperty("ducats")] int? Ducats,
@@ -35,40 +35,11 @@ public record ItemShort(
 	[property: JsonPropertyName("endoMultiplier"), JsonProperty("endoMultiplier")] float? EndoMultiplier,
 	[property: JsonPropertyName("subtypes"), JsonProperty("subtypes")] HashSet<Subtypes>? Subtypes)
 {
-	public static IReadOnlyList<int> SyntheticConsumption { get; } = [1, 3, 6, 10, 15, 21];
-	public WMClient? WMClient { get; set; }
-	public string? PriceCachePath { get; set => field = value == null ? null : Path.Combine(value, Slug+ ".json"); }
-	private Statistic Price { get; set; } = default!;
-
-	public async Task<Statistic> GetPriceAsync()
-	{
-		if (Price != null)
-		{
-			return Price;
-		}
-		if (File.Exists(PriceCachePath) && File.GetLastWriteTimeUtc(PriceCachePath).Date == DateTime.UtcNow.Date)
-		{
-			using var read = File.OpenText(PriceCachePath);
-			await using var jsonRead = new JsonTextReader(read);
-			try
-			{
-				var json = await JObject.LoadAsync(jsonRead);
-				return Price = json.ToObject<Statistic>()!;
-			}
-			catch (JsonReaderException)
-			{
-			}
-		}
-		ArgumentNullException.ThrowIfNull(WMClient);
-		Price = await WMClient.GetStatisticsAsync(this);
-		if (PriceCachePath != null)
-		{
-			await using var write = File.CreateText(PriceCachePath);
-			await using var jsonWriter = new JsonTextWriter(write);
-			await JObject.FromObject(Price).WriteToAsync(jsonWriter);
-		}
-		return Price;
-	}
+	/// <summary>
+	/// 物品的多语言信息，键为语言代码，值为对应的翻译信息
+	/// </summary>
+	[property: JsonPropertyName("i18n"), JsonProperty("i18n")]
+	public ItemI18n I18n { get; set; } = null!;
 	public ItemType ItemType
 	{
 		get
@@ -90,32 +61,4 @@ public record ItemShort(
 			return field;
 		}
 	}
-	public ItemI18n I18nZH => I18n["zh-hans"];
-	public ItemI18n I18nEN => I18n["en"];
-	public Func<Entry, bool>? PriceFilterDefault()
-	{
-		return ItemType switch
-		{
-			ItemType.ArcaneEnhancement => s => s.ModRank == 0,
-			ItemType.AyatanSculpture => s => s.AmberStars != 0,
-			ItemType.CraftedComponent => s => s.Subtype == Items.Subtypes.Blueprint,
-			ItemType.MOD => s => s.ModRank == 0,
-			ItemType.Relic => s => s.Subtype == Items.Subtypes.Intact,
-			ItemType.RivenMOD => s => s.Subtype == Items.Subtypes.Unrevealed,
-			_ => null,
-		};
-	}
-	public Func<Entry, bool>? PriceFilterMaxRank()
-	{
-		return ItemType switch
-		{
-			ItemType.ArcaneEnhancement => s => s.ModRank != 0,
-			ItemType.MOD => s => s.ModRank != 0,
-			_ => PriceFilterDefault(),
-		};
-	}
-	public Func<Entry, bool>? PriceFilterSubtype(Subtypes subtypes)
-	{
-		return Subtypes is { Count: > 0 } ? (s => s.Subtype == subtypes) : PriceFilterDefault();
-	}
-}
+} 

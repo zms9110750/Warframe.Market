@@ -1,5 +1,5 @@
 ﻿using Warframe.Market.Model.Items;
-
+ 
 namespace Warframe.Market.Model.ItemsSet;
 
 public record Data(

@@ -13,8 +13,8 @@ namespace Warframe.Market.Model.Statistics;
 /// <param name="WaPrice"> 加权平均价格（可能根据特定算法计算）。 </param>
 /// <param name="Median"> 中位数价格。 </param>
 /// <param name="OrderType"> 订单类型（买或卖）。 </param>
-/// <param name="Id"> 数据条目的唯一标识符。 </param>
-/// <param name="ModRank"> 排名或优先级（可能用于排序或筛选）。 </param>
+/// <param name="Id"> 关联物品的唯一标识符。 </param>
+/// <param name="ModRank"> MOD等级（可选）。 </param>
 /// <param name="Subtype">物品子类型（可选）</param>
 /// <param name="AmberStars">琥珀星数量（可选）</param>
 /// <param name="CyanStars">青星数量（可选）</param>
@@ -34,8 +34,8 @@ public record Entry(
 	, [property: JsonPropertyName("id"), JsonProperty("id")] string Id
 	, [property: JsonPropertyName("mod_rank"), JsonProperty("mod_rank")] int? ModRank
 	, [property: JsonPropertyName("subtype"), JsonProperty("subtype")] Subtypes? Subtype
-	, [property: JsonPropertyName("amberStars"), JsonProperty("amberStars")] byte? AmberStars
-	, [property: JsonPropertyName("cyanStars"), JsonProperty("cyanStars")] byte? CyanStars
+	, [property: JsonPropertyName("amberStars"), JsonProperty("amberStars")] sbyte? AmberStars
+	, [property: JsonPropertyName("cyanStars"), JsonProperty("cyanStars")] sbyte? CyanStars
 	, [property: JsonPropertyName("open_price"), JsonProperty("open_price")] float? OpenPrice
 	, [property: JsonPropertyName("closed_price"), JsonProperty("closed_price")] float? ClosedPrice
 	, [property: JsonPropertyName("donch_top"), JsonProperty("donch_top")] float? DonchTop

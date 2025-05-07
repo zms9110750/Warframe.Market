@@ -18,7 +18,6 @@ public record Item(
 	string Slug,
 	string GameRef,
 	HashSet<string> Tags,
-	Dictionary<string, ItemI18n> I18n,
 	int? MaxRank,
 	bool? Vaulted,
 	int? Ducats,
@@ -35,4 +34,4 @@ public record Item(
 	[property: JsonPropertyName("rarity"), JsonProperty("rarity")] Subtypes? Rarity,
 	[property: JsonPropertyName("reqMasteryRank"), JsonProperty("reqMasteryRank")] int? ReqMasteryRank,
 	[property: JsonPropertyName("tradingTax"), JsonProperty("tradingTax")] int? TradingTax
-) : ItemShort(Id, Slug, GameRef, Tags, I18n, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars, BaseEndo, EndoMultiplier, Subtypes);
+) : ItemShort(Id, Slug, GameRef, Tags, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars, BaseEndo, EndoMultiplier, Subtypes);
