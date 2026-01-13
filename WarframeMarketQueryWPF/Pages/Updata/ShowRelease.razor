@@ -1,0 +1,35 @@
+﻿@using WarframeMarketQueryWPF.Api
+
+@if (Release == null)
+{
+    <MCard Loading="true">@("loading")</MCard>
+}
+else
+{
+    <MCard>
+        <MCardTitle><MChip>@Release.TagName</MChip>@Release.Name</MCardTitle>
+        <MCardSubtitle>@Release.Body</MCardSubtitle>
+        @foreach (var item in Release.Assets)
+        {
+            if (item.BrowserDownloadUrl.Contains("archive/refs/tags"))
+            {
+                continue;
+            }
+            @if (ClickLink)
+            {
+                <a href="@item.BrowserDownloadUrl"><MChip Class="d-flex justify-center">@item.Name</MChip>  </a>
+            }
+            else
+            { 
+                <Download Title="@item.Name" Url="@item.BrowserDownloadUrl" SavePath="@(Release.TagName + "/" + item.Name)" />
+            }
+        }
+    </MCard>
+
+}
+@code {
+    [Parameter]
+    public GiteeRelease Release { get; set; }
+    [CascadingParameter(Name = "ClickLink")]
+    public bool ClickLink { get; set; }
+}

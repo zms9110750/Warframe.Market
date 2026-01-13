@@ -1,0 +1,39 @@
+﻿@page "/reply"
+@inherits CarryList
+@attribute [NavItem("快捷回复", Icon = "mdi-chat-processing-outline", Order = 4)]
+
+@foreach (var item in Tags.Index())
+{
+    <MTextField @bind-Value="Tags[item.Index]" Readonly="!CanWrite" Dense>
+        <PrependContent>
+            @if (!CanWrite)
+            {
+                <PCopyableText Text="@item.Item" />
+            }
+            else
+            {
+                <MButton IconName="mdi-minus" OnClick="() => Tags.RemoveAt(item.Index)" />
+            }
+        </PrependContent>
+    </MTextField>
+}
+@if (CanWrite)
+{
+    <MTextField @bind-Value="p" Dense @onblur="@(AddNewStrings)" />
+}
+else if (Tags.Count == 0)
+{
+    @("打开顶部导航栏的可编辑按钮，来添加条目")
+}
+
+@code {
+    string p = "";
+    void AddNewStrings()
+    {
+        if (!string.IsNullOrEmpty(p))
+        {
+            Tags.Add(p);
+            p = "";
+        }
+    }
+}

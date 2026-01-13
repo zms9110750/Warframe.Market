@@ -1,0 +1,134 @@
+﻿@using System.Reflection
+@inherits LayoutComponentBase
+@using Version = WarframeMarketQuery.Model.Versions.Version;
+<MApp>
+    <MAppBar App>
+        <MToolbarTitle> @currentTitle </MToolbarTitle>
+        <MSpacer></MSpacer>
+        <MSwitch @bind-Value="CanWrite" Inset><LabelContent>可编辑</LabelContent></MSwitch>
+        <MSpacer></MSpacer>
+        <MSwitch @bind-Value="ClickLink" Inset><LabelContent>打开链接</LabelContent></MSwitch>
+        <MSpacer></MSpacer>
+        @msg
+        <MButton OnClick="OnClick" Loading="loading">强制更新</MButton>
+    </MAppBar>
+    <MNavigationDrawer App Permanent MiniVariant>
+        <MList Nav Routable>
+            @foreach (var navItem in navItems)
+            {
+                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="() => currentTitle = navItem.Title">
+                    <MListItemIcon>
+                        <MIcon>@navItem.Icon</MIcon>
+                    </MListItemIcon>
+                    <MListItemContent>
+                        <MListItemTitle>@navItem.Title</MListItemTitle>
+                    </MListItemContent>
+                </MListItem>
+            }
+        </MList>
+    </MNavigationDrawer>
+    <MMain>
+        <MContainer Fluid>
+            <MErrorHandler>
+                <CascadingValue Value="ClickLink" Name="ClickLink">
+                    <CascadingValue Value="CanWrite" Name="CanWrite">
+                        @Body
+                    </CascadingValue>
+                </CascadingValue>
+            </MErrorHandler>
+        </MContainer>
+    </MMain>
+</MApp>
+@inject NavigationManager Navigation
+@code {
+
+
+
+    bool ClickLink;
+    bool CanWrite;
+    string msg;
+    bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await base.OnInitializedAsync();
+            navItems = GetNavItemsFromAssembly();
+            currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
+            var local = await Fusion.GetOrDefaultAsync<Version>(nameof(Version).ToLower());
+            if (local == default)
+            {
+                msg = "初始化缓存，请等待";
+                await WfmApi.GetAndSetIndexByItemAsync();
+                local = (await WfmApi.GetVersionAsync());
+            }
+            else
+            {
+                msg = "本地数据版本" + local.UpdatedAt + " , 查询服务器数据版本";
+                var server = await WfmApi.GetVersionAsync();
+                if (local != server)
+                {
+                    msg = "后台更新缓存" + local.UpdatedAt + "/" + server.UpdatedAt;
+                    await WfmApi.GetAndSetIndexByItemAsync();
+                }
+                local = server;
+            }
+            msg = "数据日期：" + local.UpdatedAt;
+        }
+        catch (Exception ex)
+        {
+            msg = ex.Message;
+        }
+        loading = false;
+    }
+
+    async Task OnClick()
+    {
+        loading = true;
+        msg = "强制更新中";
+        await WfmApi.GetAndSetIndexByItemAsync();
+        var local = await WfmApi.GetVersionAsync();
+        msg = "数据日期：" + local.UpdatedAt;
+        loading = false;
+    }
+    string currentTitle = "";
+    private List<NavItemInfo> navItems = new();
+
+    private List<NavItemInfo> GetNavItemsFromAssembly()
+    {
+        var items = new List<NavItemInfo>();
+        var assembly = Assembly.GetExecutingAssembly();
+
+        var pageTypes = assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<RouteAttribute>() != null &&
+                       t.GetCustomAttribute<NavItemAttribute>() != null);
+
+        foreach (var type in pageTypes)
+        {
+            var routeAttr = type.GetCustomAttribute<RouteAttribute>();
+            var navAttr = type.GetCustomAttribute<NavItemAttribute>();
+
+            if (routeAttr != null && navAttr != null)
+            {
+                items.Add(new NavItemInfo
+                {
+                    Route = routeAttr.Template,
+                    Title = navAttr.Title,
+                    Icon = navAttr.Icon,
+                    Order = navAttr.Order
+                });
+            }
+        }
+
+        return items.OrderBy(x => x.Order).ToList();
+    }
+
+    private class NavItemInfo
+    {
+        public string Route { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public int Order { get; set; }
+    }
+}

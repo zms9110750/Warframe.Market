@@ -1,0 +1,95 @@
+﻿
+<MDivider />
+@if (NotFound)
+{
+    <MAlert Type="AlertTypes.Error">未找到该用户：@(UserName)</MAlert>
+}
+else
+{
+    <ExpandTransition>
+        <MButton OnClick="() => HideChanged.InvokeAsync(UserName)">@UserName</MButton>
+        <ShowTransitionElement Value="@(!IsHide)">
+            <MDataTable Headers="_headers"
+                        Loading="isLoading"
+                        Items="models"
+                        Dense
+                        MustSort
+                        ResizeMode="DataTableResizeMode.Independent"
+                        HideDefaultFooter
+                        Class="elevation-1"
+                        ItemsPerPage="-1"
+                        ItemKey="r => r.Order.Id"
+                        GroupDesc="[true]"
+                        GroupBy="nameof(Order.Type)"
+                        ShowExpand>
+                <GroupHeaderContent>
+                    <td colspan="@_headers.Count">
+                        @switch (@context.Group)
+                        {
+                            case "Buy":
+                                @("购")
+                                break;
+                            case "Sell":
+                                @("售")
+                                break;
+                            default:
+                                @context.Group
+                                break;
+                        }
+                    </td>
+                </GroupHeaderContent>
+                <ItemColContent>
+                    @switch (context.Value)
+                    {
+                        case string s when ClickLink:
+                            var lang = context.Header.Text == "中文名称" ? "/zh-hans" : null;
+                            <a href="@("https://warframe.market" + lang + "/items/" + context.Item.Item.Slug)">@s</a>
+                            break;
+                        case string s:
+                            <PCopyableText Text="@(new string(s.TrimEnd(" Set").TrimEnd(" 一套")))" />
+                            @s
+                            break;
+                        case null when ClickLink:
+                            <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Item.Slug}/statistics")"> @("isLoading")</a>
+                            break;
+
+                        case null:
+                            @("isLoading")
+                            break;
+                        case double d when ClickLink:
+                            <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Item.Slug}/statistics")">@($"{d,-6:f1}")</a>
+                            break;
+                        case double d:
+                            @($"{d,-6:f1}")
+                            break;
+                        case OrderType.Buy:
+                            @("购")
+                            break;
+                        case OrderType.Sell:
+                            @("售")
+                            break;
+                        default:
+                            @context.Value
+                            break;
+                    }
+                </ItemColContent>
+                <ExpandedItemContent>
+                    <td colspan="@_headers.Count" @key="@context.Item.Order.Id">
+                        <OrderTop Item="context.Item.Item" />
+                    </td>
+                </ExpandedItemContent>
+            </MDataTable>
+        </ShowTransitionElement>
+    </ExpandTransition>
+}
+@code {
+
+    [Parameter]
+    public string UserName { get; set; } = "";
+    [Parameter]
+    public bool IsHide { get; set; }
+    [Parameter]
+    public EventCallback<string> HideChanged { get; set; }
+    [CascadingParameter(Name = "ClickLink")]
+    public bool ClickLink { get; set; }
+}

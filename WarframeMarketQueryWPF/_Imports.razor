@@ -1,0 +1,32 @@
+﻿@using System.Net.Http
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.Extensions.Caching.Memory
+@using Microsoft.JSInterop
+@using Masa.Blazor
+@using Masa.Blazor.Presets
+@using WarframeMarketQuery.API
+@using WarframeMarketQueryWPF.Shared;
+@using System.Net.Http.Json
+@using System.IO;
+@using System.Text.Json;
+@using Microsoft.Extensions.Caching.Hybrid
+@using WarframeMarketQuery
+@using WarframeMarketQuery.Arcane
+@using WarframeMarketQuery.Model.Items
+@using ZiggyCreatures.Caching.Fusion
+@using zms9110750.TreeCollection.Trie
+@using System.Reactive
+@using System.Reactive.Linq
+@using System.Reactive.Subjects
+@using System.Reactive.Disposables  
+@using WarframeMarketQuery.Model.Orders 
+@using WarframeMarketQuery.Model; 
+@using WarframeMarketQuery.Model.Statistics; 
+@inject WarframeMarketApi WfmApi
+@inject ArcanePack[] pack
+@inject Trie trie
+@inject IFusionCache Fusion
+@inject IMemoryCache Cache

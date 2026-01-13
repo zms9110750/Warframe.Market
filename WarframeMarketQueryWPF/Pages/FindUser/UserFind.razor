@@ -1,0 +1,22 @@
+﻿@page "/counter"
+@using WarframeMarketQuery.Model.Orders
+@attribute [NavItem("用户订单查询", Icon = "mdi-account", Order = 2)]
+<SplitField CacheKey="@GetType().Name" SearchItemChanged="@(s => SearchItem = s)" />
+@code {
+    IEnumerable<string> SearchItem = [];
+}
+@foreach (var item in SearchItem.Where(s => !string.IsNullOrWhiteSpace(s)))
+{
+    <QueryUser IsHide="@(NoShow.Contains(item))" UserName="@item" HideChanged="@(key => ChangeNoShow(key))" @key="item"></QueryUser>
+}
+
+@code {
+    HashSet<string> NoShow = [];
+    void ChangeNoShow(string key)
+    {
+        if (!NoShow.Add(key))
+        {
+            NoShow.Remove(key);
+        }
+    }
+}

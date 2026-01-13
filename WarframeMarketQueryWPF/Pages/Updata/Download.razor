@@ -1,0 +1,114 @@
+﻿@using System.IO.Pipelines
+@using System.IO.Compression
+@using System.Formats.Tar
+@using WarframeMarketQueryWPF.Tool
+@using Humanizer;
+@inject HttpClient Http
+@implements IDisposable
+@if (Url == null || SavePath == null)
+{
+    <MAlert Type="AlertTypes.Error">下载链接或保存路径未设置</MAlert>
+}
+else
+{
+    @if (downloaded)
+    {
+        var fullPath = Path.Combine(Environment.CurrentDirectory, SavePath); 
+        <MTextField Value="@fullPath" Readonly="true" Dense>
+            <PrependContent>
+                <PCopyableText Text="@(Path.GetDirectoryName(fullPath))" />
+            </PrependContent>
+        </MTextField>
+    }
+    else
+    {
+        <MButton Loading="downloading" Block OnClick="OnClickDownload" Color="@(IsTgz ? "red" : null)">
+            <LoaderContent>
+                <MProgressLinear Height="30" @bind-Value="Progress">@(Subject.Value.Bytes().Humanize("#.## mb")) / @(Length.Bytes().Humanize("#.## mb"))</MProgressLinear>
+            </LoaderContent>
+            <ChildContent>
+                @Title
+            </ChildContent>
+        </MButton>
+    }
+}
+@code {
+    [Parameter]
+    public string Title { get; set; }
+    [Parameter]
+    public string Url { get; set; }
+    [Parameter]
+    public string SavePath { get; set; }
+    bool IsTgz;
+    double Progress = 0;
+    long Length = 1;
+
+    CancellationTokenSource source = new CancellationTokenSource();
+    BehaviorSubject<long> Subject = new BehaviorSubject<long>(0);
+    CompositeDisposable disposables = new CompositeDisposable();
+    private bool downloading;
+    bool downloaded;
+    private void OnClickDownload()
+    {
+        downloading = true;
+        Task.Run(DownloadFileAsync, source.Token);
+    }
+    public void Dispose()
+    {
+        source.Cancel();
+        source.Dispose();
+        disposables.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (Url.EndsWith(".tgz") || Url.EndsWith(".tar.gz"))
+        {
+            IsTgz = true;
+        }
+
+        // 作为被观察者，可以被订阅
+        disposables.Add(Subject
+               .Buffer(TimeSpan.FromMilliseconds(200)) // 时间窗口100ms或最大10个
+               .Where(buffer => buffer.Count > 0) // 过滤空缓冲
+               .Subscribe(buffer =>
+               {
+                   Progress = Math.Clamp(buffer.Last() * 100.0 / Length, 0, 100);
+                   InvokeAsync(StateHasChanged);
+               }));
+    }
+
+    public async Task DownloadFileAsync()
+    {
+        using var response = await Http.GetAsync(Url, HttpCompletionOption.ResponseHeadersRead, source.Token);
+
+        response.EnsureSuccessStatusCode();
+
+        // 2. 获取总大小
+        Length = response.Content.Headers.ContentLength ?? -1L;
+
+        // 4. 获取响应流
+        await using var responseStream = await response.Content.ReadAsStreamAsync();
+
+        // 5. 使用 ProgressStream 包装
+        await using var progressStream = new ProgressStream(PipeReader.Create(responseStream).AsStream(), Subject);
+
+        if (IsTgz)
+        {
+            // 3. 创建解压目录
+            Directory.CreateDirectory(SavePath);
+            // 6. 创建 GZip 解压流
+            await using var gzipStream = new GZipStream(progressStream, CompressionMode.Decompress);
+
+            await TarFile.ExtractToDirectoryAsync(gzipStream, SavePath, overwriteFiles: true, cancellationToken: source.Token);
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SavePath)!);
+            await using var write = File.OpenWrite(SavePath);
+            await progressStream.CopyToAsync(write, source.Token);
+        }
+        downloaded = true;
+    }
+}

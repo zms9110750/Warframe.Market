@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+      <OutputType>WinExe</OutputType>
+      <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <UseWPF>true</UseWPF>
+      <RootNamespace>WarframeMarketQueryWPF</RootNamespace>
+      <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+		<InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration</InterceptorsPreviewNamespaces>
+		<Version>0.1.0.0</Version>
+	</PropertyGroup> 
+
+     <ItemGroup>
+       <PackageReference Include="Masa.Blazor" Version="1.11.3" />
+       <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.11" />
+       <ProjectReference Include="..\WarframeMarketQuery\WarframeMarketQuery.csproj" />
+		<PackageReference Include="Humanizer.Core.zh-Hans" Version="3.0.1" />
+    
+       <Content Update="wwwroot\**">
+         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+       </Content>
+     </ItemGroup>
+
+     <ItemGroup>
+       <None Update="Readme.md">
+         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+       </None>
+     </ItemGroup>
+
+</Project>

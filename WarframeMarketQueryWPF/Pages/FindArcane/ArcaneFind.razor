@@ -1,0 +1,46 @@
+﻿@page "/fetchdata" 
+@attribute [NavItem("赋能包查询", Icon = "mdi-package-variant", Order = 3)]
+
+
+<text>这里列出的数字是指，购买一组小小黑赋能（2520荧尘）开箱子的期望价值</text>
+<br />
+<text>例如，如果一个包的期望价值是90p，交易频道有人喊80p出一组小小黑赋能，那么这个利润空间就很低</text>
+<br />
+<text>表头的数字是指每天购买多少组小小黑赋能。例如35是指一天买35组小小黑赋能去开箱。</text>
+<br />
+<text>那么就会开到很多赋能，包括卖不出去的。开到的数量比市场交易量还高。</text>
+<br />
+<text>那么，这时候就一市场交易量代替依据概率开出来的数量计算价格。</text>
+<br />
+<text>一个包因为数量跌的越多，就说明这个包里大部分赋能是卖不出去的。</text>
+
+<MDataTable Headers="_headers"
+            Items="Pack"
+            Loading="Pack.Length == 0"
+            Dense
+            MustSort
+            ShowExpand
+            ItemKey="r => r.Name"
+            HideDefaultFooter
+            Class="elevation-1"
+            ItemsPerPage="-1">
+    <ItemColContent>
+        @switch (context.Value)
+        {
+            case null:
+                @("isLoading")
+                break;
+            case double d:
+                @($"{d,-6:f1}")
+                break;
+            default:
+                @context.Value
+                break;
+        }
+    </ItemColContent>
+    <ExpandedItemContent>
+        <td colspan="@_headers.Count" @key="@context.Item.Name">
+            <ArcaneTable Pack="context.Item" />
+        </td>
+    </ExpandedItemContent>
+</MDataTable> 

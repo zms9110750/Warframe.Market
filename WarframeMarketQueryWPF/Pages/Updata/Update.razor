@@ -1,0 +1,49 @@
+﻿@attribute [NavItem("更新客户端", Icon = "mdi-arrow-up-bold-box-outline", Order = 5)]
+@page "/update"
+@using WarframeMarketQueryWPF.Api
+@inject IGitee gitee
+
+@if (ClickLink)
+{
+    <a href="https://gitee.com/zms9110750/Warframe.Market/releases"><MChip Class="d-flex justify-center">发布页</MChip>  </a>
+}
+else
+{
+    <text>
+        打开上方菜单中的“打开链接”，以进入浏览器下载。
+        <br />
+        本页面的按钮点击会直接下载。存放到本程序所在文件夹下的路径。
+        <br />
+        <MChip>.tgz</MChip>和<MChip>.tar.gz</MChip>格式的文件会一键完成解压。
+        <br />
+        下载时，不要切换页面或切换“打开链接”开关。
+        <br />
+        下载没有断点续传也不会检查本地文件。每次下载都是全量下载。
+        <br />
+        下载完成后会弹出文件路径。切换页面就会消失
+        <br />
+        路径显示的是文件路径。但如果不是.tgz文件，那么左侧的复制按钮只会复制到所在文件夹的路径
+    </text>
+}
+<br />
+<br />
+
+@foreach (var item in Releases)
+{
+    <ShowRelease Release="item"></ShowRelease>
+}
+
+
+@code {
+    [CascadingParameter(Name = "ClickLink")]
+    public bool ClickLink { get; set; }
+    GiteeRelease[] Releases = [];
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Releases = await Fusion.GetOrSetAsync(GetType().Name, async factory =>
+          {
+              return await gitee.Releases("zms9110750", "Warframe.Market", direction: "desc");
+          }, options => options.SetSkipDistributedCache(true, null));
+    }
+}

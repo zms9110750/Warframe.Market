@@ -1,0 +1,90 @@
+﻿@inherits CarryList
+@implements IDisposable
+<MCardTitle>
+    <MTextField @bind-Value="Search"
+                AppendIcon="mdi-magnify"
+                Label="Search"
+                SingleLine
+                HideDetails="true"></MTextField>
+</MCardTitle>
+@foreach (var item in Tags)
+{
+    <MChip Close="CanWrite" OnCloseClick="@(() => Tags.Remove(item))" OnClick="@(() => Add(item))">@item</MChip>
+}
+@if (CanWrite)
+{
+    <MTextField @bind-Value="tagTemp" Dense @onblur="@(AddNewStrings)" />
+}
+@code {
+    [Parameter]
+    public EventCallback<IEnumerable<string>> SearchItemChanged { get; set; }
+    void Add(string s)
+    {
+        if (string.IsNullOrEmpty(Search))
+        {
+            Search = s;
+        }
+        else
+        {
+            if (!(SearchItem ?? []).Contains(s))
+            {
+                Search += "/" + s;
+            }
+        }
+    }
+    public string Search { get; set => searchSubject.OnNext(field = value); } = string.Empty;
+
+    Subject<string> searchSubject = new Subject<string>();
+    IEnumerable<string> SearchItem
+    {
+        get; set
+        {
+            field = value;
+            InvokeAsync(() => SearchItemChanged.InvokeAsync(value));
+        }
+    } = [];
+
+    private CompositeDisposable disposables = new CompositeDisposable();
+
+    public void Dispose()
+    {
+        disposables?.Dispose();
+    }
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        var mergedStream = Observable.Merge(
+               searchSubject
+                   .DistinctUntilChanged(EqualityComparer<string>.Create((a, b) => a.Length > b.Length && a.StartsWith(b)))
+                   .Buffer(TimeSpan.FromMilliseconds(600))
+                   .Where(buffer => buffer.Count > 0)
+                   .Select(buffer => buffer.Last().Split('/', '\\').SkipLast(1)),
+               searchSubject
+                   .Throttle(TimeSpan.FromMilliseconds(800))
+                   .Select(input => input.Split('/', '\\'))
+           )
+           .DistinctUntilChanged(EqualityComparer<IEnumerable<string>>.Create((a, b) => a.SequenceEqual(b)))
+           .Subscribe(segments =>
+           {
+               Fusion.Set(CacheKey + ":runing", Search, op => op.SetSkipDistributedCache(true, null));
+               SearchItem = segments.Where(s => !string.IsNullOrWhiteSpace(s));
+           });
+        disposables.Add(searchSubject);
+        disposables.Add(mergedStream);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Search = Fusion.GetOrDefault<string>(CacheKey + ":runing", "", op => op.SetSkipDistributedCache(true, null))!;
+        Tags.AddRange(await Fusion.GetOrDefaultAsync<List<string>>(GetType().FullName!) ?? []);
+    }
+    string tagTemp = "";
+    void AddNewStrings()
+    {
+        if (!string.IsNullOrEmpty(tagTemp))
+        {
+            Tags.Add(tagTemp);
+            tagTemp = "";
+        }
+    }
+}

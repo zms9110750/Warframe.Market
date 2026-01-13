@@ -1,0 +1,39 @@
+﻿@using Microsoft.Extensions.Caching.Memory
+@using WarframeMarketQuery.Extension
+@if (Pack == null)
+{
+    <MAlert Type="AlertTypes.Error">参数pack为null</MAlert>
+}
+else
+{
+    <MDataTable Headers="_headersItem"
+                Items="@Pack.SelectMany(s => s)"
+                Dense
+                HideDefaultFooter
+                Class="elevation-1"
+                ItemsPerPage="-1">
+        <ItemColContent>
+            @switch (context.Value)
+            {
+                case string s when ClickLink && NamePairs.TryGetValue(context.Item, out var itemName):
+                    <a href="@("https://warframe.market/zh-hans/items/" + itemName)">@s</a>
+                    break;
+                case null:
+                    @("isLoading")
+                    break;
+                case double d:
+                    @($"{d,-6:f2}")
+                    break;
+                default:
+                    @context.Value
+                    break;
+            }
+        </ItemColContent>
+    </MDataTable>
+}
+@code {
+    [Parameter]
+    public ArcanePack? Pack { get; set; }
+    [CascadingParameter(Name = "ClickLink")]
+    public bool ClickLink { get; set; }
+}

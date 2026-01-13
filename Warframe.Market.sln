@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.13.35507.96 d17.13
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warframe.Market", "Warframe.Market.csproj", "{2897F743-08A4-30FD-A4C8-EF747134CE48}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarframeMarketQuery", "WarframeMarketQuery\WarframeMarketQuery.csproj", "{39B0D2DF-6EED-204D-F180-CDD68B5EF936}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarframeMarketQueryWPF", "WarframeMarketQueryWPF\WarframeMarketQueryWPF.csproj", "{79649706-5A2B-CC16-FF6E-9C0B3B33E27E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{2897F743-08A4-30FD-A4C8-EF747134CE48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2897F743-08A4-30FD-A4C8-EF747134CE48}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2897F743-08A4-30FD-A4C8-EF747134CE48}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2897F743-08A4-30FD-A4C8-EF747134CE48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39B0D2DF-6EED-204D-F180-CDD68B5EF936}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39B0D2DF-6EED-204D-F180-CDD68B5EF936}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39B0D2DF-6EED-204D-F180-CDD68B5EF936}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39B0D2DF-6EED-204D-F180-CDD68B5EF936}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79649706-5A2B-CC16-FF6E-9C0B3B33E27E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79649706-5A2B-CC16-FF6E-9C0B3B33E27E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79649706-5A2B-CC16-FF6E-9C0B3B33E27E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79649706-5A2B-CC16-FF6E-9C0B3B33E27E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

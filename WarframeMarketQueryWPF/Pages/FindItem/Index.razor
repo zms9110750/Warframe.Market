@@ -1,0 +1,46 @@
+﻿@page "/"
+@using Microsoft.Extensions.Caching.Memory
+@using WarframeMarketQueryWPF.Shared
+@attribute [NavItem("物品价格查询", Icon = "mdi-list-box", Order = 1)]
+ 
+<SplitField CacheKey="@GetType().Name" SearchItemChanged="@(s => SearchItem = s)" />
+@code {
+    IEnumerable<string> SearchItem = [];
+    string ReadMe = "";
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        ReadMe = await Fusion.GetOrSetAsync<string>(nameof(ReadMe), (c) => File.ReadAllTextAsync("README.md"), op => { op.SetSkipDistributedCache(true,null); });
+    }
+}
+
+@if (SearchItem?.Any() != true)
+{
+    @((MarkupString)ReadMe) 
+}
+
+@foreach (var item in SearchItem ?? [])
+{
+    if (item.All(trie.Separator.Contains))
+    {
+        <MChip>@item</MChip>
+        <text> 全是分隔符，跳过</text>
+        <br />
+    }
+    else
+    {
+        <QueryTrie Title="@item" IsHide="@(NoShow.Contains(item))" HideChanged="@(key => ChangeNoShow(key))" @key="item"></QueryTrie>
+    }
+}
+
+
+@code {
+    HashSet<string> NoShow = [];
+    void ChangeNoShow(string key)
+    {
+        if (!NoShow.Add(key))
+        {
+            NoShow.Remove(key);
+        }
+    }
+} 

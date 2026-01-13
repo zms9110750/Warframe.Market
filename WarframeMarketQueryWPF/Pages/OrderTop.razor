@@ -1,0 +1,161 @@
+﻿@using Microsoft.Extensions.Caching.Memory
+@using WarframeMarketQuery.Model
+@inject IMemoryCache MemoryCache
+@if (Item != null)
+{
+    <MDataTable Loading="@loading" Items="@TopOrder" Headers="_headers"
+                Dense
+                HideDefaultFooter
+                GroupDesc="[true]"
+                GroupBy="nameof(Order.Type)"
+                ItemsPerPage="-1">
+        <GroupHeaderContent>
+            <td colspan="@_headers.Count">
+                @switch (@context.Group)
+                {
+                    case "Buy":
+                        @("购")
+                        break;
+                    case "Sell":
+                        @("售")
+                        break;
+                    default:
+                        @context.Group
+                        break;
+                }
+            </td>
+        </GroupHeaderContent>
+        <ItemColContent>
+            @if (context.Header.Text == "联系")
+            {
+                string? hasSubtype = context.Item.Subtype != null ? " of " + context.Item.Subtype : null;
+                string? rank = context.Item.Rank != null ? " rank " + context.Item.Rank : null;
+                string? cnzh = context.Item.User.Locale == Language.ZhHans ? Item.I18n[Language.ZhHans].Name : null;
+                string type = context.Item.Type switch { OrderType.Buy => "sell", _ => "buy" };
+                <PCopyableText Text="@($"""/w {context.Item.User?.IngameName} Hi! I want to {type}: "{Item.I18n[Language.En].Name}"{cnzh}{hasSubtype}{rank} , for {context.Item.Platinum} platinum.""")" />
+            }
+            else
+            {
+                if (ClickLink && context.Header.Text == "卖家")
+                {
+                    <a href="@($"https://warframe.market/zh-hans/profile/{context.Item.User?.IngameName}")">@context.Value.ToString()</a>
+                    return;
+                }
+        @(context.Value switch
+        {
+        null => "isLoading",
+        ItemSubtypes.Blueprint => "蓝图",
+        ItemSubtypes.Crafted => "成品",
+        ItemSubtypes.Intact => "完整",
+        ItemSubtypes.Radiant => "光辉",
+        ItemSubtypes.Revealed => "已揭示",
+        ItemSubtypes.Unrevealed => "未揭示",
+        Language.En => "英语",
+        Language.Ko => "韩语",
+        Language.Ru => "俄语",
+        Language.De => "德语",
+        Language.Fr => "法语",
+        Language.Pt => "葡萄牙语",
+        Language.Es => "西班牙语",
+        Language.It => "意大利语",
+        Language.Pl => "波兰语",
+        Language.Uk => "乌克兰语",
+        Language.ZhHans => "简体中文",
+        Language.ZhHant => "繁体中文",
+        _ => context.Value.ToString()
+        })
+            }
+        </ItemColContent>
+    </MDataTable>
+}
+else
+{
+    @("没有必需参数")
+}
+
+
+@code {
+    [CascadingParameter(Name = "ClickLink")]
+    public bool ClickLink { get; set; }
+    bool loading = true;
+    Order[] TopOrder = Array.Empty<Order>();
+    [Parameter]
+    public ItemShort Item { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (Item == null)
+        {
+            return;
+        }
+        loading = true;
+        IEnumerable<Order> orders = TopOrder;
+        switch (Item.ItemType)
+        {
+            default:
+                var a = await WfmApi.GetOrdersItemTopAsync(Item);
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                break;
+            case ItemType.ArcaneEnhancement:
+            case ItemType.MOD:
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { RankLt = Item.MaxRank - 1 });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Rank = Item.MaxRank });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                _headers.Add(new("等级", nameof(Order.Rank)));
+                break;
+            case ItemType.AyatanSculpture:
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { AmberStarsLt = Item.MaxAmberStars - 1, CyanStarsLt = Item.MaxCyanStars - 1 });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { AmberStars = Item.MaxAmberStars, CyanStars = Item.MaxCyanStars });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                _headers.Add(new("琥珀星", nameof(Order.AmberStars)));
+                _headers.Add(new("青蓝星", nameof(Order.CyanStars)));
+                break;
+            case ItemType.CraftedComponent:
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Blueprint });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Crafted });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                _headers.Add(new("类型", nameof(Order.Subtype)));
+                break;
+            case ItemType.Relic:
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Intact });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Radiant });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                _headers.Add(new("类型", nameof(Order.Subtype)));
+
+                break;
+            case ItemType.RivenMOD:
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Revealed });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                a = await WfmApi.GetOrdersItemTopAsync(Item, new OrderTopQueryParameter { Subtype = ItemSubtypes.Unrevealed });
+                orders = orders.Concat(a.Buy.Concat(a.Sell));
+                _headers.Add(new("类型", nameof(Order.Subtype)));
+
+                break;
+        }
+        TopOrder = orders.Distinct().ToArray();
+        loading = false;
+
+    }
+    private List<DataTableHeader<Order>> _headers =
+    [
+        new ("买/卖",nameof(Order.Type)),
+         new ("联系","msg"){ Sortable=false,
+            ValueExpression=r=>null
+        },
+        new("卖家", nameof(Order.User.IngameName)) {
+            ValueExpression = r => r.User?.IngameName
+        },
+        new("声誉", nameof(Order.User.Reputation)){
+        ValueExpression = r => r.User?.Reputation
+        } ,
+        new ("语言", nameof(Order.User.Locale)) {
+        ValueExpression = r => r.User?.Locale
+        },
+        new("价格", nameof(Order.Platinum))   ,
+        new("数量", nameof(Order.Quantity)),
+    ];
+}
