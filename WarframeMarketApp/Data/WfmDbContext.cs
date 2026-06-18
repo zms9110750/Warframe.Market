@@ -14,7 +14,6 @@ public class WfmDbContext : DbContext
 	public DbSet<Item> ItemDetails => Set<Item>();
 	public DbSet<ItemSet> ItemSets => Set<ItemSet>();
 	public DbSet<Entry> StatEntries => Set<Entry>();
-	public DbSet<ItemLocalization> ItemLocalizations => Set<ItemLocalization>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
@@ -28,11 +27,10 @@ public class WfmDbContext : DbContext
 			e.Ignore(v => v.UpdatedAtLocal);
 		});
 
-		// ===== ItemShort / Item (TPH) =====
 		modelBuilder.Entity<ItemShort>(e =>
 		{
 			e.HasKey(i => i.Id);
-			e.Ignore(i => i.I18n); // 从 ItemLocalizations 表填充
+			e.Ignore(i => i.I18n); // 用 SQL 查 ItemTranslations 表填充
 
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
@@ -79,19 +77,22 @@ public class WfmDbContext : DbContext
 			e.HasKey(x => x.Id);
 		});
 
-		// ===== 本地化表：Language + ItemId 联合主键 =====
-		modelBuilder.Entity<ItemLocalization>(e =>
+		// ===== 翻译表：keyless，原始 SQL 查 → LanguagePake =====
+		modelBuilder.Entity<TranslationRow>(e =>
 		{
-			e.HasKey(l => new { l.ItemId, l.Language });
-			e.Property(l => l.Language).HasMaxLength(16);
+			e.HasNoKey();
+			e.ToTable("ItemTranslations");
+			e.Property(t => t.ItemId).HasMaxLength(64);
+			e.Property(t => t.Language).HasMaxLength(16);
+			e.HasIndex(t => new { t.ItemId, t.Language }).IsUnique();
 		});
 	}
 }
 
 /// <summary>
-/// 物品多语言本地化。（ItemId, Language）联合主键
+/// 翻译表行（keyless entity，用于 SqlQuery&lt;LanguagePake&gt;）
 /// </summary>
-public class ItemLocalization
+public class TranslationRow
 {
 	public string ItemId { get; set; } = "";
 	public string Language { get; set; } = "";

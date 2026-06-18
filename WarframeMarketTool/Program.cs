@@ -1,10 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
-using zms9110750.WarframeMarketApi.Models.Versions;
 
 var dbPath = Path.Combine(AppContext.BaseDirectory, "wfm_test.db");
 Console.Error.WriteLine($"数据库: {dbPath}");
@@ -19,58 +17,52 @@ var itemsResp = await wfm.GetItemsAsync();
 if (itemsResp?.Content?.Data == null) { Console.Error.WriteLine("❌ API 失败"); return; }
 
 var items = itemsResp.Content.Data;
-Console.Error.WriteLine($"✅ 获取 {items.Length} 个物品");
+Console.Error.WriteLine($"✅ {items.Length} 个物品");
 
-Console.Error.WriteLine("\n=== 写入 Items + ItemLocalizations ===");
+Console.Error.WriteLine("\n=== 写入表 ===");
 db.Items.RemoveRange(db.Items);
-db.ItemLocalizations.RemoveRange(db.ItemLocalizations);
-
+await db.Database.ExecuteSqlRawAsync("DELETE FROM ItemTranslations");
 await db.Items.AddRangeAsync(items);
+await db.SaveChangesAsync();
 
-// I18n 字典展平写入 ItemLocalizations 表
-var localizations = new List<ItemLocalization>();
+// I18n 展平写入翻译表（原生 SQL）
+var insertSql = @"INSERT INTO ItemTranslations (ItemId, Language, Name, Description, WikiLink, Icon, Thumb, SubIcon)
+	VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})";
 foreach (var item in items)
 {
-	foreach (var (lang, pake) in item.I18n)
+	foreach (var (lang, p) in item.I18n)
 	{
-		localizations.Add(new ItemLocalization
-		{
-			ItemId = item.Id,
-			Language = lang.ToString(),
-			Name = pake.Name,
-			Description = pake.Description,
-			WikiLink = pake.WikiLink,
-			Icon = pake.Icon,
-			Thumb = pake.Thumb,
-			SubIcon = pake.SubIcon,
-		});
+		await db.Database.ExecuteSqlRawAsync(insertSql,
+			item.Id, lang.ToString(),
+			p.Name, p.Description, p.WikiLink,
+			p.Icon, p.Thumb, p.SubIcon);
 	}
 }
-await db.ItemLocalizations.AddRangeAsync(localizations);
-await db.SaveChangesAsync();
-Console.Error.WriteLine($"✅ Items: {items.Length} 行");
-Console.Error.WriteLine($"✅ ItemLocalizations: {localizations.Count} 行");
+Console.Error.WriteLine($"  Items: {items.Length}");
 
-Console.Error.WriteLine("\n=== 读回验证 ===");
-var readBack = await db.Items.OrderBy(i => i.Slug).ToListAsync();
-Console.Error.WriteLine($"✅ Items: {readBack.Count}");
+Console.Error.WriteLine("\n=== 用 SqlQuery 查 LanguagePake ===");
+var query = @"SELECT Name, Description, WikiLink, Icon, Thumb, SubIcon
+	FROM ItemTranslations WHERE ItemId = {0} AND Language = {1}";
+var first = items[0];
+var pake = await db.Database.SqlQueryRaw<LanguagePake>(query, first.Id, "ZhHans").FirstOrDefaultAsync();
+if (pake != null)
+	Console.Error.WriteLine($"  ✅ {first.Slug} zh-hans = {pake.Name}");
+else
+	Console.Error.WriteLine("  ❌ 查询失败");
 
-var locs = await db.ItemLocalizations.Take(3).ToListAsync();
-foreach (var loc in locs)
-	Console.Error.WriteLine($"   {loc.ItemId} [{loc.Language}] = {loc.Name}");
-
-Console.Error.WriteLine("\n=== 子类型汇总 ===");
+// 统计子类型
 var allSubtypes = new ItemSubtypeSet();
+var readBack = await db.Items.ToListAsync();
 foreach (var item in readBack.Where(i => i.Subtypes != null))
 	foreach (var st in item.Subtypes!)
 		allSubtypes.Add(st);
-Console.Error.WriteLine($"共 {allSubtypes.Count} 个");
+Console.Error.WriteLine($"\n=== 子类型 ({allSubtypes.Count}) ===");
 foreach (var st in allSubtypes.OrderBy(x => x))
-	Console.Error.WriteLine($"   \"{st}\",");
-
+	Console.Error.WriteLine($"  \"{st}\",");
 Console.Error.WriteLine("\n✅ 完成");
 
-public class ItemLocalization
+// ===== EF 模型 =====
+public class TranslationRow
 {
 	public string ItemId { get; set; } = "";
 	public string Language { get; set; } = "";
@@ -85,43 +77,33 @@ public class ItemLocalization
 public class TestDb : DbContext
 {
 	public DbSet<ItemShort> Items => Set<ItemShort>();
-	public DbSet<ItemLocalization> ItemLocalizations => Set<ItemLocalization>();
-
+	public DbSet<TranslationRow> Translations => Set<TranslationRow>();
 	private readonly string _dbPath;
 	public TestDb(string dbPath) => _dbPath = dbPath;
-	protected override void OnConfiguring(DbContextOptionsBuilder options)
-		=> options.UseSqlite($"Data Source={_dbPath}");
-
+	protected override void OnConfiguring(DbContextOptionsBuilder o) => o.UseSqlite($"Data Source={_dbPath}");
 	private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
-	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	protected override void OnModelCreating(ModelBuilder mb)
 	{
-		modelBuilder.Entity<ItemShort>(e =>
+		mb.Entity<ItemShort>(e =>
 		{
 			e.HasKey(i => i.Id);
 			e.Ignore(i => i.I18n);
-
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
 				v => JsonSerializer.Deserialize<HashSet<string>>(v, JsonOpts) ?? new())
 				.Metadata.SetValueComparer(new ValueComparer<HashSet<string>>(
-					(c1, c2) => c1!.SetEquals(c2!),
-					c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())),
-					c => new HashSet<string>(c)));
-
+					(c1, c2) => c1!.SetEquals(c2!), c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())), c => new HashSet<string>(c)));
 			e.Property(i => i.Subtypes).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
 				v => JsonSerializer.Deserialize<ItemSubtypeSet>(v, JsonOpts) ?? new())
 				.Metadata.SetValueComparer(new ValueComparer<ItemSubtypeSet>(
-					(c1, c2) => c1!.SetEquals(c2!),
-					c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())),
-					c => new ItemSubtypeSet()));
+					(c1, c2) => c1!.SetEquals(c2!), c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())), c => new ItemSubtypeSet()));
 		});
-
-		modelBuilder.Entity<ItemLocalization>(e =>
+		mb.Entity<TranslationRow>(e =>
 		{
-			e.HasKey(l => new { l.ItemId, l.Language });
-			e.Property(l => l.Language).HasMaxLength(16);
+			e.HasNoKey();
+			e.ToTable("ItemTranslations");
 		});
 	}
 }
