@@ -45,20 +45,15 @@ Console.Error.WriteLine($"  Items: {items.Length}, 翻译: {transCount}");
 Console.Error.WriteLine("\n=== 查询验证 ===");
 var first = items[0];
 
-// 查为 LanguagePake
-var pake = await db.Database.SqlQueryRaw<LanguagePake>(
-	"SELECT Name, Description, WikiLink, Icon, Thumb, SubIcon FROM ItemTranslations WHERE ItemId = {0} AND Language = {1}",
-	first.Id, "ZhHans").FirstOrDefaultAsync();
-Console.Error.WriteLine($"  LanguagePake: {first.Slug} zh-hans = {pake?.Name}");
-
-// 查为 ItemTranslation（也是 LanguagePake）
-var row = await db.Database.SqlQueryRaw<ItemTranslation>(
-	"SELECT ItemId, Language, Name, Description, WikiLink, Icon, Thumb, SubIcon FROM ItemTranslations WHERE ItemId = {0} AND Language = {1}",
-	first.Id, "En").FirstOrDefaultAsync();
-if (row != null)
+// EF LINQ 查询 → LanguagePake 子类
+var rows = await db.Translations
+	.Where(t => t.ItemId == first.Id)
+	.ToListAsync();
+Console.Error.WriteLine($"  {first.Slug}: {rows.Count} 种语言");
+foreach (var r in rows)
 {
-	LanguagePake asPake = row; // 隐式转换验证
-	Console.Error.WriteLine($"  ItemTranslation: {row.ItemId} [{row.Language}] = {asPake.Name}");
+	LanguagePake pake = r; // 继承关系
+	Console.Error.WriteLine($"    [{r.Language}] {pake.Name}");
 }
 
 Console.Error.WriteLine("\n=== 子类型 ===");
@@ -81,6 +76,7 @@ public record ItemTranslation(
 public class TestDb : DbContext
 {
 	public DbSet<ItemShort> Items => Set<ItemShort>();
+	public DbSet<ItemTranslation> Translations => Set<ItemTranslation>();
 	private readonly string _dbPath;
 	public TestDb(string dbPath) => _dbPath = dbPath;
 	protected override void OnConfiguring(DbContextOptionsBuilder o) => o.UseSqlite($"Data Source={_dbPath}");

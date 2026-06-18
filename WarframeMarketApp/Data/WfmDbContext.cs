@@ -14,6 +14,7 @@ public class WfmDbContext : DbContext
 	public DbSet<Item> ItemDetails => Set<Item>();
 	public DbSet<ItemSet> ItemSets => Set<ItemSet>();
 	public DbSet<Entry> StatEntries => Set<Entry>();
+	public DbSet<ItemTranslation> ItemTranslations => Set<ItemTranslation>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
