@@ -31,7 +31,7 @@ public class WfmDbContext : DbContext
 		modelBuilder.Entity<ItemShort>(e =>
 		{
 			e.HasKey(i => i.Id);
-			e.Ignore(i => i.I18n); // 用 SQL 查 ItemTranslations 表填充
+			e.Ignore(i => i.I18n); // 从 ItemTranslations 表加载
 
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
@@ -78,14 +78,17 @@ public class WfmDbContext : DbContext
 			e.HasKey(x => x.Id);
 		});
 
-		// ===== 翻译表：keyless，原生 SQL 查 → LanguagePake / ItemTranslation =====
+		// ===== ItemTranslations：联合主键 + FK → Items =====
 		modelBuilder.Entity<ItemTranslation>(e =>
 		{
-			e.HasNoKey();
+			e.HasKey(t => new { t.ItemId, t.Language });
 			e.ToTable("ItemTranslations");
-			e.Property(t => t.ItemId).HasMaxLength(64);
 			e.Property(t => t.Language).HasMaxLength(16);
-			e.HasIndex(t => new { t.ItemId, t.Language }).IsUnique();
+
+			e.HasOne<ItemShort>()
+				.WithMany()
+				.HasForeignKey(t => t.ItemId)
+				.OnDelete(DeleteBehavior.Cascade);
 		});
 	}
 }

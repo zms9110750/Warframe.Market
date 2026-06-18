@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Text.Json;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
-using zms9110750.WarframeMarketApi.Models.Versions;
 
 var dbPath = Path.Combine(AppContext.BaseDirectory, "wfm_test.db");
 Console.Error.WriteLine($"数据库: {dbPath}");
@@ -19,41 +18,38 @@ if (itemsResp?.Content?.Data == null) { Console.Error.WriteLine("❌ API 失败"
 var items = itemsResp.Content.Data;
 Console.Error.WriteLine($"✅ {items.Length} 个物品");
 
-Console.Error.WriteLine("\n=== 写入 Items + ItemTranslations ===");
+Console.Error.WriteLine("\n=== EF 追踪写入 ===");
 db.Items.RemoveRange(db.Items);
-await db.Database.ExecuteSqlRawAsync("DELETE FROM ItemTranslations");
-await db.Items.AddRangeAsync(items);
-await db.SaveChangesAsync();
+db.ItemTranslations.RemoveRange(db.ItemTranslations);
 
-// 原生 SQL 批量写入翻译
-var insertSql = @"INSERT INTO ItemTranslations (ItemId, Language, Name, Description, WikiLink, Icon, Thumb, SubIcon)
-	VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})";
-int transCount = 0;
+await db.Items.AddRangeAsync(items);
+
 foreach (var item in items)
 {
 	foreach (var (lang, p) in item.I18n)
 	{
-		await db.Database.ExecuteSqlRawAsync(insertSql,
+		db.ItemTranslations.Add(new ItemTranslation(
 			item.Id, lang.ToString(),
 			p.Name, p.Description, p.WikiLink,
-			p.Icon, p.Thumb, p.SubIcon);
-		transCount++;
+			p.Icon, p.Thumb, p.SubIcon
+		));
 	}
 }
+await db.SaveChangesAsync();
+
+var transCount = await db.ItemTranslations.CountAsync();
 Console.Error.WriteLine($"  Items: {items.Length}, 翻译: {transCount}");
 
-Console.Error.WriteLine("\n=== 查询验证 ===");
+Console.Error.WriteLine("\n=== EF 关联查询 ===");
 var first = items[0];
-
-// EF LINQ 查询 → LanguagePake 子类
-var rows = await db.Translations
+var translations = await db.ItemTranslations
 	.Where(t => t.ItemId == first.Id)
 	.ToListAsync();
-Console.Error.WriteLine($"  {first.Slug}: {rows.Count} 种语言");
-foreach (var r in rows)
+Console.Error.WriteLine($"  {first.Slug}: {translations.Count} 种语言");
+foreach (var t in translations)
 {
-	LanguagePake pake = r; // 继承关系
-	Console.Error.WriteLine($"    [{r.Language}] {pake.Name}");
+	LanguagePake pake = t;
+	Console.Error.WriteLine($"    [{t.Language}] {pake.Name}");
 }
 
 Console.Error.WriteLine("\n=== 子类型 ===");
@@ -67,16 +63,19 @@ foreach (var st in allSubtypes.OrderBy(x => x))
 	Console.Error.WriteLine($"  \"{st}\",");
 Console.Error.WriteLine("\n✅ 完成");
 
-// ===== 本地类型继承 LanguagePake =====
+// ===== 模型 =====
 public record ItemTranslation(
 	string ItemId, string Language,
 	string Name, string? Description, string? WikiLink, string Icon, string Thumb, string? SubIcon
-) : LanguagePake(Name, Description, WikiLink, Icon, Thumb, SubIcon);
+) : LanguagePake(Name, Description, WikiLink, Icon, Thumb, SubIcon)
+{
+	public ItemShort? Item { get; set; }
+}
 
 public class TestDb : DbContext
 {
 	public DbSet<ItemShort> Items => Set<ItemShort>();
-	public DbSet<ItemTranslation> Translations => Set<ItemTranslation>();
+	public DbSet<ItemTranslation> ItemTranslations => Set<ItemTranslation>();
 	private readonly string _dbPath;
 	public TestDb(string dbPath) => _dbPath = dbPath;
 	protected override void OnConfiguring(DbContextOptionsBuilder o) => o.UseSqlite($"Data Source={_dbPath}");
@@ -98,6 +97,11 @@ public class TestDb : DbContext
 				.Metadata.SetValueComparer(new ValueComparer<ItemSubtypeSet>(
 					(c1, c2) => c1!.SetEquals(c2!), c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())), c => new ItemSubtypeSet()));
 		});
-		mb.Entity<ItemTranslation>(e => { e.HasNoKey(); e.ToTable("ItemTranslations"); });
+		mb.Entity<ItemTranslation>(e =>
+		{
+			e.HasKey(t => new { t.ItemId, t.Language });
+			e.ToTable("ItemTranslations");
+			e.HasOne<ItemShort>().WithMany().HasForeignKey(t => t.ItemId).OnDelete(DeleteBehavior.Cascade);
+		});
 	}
 }
