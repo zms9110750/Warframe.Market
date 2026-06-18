@@ -1,6 +1,5 @@
 @page "/"
 @attribute [NavItem("首页", "mdi-home", Order = 0)]
-@inject AppState State
 
 <MTitle Class="mb-6">Warframe Market 查询工具</MTitle>
 
@@ -8,52 +7,16 @@
 	<MCardText>
 		<p>当前设置：</p>
 		<ul>
-			<li>语言：<strong>@State.Language</strong></li>
-			<li>平台：<strong>@State.Platform</strong></li>
-			<li>跨平台：<strong>@State.Crossplay</strong></li>
+			<li>语言：<strong>@stateLang</strong></li>
+			<li>平台：<strong>@statePlat</strong></li>
+			<li>跨平台：<strong>@stateCross</strong></li>
 		</ul>
 	</MCardText>
 </MCard>
 
-<MButton Color="primary" OnClick="TestApi" Disabled="@State.IsUpdating" Loading="@loading">测试 API</MButton>
+<MButton Color="primary" OnClick="TestApi" Disabled="@State.IsUpdating" Loading="@loading">查询物品数量</MButton>
 
 @if (result != null)
 {
 	<MAlert Class="mt-4" Type="@(ok ? AlertTypes.Success : AlertTypes.Error)">@result</MAlert>
-}
-
-@code {
-	private string? result;
-	private bool ok;
-	private bool loading;
-
-	private async Task TestApi()
-	{
-		loading = true;
-		try
-		{
-			var response = await State.Client.GetItemsAsync();
-			if (response?.Content?.Data != null)
-			{
-				result = $"获取到 {response.Content.Data.Length} 个可交易物品";
-				ok = true;
-			}
-			else if (response?.Content != null && response.Content.Error != null)
-			{
-				result = $"API 错误: {response.Content.Error}";
-				ok = false;
-			}
-			else
-			{
-				result = $"无内容 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
-				ok = false;
-			}
-		}
-		catch (Exception ex)
-		{
-			result = $"异常: {ex.Message}";
-			ok = false;
-		}
-		loading = false;
-	}
 }
