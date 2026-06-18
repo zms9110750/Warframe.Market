@@ -7,7 +7,7 @@
 		<MSpacer></MSpacer>
 
 		<MButton OnClick="OnVersionClick" Disabled="@State.IsUpdating" Class="mr-2" Color="primary" Outlined Small
-				  onmouseleave="@OnVersionLeave">
+				  onmouseleave="@(() => OnVersionLeave())">
 			@if (State.IsUpdating)
 			{
 				<MProgressCircular Size="18" Width="2" Indeterminate Class="mr-1" />

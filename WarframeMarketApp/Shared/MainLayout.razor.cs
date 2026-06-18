@@ -125,7 +125,7 @@ public partial class MainLayout : LayoutComponentBase
 				{
 					Route = routeAttr.Template,
 					Title = navAttr.Title,
-					Icon = navAttr.Icon,
+					Icon = navAttr.Icon ?? "mdi-circle",
 					Order = navAttr.Order
 				});
 			}

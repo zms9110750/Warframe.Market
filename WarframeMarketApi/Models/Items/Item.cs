@@ -39,7 +39,7 @@ public record Item(
 	int? MaxCyanStars,
 	int? BaseEndo,
 	float? EndoMultiplier,
-	HashSet<ItemSubtypes>? Subtypes,
+	ItemSubtypeSet? Subtypes,
 	Dictionary<Language, LanguagePake> I18n,
 	string UrlName,
 	bool Tradable,

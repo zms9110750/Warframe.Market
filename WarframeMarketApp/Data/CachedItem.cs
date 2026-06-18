@@ -18,7 +18,6 @@ public class CachedItemBase
 	public double? EndoMultiplier { get; set; }
 	public string SubtypesJson { get; set; } = "[]";
 	public string SetPartsJson { get; set; } = "[]";
-	public string I18nJson { get; set; } = "{}";
 }
 
 /// <summary>

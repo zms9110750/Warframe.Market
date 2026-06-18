@@ -1,8 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
-using zms9110750.WarframeMarketApi.Models.Items;
-using zms9110750.WarframeMarketApi.Models.Statistics;
-using zms9110750.WarframeMarketApi.Models.Versions;
 
 namespace WarframeMarketApp.Data;
 
@@ -13,6 +9,7 @@ public class WfmDbContext : DbContext
 	public DbSet<CachedItemDetail> ItemDetails => Set<CachedItemDetail>();
 	public DbSet<CachedSet> ItemSets => Set<CachedSet>();
 	public DbSet<CachedStatEntry> StatEntries => Set<CachedStatEntry>();
+	public DbSet<CachedItemLocalization> ItemLocalizations => Set<CachedItemLocalization>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
@@ -31,7 +28,7 @@ public class WfmDbContext : DbContext
 			e.HasKey(i => i.Id);
 			e.Property(i => i.TagsJson).HasColumnName("Tags");
 			e.Property(i => i.SubtypesJson).HasColumnName("Subtypes");
-			e.Property(i => i.I18nJson).HasColumnName("I18n");
+			e.Property(i => i.SetPartsJson).HasColumnName("SetParts");
 
 			e.HasDiscriminator<string>("ItemType")
 				.HasValue<CachedItemBase>(nameof(CachedItemBase))
@@ -51,6 +48,14 @@ public class WfmDbContext : DbContext
 			e.HasKey(s => s.Id);
 			e.HasIndex(s => s.ItemId);
 			e.HasIndex(s => s.Datetime);
+		});
+
+		// ===== ItemLocalizations (FK → Items) =====
+		modelBuilder.Entity<CachedItemLocalization>(e =>
+		{
+			e.HasKey(l => l.Id);
+			e.HasIndex(l => new { l.ItemId, l.Language }).IsUnique();
+			e.Property(l => l.Id).ValueGeneratedOnAdd();
 		});
 	}
 }
