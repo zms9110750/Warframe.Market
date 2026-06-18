@@ -1,81 +1,197 @@
-@using System.Reflection
 @inherits LayoutComponentBase
+@inject AppState State
 
 <MApp>
-    <MAppBar App>
-        <MToolbarTitle> Warframe Market </MToolbarTitle>
-        <MSpacer></MSpacer>
-        @msg
-    </MAppBar>
-    <MNavigationDrawer App Permanent MiniVariant>
-        <MList Nav Routable>
-            @foreach (var navItem in navItems)
-            {
-                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="() => currentTitle = navItem.Title">
-                    <MListItemIcon>
-                        <MIcon>@navItem.Icon</MIcon>
-                    </MListItemIcon>
-                    <MListItemContent>
-                        <MListItemTitle>@navItem.Title</MListItemTitle>
-                    </MListItemContent>
-                </MListItem>
-            }
-        </MList>
-    </MNavigationDrawer>
-    <MMain>
-        <MContainer Fluid>
-            <MErrorHandler>
-                @Body
-            </MErrorHandler>
-        </MContainer>
-    </MMain>
+	<MAppBar App>
+		<MToolbarTitle>Warframe Market</MToolbarTitle>
+
+		<MSpacer></MSpacer>
+
+		@* 数据版本按钮 *@
+		<MButton OnClick="RefreshData" Disabled="@State.IsUpdating" Class="mr-2" Color="primary" Outlined Small>
+			@(State.IsUpdating ? "更新中..." : State.VersionText ?? "获取数据")
+		</MButton>
+
+		@* 语言下拉 *@
+		<MSelect TItem="string" TItemValue="string" TValue="string"
+				 Items="@languages"
+				 Value="@selectedLang"
+				 ValueChanged="@((string v) => { selectedLang = v; })"
+				 Label="语言"
+				 Dense Solo
+				 Class="mr-2"
+				 Style="max-width: 130px;">
+		</MSelect>
+
+		@* 平台下拉 *@
+		<MSelect TItem="string" TItemValue="string" TValue="string"
+				 Items="@platforms"
+				 Value="@selectedPlatform"
+				 ValueChanged="@((string v) => { selectedPlatform = v; })"
+				 Label="平台"
+				 Dense Solo
+				 Class="mr-2"
+				 Style="max-width: 120px;">
+		</MSelect>
+
+		@* 跨平台开关 *@
+		<MSwitch @bind-Value="State.Crossplay" Dense Inset>
+			<LabelContent>跨平台</LabelContent>
+		</MSwitch>
+	</MAppBar>
+
+	<MNavigationDrawer App Permanent MiniVariant>
+		<MList Nav Routable>
+			@foreach (var navItem in navItems)
+			{
+				<MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="() => currentTitle = navItem.Title">
+					<MListItemIcon>
+						<MIcon>@navItem.Icon</MIcon>
+					</MListItemIcon>
+					<MListItemContent>
+						<MListItemTitle>@navItem.Title</MListItemTitle>
+					</MListItemContent>
+				</MListItem>
+			}
+		</MList>
+	</MNavigationDrawer>
+
+	<MMain>
+		@if (State.StatusMessage != null)
+		{
+			<MAlert Dense Type="@AlertTypes.Info" Class="ma-4 mb-0">@State.StatusMessage</MAlert>
+		}
+
+		<div class="@(State.IsUpdating ? "cursor-wait" : "")">
+			<MContainer Fluid>
+				<MErrorHandler>
+					@Body
+				</MErrorHandler>
+			</MContainer>
+		</div>
+	</MMain>
 </MApp>
 
 @code {
-    string currentTitle = "";
-    string msg = "";
-    private List<NavItemInfo> navItems = new();
+	string currentTitle = "";
+	private List<NavItemInfo> navItems = new();
 
-    protected override async Task OnInitializedAsync()
-    {
-        navItems = GetNavItemsFromAssembly();
-        currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
-    }
+	// 语言列表和绑定
+	private List<string> languages = new() { "en", "ko", "ru", "de", "fr", "pt", "zh-hans", "zh-hant", "es", "it", "pl", "uk", "tr", "ja" };
+	private string selectedLang
+	{
+		get => State.Language.ToString();
+		set
+		{
+			if (Enum.TryParse<Language>(value, ignoreCase: true, out var lang))
+				State.Language = lang;
+		}
+	}
 
-    private List<NavItemInfo> GetNavItemsFromAssembly()
-    {
-        var items = new List<NavItemInfo>();
-        var assembly = Assembly.GetExecutingAssembly();
+	// 平台列表和绑定
+	private List<string> platforms = new() { "pc", "ps4", "xbox", "switch", "mobile" };
+	private string selectedPlatform
+	{
+		get => State.Platform.ToString().ToLowerInvariant();
+		set
+		{
+			if (Enum.TryParse<Platform>(value, ignoreCase: true, out var platform))
+				State.Platform = platform;
+		}
+	}
 
-        var pageTypes = assembly.GetTypes()
-            .Where(t => t.GetCustomAttribute<RouteAttribute>() != null &&
-                       t.GetCustomAttribute<NavItemAttribute>() != null);
+	protected override async Task OnInitializedAsync()
+	{
+		navItems = GetNavItemsFromAssembly();
+		currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
+		State.StatusMessage = "正在连接...";
 
-        foreach (var type in pageTypes)
-        {
-            var routeAttr = type.GetCustomAttribute<RouteAttribute>();
-            var navAttr = type.GetCustomAttribute<NavItemAttribute>();
+		try
+		{
+			var v = await State.Client.GetVersionsAsync();
+			if (v?.Content?.Data != null)
+			{
+				State.VersionText = $"数据: {v.Content.Data.UpdatedAtLocal:MM-dd HH:mm}";
+				State.VersionUpdatedAt = v.Content.Data.UpdatedAt;
+				State.StatusMessage = null;
+			}
+			else
+			{
+				State.StatusMessage = $"连接失败: HTTP {(int?)v?.StatusCode} {v?.StatusCode}";
+			}
+		}
+		catch (Exception ex)
+		{
+			State.StatusMessage = $"错误: {ex.Message}";
+		}
+	}
 
-            if (routeAttr != null && navAttr != null)
-            {
-                items.Add(new NavItemInfo
-                {
-                    Route = routeAttr.Template,
-                    Title = navAttr.Title,
-                    Icon = navAttr.Icon,
-                    Order = navAttr.Order
-                });
-            }
-        }
+	private async Task RefreshData()
+	{
+		if (State.IsUpdating) return;
+		State.IsUpdating = true;
+		State.VersionText = "更新中...";
+		State.StatusMessage = "正在刷新版本...";
 
-        return items.OrderBy(x => x.Order).ToList();
-    }
+		try
+		{
+			var v = await State.Client.GetVersionsAsync();
+			if (v?.Content?.Data != null)
+			{
+				State.VersionText = $"数据: {v.Content.Data.UpdatedAtLocal:MM-dd HH:mm}";
+				State.VersionUpdatedAt = v.Content.Data.UpdatedAt;
+				State.StatusMessage = null;
 
-    private class NavItemInfo
-    {
-        public string Route { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string Icon { get; set; } = string.Empty;
-        public int Order { get; set; }
-    }
+				State.VersionText = "再次点击强制刷新数据";
+				await Task.Delay(2000);
+				if (!State.IsUpdating)
+					State.VersionText = $"数据: {v.Content.Data.UpdatedAtLocal:MM-dd HH:mm}";
+			}
+			else
+			{
+				State.VersionText = "刷新失败";
+				State.StatusMessage = null;
+			}
+		}
+		catch (Exception ex)
+		{
+			State.VersionText = "刷新错误";
+			State.StatusMessage = $"错误: {ex.Message}";
+		}
+		State.IsUpdating = false;
+	}
+
+	private List<NavItemInfo> GetNavItemsFromAssembly()
+	{
+		var items = new List<NavItemInfo>();
+		var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+		var pageTypes = assembly.GetTypes()
+			.Where(t => t.GetCustomAttribute<Microsoft.AspNetCore.Components.RouteAttribute>() != null &&
+					   t.GetCustomAttribute<NavItemAttribute>() != null);
+
+		foreach (var type in pageTypes)
+		{
+			var routeAttr = type.GetCustomAttribute<Microsoft.AspNetCore.Components.RouteAttribute>();
+			var navAttr = type.GetCustomAttribute<NavItemAttribute>();
+			if (routeAttr != null && navAttr != null)
+			{
+				items.Add(new NavItemInfo
+				{
+					Route = routeAttr.Template,
+					Title = navAttr.Title,
+					Icon = navAttr.Icon,
+					Order = navAttr.Order
+				});
+			}
+		}
+		return items.OrderBy(x => x.Order).ToList();
+	}
+
+	private class NavItemInfo
+	{
+		public string Route { get; set; } = string.Empty;
+		public string Title { get; set; } = string.Empty;
+		public string Icon { get; set; } = string.Empty;
+		public int Order { get; set; }
+	}
 }

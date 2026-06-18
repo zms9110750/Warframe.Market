@@ -1,74 +1,59 @@
 @page "/"
 @attribute [NavItem("首页", "mdi-home", Order = 0)]
+@inject AppState State
 
 <MTitle Class="mb-6">Warframe Market 查询工具</MTitle>
 
 <MCard Class="mb-4">
-    <MCardText>
-        <p>客户端状态：<MAlert Dense Type="@(ready ? AlertTypes.Success : AlertTypes.Warning)" Class="d-inline-flex pa-2">@status</MAlert></p>
-    </MCardText>
+	<MCardText>
+		<p>当前设置：</p>
+		<ul>
+			<li>语言：<strong>@State.Language</strong></li>
+			<li>平台：<strong>@State.Platform</strong></li>
+			<li>跨平台：<strong>@State.Crossplay</strong></li>
+		</ul>
+	</MCardText>
 </MCard>
 
-<MButton Color="primary" OnClick="TestApi" Loading="loading">测试 API 连接</MButton>
+<MButton Color="primary" OnClick="TestApi" Disabled="@State.IsUpdating" Loading="@loading">测试 API</MButton>
 
 @if (result != null)
 {
-    <MAlert Class="mt-4" Type="@(ok ? AlertTypes.Success : AlertTypes.Error)">@result</MAlert>
+	<MAlert Class="mt-4" Type="@(ok ? AlertTypes.Success : AlertTypes.Error)">@result</MAlert>
 }
 
 @code {
-    private string status = "初始化中...";
-    private string? result;
-    private bool ready;
-    private bool ok;
-    private bool loading;
+	private string? result;
+	private bool ok;
+	private bool loading;
 
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var client = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Test/0.1");
-            client.DefaultRequestHeaders.Add("Language", "zh-hans");
-            client.DefaultRequestHeaders.Add("Platform", "pc");
-
-            var json = await client.GetStringAsync("/v2/versions");
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            var data = doc.RootElement.GetProperty("data");
-            var updatedAt = data.GetProperty("updatedAt").GetString();
-
-            status = $"已连接 — 数据版本: {updatedAt}";
-            ready = true;
-        }
-        catch (Exception ex)
-        {
-            status = $"错误: {ex.Message}";
-        }
-    }
-
-    private async Task TestApi()
-    {
-        loading = true;
-        try
-        {
-            var client = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Test/0.1");
-            client.DefaultRequestHeaders.Add("Language", "zh-hans");
-            client.DefaultRequestHeaders.Add("Platform", "pc");
-
-            var json = await client.GetStringAsync("/v2/items");
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            var data = doc.RootElement.GetProperty("data");
-            var count = data.GetArrayLength();
-
-            result = $"获取到 {count} 个可交易物品";
-            ok = true;
-        }
-        catch (Exception ex)
-        {
-            result = $"异常: {ex.Message}";
-            ok = false;
-        }
-        loading = false;
-    }
+	private async Task TestApi()
+	{
+		loading = true;
+		try
+		{
+			var response = await State.Client.GetItemsAsync();
+			if (response?.Content?.Data != null)
+			{
+				result = $"获取到 {response.Content.Data.Length} 个可交易物品";
+				ok = true;
+			}
+			else if (response?.Content != null && response.Content.Error != null)
+			{
+				result = $"API 错误: {response.Content.Error}";
+				ok = false;
+			}
+			else
+			{
+				result = $"无内容 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
+				ok = false;
+			}
+		}
+		catch (Exception ex)
+		{
+			result = $"异常: {ex.Message}";
+			ok = false;
+		}
+		loading = false;
+	}
 }
