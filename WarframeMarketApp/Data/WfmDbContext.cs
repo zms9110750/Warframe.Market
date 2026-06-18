@@ -77,8 +77,8 @@ public class WfmDbContext : DbContext
 			e.HasKey(x => x.Id);
 		});
 
-		// ===== 翻译表：keyless，原始 SQL 查 → LanguagePake =====
-		modelBuilder.Entity<TranslationRow>(e =>
+		// ===== 翻译表：keyless，原生 SQL 查 → LanguagePake / ItemTranslation =====
+		modelBuilder.Entity<ItemTranslation>(e =>
 		{
 			e.HasNoKey();
 			e.ToTable("ItemTranslations");
@@ -87,19 +87,4 @@ public class WfmDbContext : DbContext
 			e.HasIndex(t => new { t.ItemId, t.Language }).IsUnique();
 		});
 	}
-}
-
-/// <summary>
-/// 翻译表行（keyless entity，用于 SqlQuery&lt;LanguagePake&gt;）
-/// </summary>
-public class TranslationRow
-{
-	public string ItemId { get; set; } = "";
-	public string Language { get; set; } = "";
-	public string Name { get; set; } = "";
-	public string? Description { get; set; }
-	public string? WikiLink { get; set; }
-	public string Icon { get; set; } = "";
-	public string Thumb { get; set; } = "";
-	public string? SubIcon { get; set; }
 }
