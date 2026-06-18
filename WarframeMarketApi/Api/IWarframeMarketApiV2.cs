@@ -11,7 +11,7 @@ using zms9110750.WarframeMarketApi.Models.Orders;
 using zms9110750.WarframeMarketApi.Models.Rivens;
 using zms9110750.WarframeMarketApi.Models.Sisters;
 using zms9110750.WarframeMarketApi.Models.Users;
-using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
+using zms9110750.WarframeMarketApi.Models.Versions;
 
 namespace zms9110750.WarframeMarketApi.Api;
 
@@ -20,7 +20,7 @@ internal interface IWarframeMarketApiV2
 {
 	/// <summary>获取服务器资源的当前版本号</summary>
 	[Get("/v2/versions")]
-	Task<IApiResponse<Response<Version>>> GetVersionsAsync(CancellationToken cancellation = default);
+	Task<IApiResponse<Response<ServerVersion>>> GetVersionsAsync(CancellationToken cancellation = default);
 
 	/// <summary>获取所有可交易物品列表</summary>
 	[Get("/v2/items")]

@@ -9,7 +9,7 @@ namespace zms9110750.WarframeMarketApi.Models.Versions;
 /// <param name="Apps">各平台 App 版本信息</param>
 /// <param name="Collections">各数据集合的版本哈希值</param>
 /// <param name="UpdatedAt">最后更新时间（ISO 8601）</param>
-public record Version(
+public record ServerVersion(
 	string Id,
 	VersionApps Apps,
 	VersionCollections Collections,

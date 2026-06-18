@@ -22,7 +22,7 @@ using zms9110750.WarframeMarketApi.Models.Rivens;
 using zms9110750.WarframeMarketApi.Models.Sisters;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.WarframeMarketApi.Models.Users;
-using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
+using zms9110750.WarframeMarketApi.Models.Versions;
 
 namespace zms9110750.WarframeMarketApi;
 
@@ -195,7 +195,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Version>>> GetVersionsAsync(CancellationToken cancellation = default) =>
+	public Task<IApiResponse<Response<ServerVersion>>> GetVersionsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetVersionsAsync(cancellation);
 
 	/// <inheritdoc/>

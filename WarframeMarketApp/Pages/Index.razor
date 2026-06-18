@@ -39,13 +39,13 @@
             {
                 status = $"API 错误: {response.Content.Error}";
             }
-            else if (response?.StatusCode != null)
+            else if (response?.Content == null)
             {
-                status = $"HTTP {(int)response.StatusCode} {response.StatusCode}";
+                status = $"响应内容为空 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
             }
             else
             {
-                status = "无响应";
+                status = $"Data 为空，ApiVersion={response.Content.ApiVersion}, Status={response?.StatusCode}";
             }
         }
         catch (Exception ex)
@@ -71,14 +71,14 @@
                 result = $"API 错误: {response.Content.Error}";
                 ok = false;
             }
-            else if (response?.StatusCode != null)
+            else if (response?.Content == null)
             {
-                result = $"HTTP {(int)response.StatusCode} {response.StatusCode}";
+                result = $"响应内容为空 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
                 ok = false;
             }
             else
             {
-                result = "无响应";
+                result = $"Data 为空，ApiVersion={response.Content.ApiVersion}";
                 ok = false;
             }
         }
