@@ -5,8 +5,8 @@ using WarframeMarketApp.Data;
 namespace WarframeMarketApp.Services;
 
 /// <summary>
-/// 通用本地缓存服务。
-/// Value 存 JSON。过期策略：跨 1 天后台刷新，跨 2 天直接失效。
+/// 通用本地缓存服务。Value 存 JSON。
+/// 过期策略按 UTC 日期判断：同天直接返回，跨 1 天后台刷新，跨 ≥2 天失效。
 /// </summary>
 public class LocalCacheService
 {
@@ -16,15 +16,15 @@ public class LocalCacheService
 
 	public LocalCacheService(WfmDbContext db) => _db = db;
 
-	/// <summary>读缓存。未命中或跨 2 天返回 null</summary>
+	/// <summary>读缓存。未命中或跨 ≥2 天返回 null</summary>
 	public async Task<T?> GetAsync<T>(string key) where T : class
 	{
 		var entry = await _db.Cache.FindAsync(key);
 		if (entry == null) return null;
 
-		var age = DateTime.UtcNow - entry.CachedAt;
+		var daysOld = (DateTime.UtcNow.Date - entry.CachedAt.Date).Days;
 
-		if (age.TotalDays >= 2)
+		if (daysOld >= 2)
 		{
 			_db.Cache.Remove(entry);
 			await _db.SaveChangesAsync();
@@ -33,8 +33,7 @@ public class LocalCacheService
 
 		var data = JsonSerializer.Deserialize<T>(entry.Value, JsonOpts);
 
-		// 跨 1 天 → 后台刷新
-		if (age.TotalDays >= 1)
+		if (daysOld >= 1)
 			_ = TryRefreshAsync(key);
 
 		return data;
@@ -68,7 +67,6 @@ public class LocalCacheService
 		}
 	}
 
-	// 后台刷新：只刷新一次，防并发
 	private async Task TryRefreshAsync(string key)
 	{
 		lock (_refreshing)

@@ -33,6 +33,7 @@ public partial class MainWindow : Window
             serviceCollection.AddSingleton<AppState>();
             serviceCollection.AddTransient<CacheService>();
             serviceCollection.AddTransient<LocalCacheService>();
+            serviceCollection.AddTransient<ItemsCacheService>();
 
 #if DEBUG
             serviceCollection.AddBlazorWebViewDeveloperTools();
