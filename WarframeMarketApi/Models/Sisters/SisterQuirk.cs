@@ -14,4 +14,7 @@ public record SisterQuirk(
 	string Slug,
 	string Group,
 	Dictionary<Items.Language, SisterQuirkI18N> I18n
-);
+)
+{
+	public static implicit operator string(SisterQuirk item) => item.Slug;
+}

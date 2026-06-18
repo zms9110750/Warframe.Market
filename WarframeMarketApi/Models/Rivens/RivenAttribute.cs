@@ -28,4 +28,7 @@ public record RivenAttribute(
 	bool? PositiveOnly,
 	bool? NegativeOnly,
 	Dictionary<Items.Language, RivenAttributeI18N> I18n
-);
+)
+{
+	public static implicit operator string(RivenAttribute item) => item.Slug;
+}

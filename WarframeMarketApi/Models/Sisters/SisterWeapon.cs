@@ -16,4 +16,7 @@ public record SisterWeapon(
 	string GameRef,
 	int ReqMasteryRank,
 	Dictionary<Items.Language, SisterWeaponI18N> I18n
-);
+)
+{
+	public static implicit operator string(SisterWeapon item) => item.Slug;
+}

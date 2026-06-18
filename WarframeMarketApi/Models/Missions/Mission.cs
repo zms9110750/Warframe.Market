@@ -12,4 +12,7 @@ public record Mission(
 	string Slug,
 	string GameRef,
 	Dictionary<Items.Language, MissionI18N> I18n
-);
+)
+{
+	public static implicit operator string(Mission item) => item.Slug;
+}

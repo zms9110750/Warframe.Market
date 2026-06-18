@@ -60,4 +60,7 @@ public record UserPrivate(
 	string? DeleteAt,
 	bool? HasEmail,
 	string? Email
-);
+)
+{
+	public static implicit operator string(UserPrivate item) => item.Slug;
+}

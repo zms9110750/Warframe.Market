@@ -18,4 +18,7 @@ public record SisterEphemera(
 	string Animation,
 	string Element,
 	Dictionary<Items.Language, SisterEphemeraI18N> I18n
-);
+)
+{
+	public static implicit operator string(SisterEphemera item) => item.Slug;
+}

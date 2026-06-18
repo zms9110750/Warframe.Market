@@ -30,4 +30,7 @@ public record ItemShort(
 	float? EndoMultiplier,
 	HashSet<ItemSubtypes>? Subtypes,
 	Dictionary<Language, LanguagePake> I18n
-);
+)
+{
+	public static implicit operator string(ItemShort item) => item.Slug;
+}

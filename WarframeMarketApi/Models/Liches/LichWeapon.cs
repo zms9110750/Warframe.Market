@@ -14,4 +14,7 @@ public record LichWeapon(
 	string GameRef,
 	int ReqMasteryRank,
 	Dictionary<Items.Language, LichWeaponI18N> I18n
-);
+)
+{
+	public static implicit operator string(LichWeapon item) => item.Slug;
+}

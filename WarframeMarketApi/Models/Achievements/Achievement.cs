@@ -20,4 +20,7 @@ public record Achievement(
 	int Goal,
 	Dictionary<Items.Language, AchievementI18N> I18n,
 	AchievementState? State
-);
+)
+{
+	public static implicit operator string(Achievement item) => item.Slug;
+}

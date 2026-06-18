@@ -18,4 +18,7 @@ public record Location(
 	int MinLevel,
 	int MaxLevel,
 	Dictionary<Items.Language, LocationI18N> I18n
-);
+)
+{
+	public static implicit operator string(Location item) => item.Slug;
+}

@@ -36,4 +36,7 @@ public record Order(
 	string? ItemId,
 	string? GroupId,
 	Users.UserShort? User
-);
+)
+{
+	public static implicit operator string(Order item) => item.ItemId ?? string.Empty;
+}

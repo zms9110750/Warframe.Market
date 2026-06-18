@@ -40,4 +40,7 @@ public record User(
 	string Locale,
 	bool? Banned,
 	string? BanUntil
-);
+)
+{
+	public static implicit operator string(User item) => item.Slug;
+}

@@ -26,4 +26,7 @@ public record UserShort(
 	string Status,
 	Activity? Activity,
 	string LastSeen
-);
+)
+{
+	public static implicit operator string(UserShort item) => item.Slug;
+}

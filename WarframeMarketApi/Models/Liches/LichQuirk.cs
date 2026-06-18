@@ -12,4 +12,7 @@ public record LichQuirk(
 	string Slug,
 	string Group,
 	Dictionary<Items.Language, LichQuirkI18N> I18n
-);
+)
+{
+	public static implicit operator string(LichQuirk item) => item.Slug;
+}

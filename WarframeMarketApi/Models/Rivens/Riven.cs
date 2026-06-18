@@ -20,4 +20,7 @@ public record Riven(
 	double Disposition,
 	int ReqMasteryRank,
 	Dictionary<Items.Language, RivenI18N> I18n
-);
+)
+{
+	public static implicit operator string(Riven item) => item.Slug;
+}

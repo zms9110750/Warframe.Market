@@ -12,4 +12,7 @@ public record Npc(
 	string Slug,
 	string GameRef,
 	Dictionary<Items.Language, NpcI18N> I18n
-);
+)
+{
+	public static implicit operator string(Npc item) => item.Slug;
+}

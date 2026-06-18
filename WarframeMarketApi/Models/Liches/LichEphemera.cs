@@ -16,4 +16,7 @@ public record LichEphemera(
 	string Animation,
 	string Element,
 	Dictionary<Items.Language, LichEphemeraI18N> I18n
-);
+)
+{
+	public static implicit operator string(LichEphemera item) => item.Slug;
+}
