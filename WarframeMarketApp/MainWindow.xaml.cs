@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using zms9110750.WarframeMarketApi;
+using WarframeMarketApp.Data;
 using WarframeMarketApp.Services;
 
 namespace WarframeMarketApp;
@@ -16,12 +18,20 @@ public partial class MainWindow : Window
             Width = SystemParameters.PrimaryScreenWidth / 3 * 2;
             Height = SystemParameters.PrimaryScreenHeight / 3 * 2;
 
+            var dbPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WarframeMarket", "wfm.db");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dbPath)!);
+
             var wfm = new WarframeMarketClient();
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddWpfBlazorWebView();
             serviceCollection.AddMasaBlazor();
             serviceCollection.AddSingleton(wfm);
+            serviceCollection.AddDbContext<WfmDbContext>(o =>
+                o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
+            serviceCollection.AddTransient<CacheService>();
 
 #if DEBUG
             serviceCollection.AddBlazorWebViewDeveloperTools();
@@ -31,27 +41,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            WriteCrashLog("MainWindow 构造", ex);
+            System.IO.File.WriteAllText("crash.log",
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}");
             Close();
         }
-    }
-
-    private static void WriteCrashLog(string phase, Exception ex)
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine($"阶段: {phase}");
-        var cur = ex;
-        int depth = 0;
-        while (cur != null)
-        {
-            sb.AppendLine($"--- {depth} ---");
-            sb.AppendLine($"类型: {cur.GetType().FullName}");
-            sb.AppendLine($"消息: {cur.Message}");
-            sb.AppendLine($"堆栈: {cur.StackTrace}");
-            cur = cur.InnerException;
-            depth++;
-        }
-        System.IO.File.WriteAllText("crash.log", sb.ToString());
     }
 }

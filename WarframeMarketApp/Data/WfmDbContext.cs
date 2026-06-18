@@ -26,6 +26,12 @@ public class WfmDbContext : DbContext
 		{
 			e.HasKey(v => v.Id);
 			e.Ignore(v => v.UpdatedAtLocal);
+			e.Property(v => v.Apps).HasConversion(
+				v => JsonSerializer.Serialize(v, JsonOpts),
+				v => JsonSerializer.Deserialize<VersionApps>(v, JsonOpts) ?? new("", "", "", ""));
+			e.Property(v => v.Collections).HasConversion(
+				v => JsonSerializer.Serialize(v, JsonOpts),
+				v => JsonSerializer.Deserialize<VersionCollections>(v, JsonOpts) ?? new("", "", "", "", "", "", ""));
 		});
 
 		modelBuilder.Entity<ItemShort>(e =>
