@@ -4,6 +4,23 @@ using System.Text.Json;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 
+// ─── 测试 record 非构造器属性 EF 映射 ───
+Console.Error.WriteLine("=== 非构造器属性 EF 映射测试 ===");
+var efTestDb = Path.Combine(AppContext.BaseDirectory, "ef_test.db");
+File.Delete(efTestDb);
+using (var efCtx = new EfPropTestContext(efTestDb))
+{
+	await efCtx.Database.EnsureCreatedAsync();
+	efCtx.Records.Add(new MyRecord("0.1", "test", null));
+	await efCtx.SaveChangesAsync();
+	var loaded = await efCtx.Records.FirstAsync();
+	Console.Error.WriteLine($"  ApiVersion={loaded.ApiVersion}, Value={loaded.Value}");
+	Console.Error.WriteLine($"  CachedAt={loaded.CachedAt:O}");
+	Console.Error.WriteLine($"  ✅ 非构造器属性 CachedAt 由 EF 映射成功");
+}
+try { File.Delete(efTestDb); } catch { }
+
+// ─── 正式测试 ───
 var dbPath = Path.Combine(AppContext.BaseDirectory, "wfm_test.db");
 Console.Error.WriteLine($"数据库: {dbPath}");
 
@@ -63,7 +80,23 @@ foreach (var st in allSubtypes.OrderBy(x => x))
 	Console.Error.WriteLine($"  \"{st}\",");
 Console.Error.WriteLine("\n✅ 完成");
 
-// ===== 模型 =====
+// ===== 非构造器属性测试模型 =====
+public record MyRecord(string ApiVersion, string? Value, string? Error)
+{
+	public DateTime CachedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class EfPropTestContext : DbContext
+{
+	public DbSet<MyRecord> Records => Set<MyRecord>();
+	private readonly string _path;
+	public EfPropTestContext(string path) => _path = path;
+	protected override void OnConfiguring(DbContextOptionsBuilder o) => o.UseSqlite($"Data Source={_path}");
+	protected override void OnModelCreating(ModelBuilder mb)
+		=> mb.Entity<MyRecord>(e => e.HasKey(r => r.ApiVersion));
+}
+
+// ===== 物品测试模型 =====
 public record ItemTranslation(
 	string ItemId, string Language,
 	string Name, string? Description, string? WikiLink, string Icon, string Thumb, string? SubIcon
