@@ -2,7 +2,6 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using System.Threading.RateLimiting;
 using Polly;
 using Polly.RateLimiting;
@@ -33,10 +32,8 @@ namespace zms9110750.WarframeMarketApi;
 /// </summary>
 public class WarframeMarketClient : IWarframeMarketApiV2
 {
-	private static readonly JsonSerializerOptions V2Options = new()
+	private static readonly JsonSerializerOptions V2Options = new(JsonSerializerDefaults.Web)
 	{
-		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-		TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
 		Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
 		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
 	};

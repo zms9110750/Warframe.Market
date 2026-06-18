@@ -27,26 +27,18 @@
     {
         try
         {
-            var response = await Wfm.GetVersionsAsync();
+            var client = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Test/0.1");
+            client.DefaultRequestHeaders.Add("Language", "zh-hans");
+            client.DefaultRequestHeaders.Add("Platform", "pc");
 
-            if (response?.Content?.Data != null)
-            {
-                var v = response.Content.Data;
-                status = $"已连接 — 数据版本: {v.UpdatedAtLocal:yyyy-MM-dd HH:mm:ss}";
-                ready = true;
-            }
-            else if (response?.Content != null && response.Content.Error != null)
-            {
-                status = $"API 错误: {response.Content.Error}";
-            }
-            else if (response?.Content == null)
-            {
-                status = $"响应内容为空 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
-            }
-            else
-            {
-                status = $"Data 为空，ApiVersion={response.Content.ApiVersion}, Status={response?.StatusCode}";
-            }
+            var json = await client.GetStringAsync("/v2/versions");
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var data = doc.RootElement.GetProperty("data");
+            var updatedAt = data.GetProperty("updatedAt").GetString();
+
+            status = $"已连接 — 数据版本: {updatedAt}";
+            ready = true;
         }
         catch (Exception ex)
         {
@@ -59,28 +51,18 @@
         loading = true;
         try
         {
-            var response = await Wfm.GetItemsAsync();
+            var client = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Test/0.1");
+            client.DefaultRequestHeaders.Add("Language", "zh-hans");
+            client.DefaultRequestHeaders.Add("Platform", "pc");
 
-            if (response?.Content?.Data != null)
-            {
-                result = $"获取到 {response.Content.Data.Length} 个可交易物品";
-                ok = true;
-            }
-            else if (response?.Content != null && response.Content.Error != null)
-            {
-                result = $"API 错误: {response.Content.Error}";
-                ok = false;
-            }
-            else if (response?.Content == null)
-            {
-                result = $"响应内容为空 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
-                ok = false;
-            }
-            else
-            {
-                result = $"Data 为空，ApiVersion={response.Content.ApiVersion}";
-                ok = false;
-            }
+            var json = await client.GetStringAsync("/v2/items");
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var data = doc.RootElement.GetProperty("data");
+            var count = data.GetArrayLength();
+
+            result = $"获取到 {count} 个可交易物品";
+            ok = true;
         }
         catch (Exception ex)
         {
