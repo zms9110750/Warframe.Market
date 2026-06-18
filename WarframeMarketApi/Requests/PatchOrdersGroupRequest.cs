@@ -5,7 +5,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// </summary>
 /// <param name="Visible">要设置的可见性状态，默认 false</param>
 /// <param name="Type">限制更新的订单类型（sell / buy），不传则更新两种</param>
-public record PatchOrdersGroupRequest(
+internal record PatchOrdersGroupRequest(
 	bool Visible = false,
 	string? Type = null
 );

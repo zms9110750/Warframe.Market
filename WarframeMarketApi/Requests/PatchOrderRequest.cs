@@ -12,7 +12,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// <param name="Subtype">子类型（仅支持子类型的物品可用）</param>
 /// <param name="AmberStars">琥珀星星数量（仅支持琥珀星的物品可用），0 ~ maxAmberStars</param>
 /// <param name="CyanStars">青蓝星星数量（仅支持青蓝星的物品可用），0 ~ maxCyanStars</param>
-public record PatchOrderRequest(
+internal record PatchOrderRequest(
 	int? Platinum = null,
 	int? Quantity = null,
 	bool? Visible = null,

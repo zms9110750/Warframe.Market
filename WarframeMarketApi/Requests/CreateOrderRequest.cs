@@ -14,7 +14,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// <param name="Subtype">子类型（有子类型的物品必填）</param>
 /// <param name="AmberStars">琥珀星星数量（支持琥珀星的物品必填），0 ~ maxAmberStars</param>
 /// <param name="CyanStars">青蓝星星数量（支持青蓝星的物品必填），0 ~ maxCyanStars</param>
-public record CreateOrderRequest(
+internal record CreateOrderRequest(
 	string ItemId,
 	string Type,
 	int Platinum,

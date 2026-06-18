@@ -9,7 +9,7 @@ namespace zms9110750.WarframeMarketApi.Api;
 /// <summary>
 /// Warframe Market API - V2 需认证端点
 /// </summary>
-public interface IWarframeMarketApiV2Auth
+internal interface IWarframeMarketApiV2Auth
 {
 	// ===== Orders =====
 
@@ -86,4 +86,4 @@ public interface IWarframeMarketApiV2Auth
 /// 更新虚拟订单分组可见性的响应
 /// </summary>
 /// <param name="Updated">更新影响的订单数量</param>
-public record PatchOrdersGroupResponse(int Updated);
+internal record PatchOrdersGroupResponse(int Updated);

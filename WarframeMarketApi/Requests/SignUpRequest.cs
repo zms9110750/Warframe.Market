@@ -11,7 +11,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// <param name="Platform">用户起始平台</param>
 /// <param name="Locale">偏好通信语言</param>
 /// <param name="DeviceName">可读的设备名称，默认 "Unknown"，最长 128 字符</param>
-public record SignUpRequest(
+internal record SignUpRequest(
 	string Email,
 	string Password,
 	string PasswordConfirmation,

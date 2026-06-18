@@ -8,7 +8,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// <param name="ClientId">已注册的第一方客户端 ID，6 ~ 64 字符</param>
 /// <param name="DeviceId">用于绑定会话的设备唯一 ID，6 ~ 256 字符</param>
 /// <param name="DeviceName">可读的设备名称，默认 "Unknown"，最长 128 字符</param>
-public record SignInRequest(
+internal record SignInRequest(
 	string Email,
 	string Password,
 	string ClientId,

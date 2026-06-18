@@ -10,7 +10,7 @@ namespace zms9110750.WarframeMarketApi.Requests;
 /// <param name="Theme">UI 主题（light / dark / system）</param>
 /// <param name="SyncLocale">是否跨设备同步语言偏好</param>
 /// <param name="SyncTheme">是否跨设备同步主题偏好</param>
-public record UpdateMeRequest(
+internal record UpdateMeRequest(
 	string? About = null,
 	string? Platform = null,
 	bool? Crossplay = null,

@@ -6,7 +6,7 @@ namespace zms9110750.WarframeMarketApi.Api;
 /// <summary>
 /// Warframe Market API - 认证端点
 /// </summary>
-public interface IWarframeMarketAuthApi
+internal interface IWarframeMarketAuthApi
 {
 	/// <summary>
 	/// 使用第一方客户端登录并创建会话
@@ -40,7 +40,7 @@ public interface IWarframeMarketAuthApi
 /// <param name="RefreshToken">刷新令牌</param>
 /// <param name="TokenType">令牌类型（Bearer）</param>
 /// <param name="ExpiresIn">访问令牌有效期（秒）</param>
-public record SignInResponse(
+internal record SignInResponse(
 	string AccessToken,
 	string RefreshToken,
 	string TokenType,
