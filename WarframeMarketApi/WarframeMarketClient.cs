@@ -385,11 +385,6 @@ internal class ResilienceHandler : DelegatingHandler
 			clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
 		}
 
-		foreach (var option in request.Options)
-		{
-			clone.Options.Set(new HttpRequestOptionsKey<object?>(option.Key), option.Value);
-		}
-
 		return clone;
 	}
 }
