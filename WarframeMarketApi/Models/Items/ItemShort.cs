@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace zms9110750.WarframeMarketApi.Models.Items;
 
 /// <summary>
@@ -32,5 +34,25 @@ public record ItemShort(
 	Dictionary<Language, LanguagePake> I18n
 )
 {
+	/// <summary>
+	/// EF Core 构造器（不含 I18n，从数据库读取后再从 ItemLocalizations 表填充）
+	/// </summary>
+	[JsonConstructor]
+	public ItemShort(
+		string Id,
+		string Slug,
+		string GameRef,
+		HashSet<string> Tags,
+		int? MaxRank,
+		bool? Vaulted,
+		int? Ducats,
+		int? MaxAmberStars,
+		int? MaxCyanStars,
+		int? BaseEndo,
+		float? EndoMultiplier,
+		ItemSubtypeSet? Subtypes
+	) : this(Id, Slug, GameRef, Tags, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars,
+		BaseEndo, EndoMultiplier, Subtypes, new Dictionary<Language, LanguagePake>()) { }
+
 	public static implicit operator string(ItemShort item) => item.Slug;
 }

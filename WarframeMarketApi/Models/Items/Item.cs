@@ -52,4 +52,20 @@ public record Item(
 	int? Vosfor,
 	int? ReqMasteryRank,
 	int? TradingTax
-) : ItemShort(Id, Slug, GameRef, Tags, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars, BaseEndo, EndoMultiplier, Subtypes, I18n);
+) : ItemShort(Id, Slug, GameRef, Tags, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars, BaseEndo, EndoMultiplier, Subtypes, I18n)
+{
+	/// <summary>
+	/// EF Core 构造器（不含 I18n，从 ItemLocalizations 填充）
+	/// </summary>
+	public Item(
+		string Id, string Slug, string GameRef, HashSet<string> Tags,
+		int? MaxRank, bool? Vaulted, int? Ducats, int? MaxAmberStars, int? MaxCyanStars,
+		int? BaseEndo, float? EndoMultiplier, ItemSubtypeSet? Subtypes,
+		string UrlName, bool Tradable, bool? SetRoot, HashSet<string>? SetParts,
+		int? QuantityInSet, ItemRarity? Rarity, bool? BulkTradable,
+		int? MaxCharges, int? Vosfor, int? ReqMasteryRank, int? TradingTax
+	) : this(Id, Slug, GameRef, Tags, MaxRank, Vaulted, Ducats, MaxAmberStars, MaxCyanStars,
+		BaseEndo, EndoMultiplier, Subtypes, new Dictionary<Language, LanguagePake>(),
+		UrlName, Tradable, SetRoot, SetParts, QuantityInSet, Rarity,
+		BulkTradable, MaxCharges, Vosfor, ReqMasteryRank, TradingTax) { }
+}

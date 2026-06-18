@@ -32,15 +32,7 @@ public class WfmDbContext : DbContext
 		modelBuilder.Entity<ItemShort>(e =>
 		{
 			e.HasKey(i => i.Id);
-
-			// I18n 字典存 JSON（供 EF 构造函数）
-			e.Property(i => i.I18n).HasConversion(
-				v => JsonSerializer.Serialize(v, JsonOpts),
-				v => JsonSerializer.Deserialize<Dictionary<Language, LanguagePake>>(v, JsonOpts) ?? new())
-				.Metadata.SetValueComparer(new ValueComparer<Dictionary<Language, LanguagePake>>(
-					(c1, c2) => c1!.Count == c2!.Count && !c1.Except(c2).Any(),
-					c => c.Aggregate(0, (a, kv) => HashCode.Combine(a, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
-					c => new Dictionary<Language, LanguagePake>(c)));
+			e.Ignore(i => i.I18n); // 从 ItemLocalizations 表填充
 
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
