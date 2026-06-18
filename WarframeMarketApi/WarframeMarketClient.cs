@@ -2,6 +2,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using Polly;
+using Polly.RateLimiting;
+using Polly.Retry;
 using Refit;
 using zms9110750.WarframeMarketApi.Api;
 using zms9110750.WarframeMarketApi.Models;
@@ -24,6 +29,7 @@ namespace zms9110750.WarframeMarketApi;
 /// <summary>
 /// Warframe.Market API 客户端。
 /// 实现 <see cref="IWarframeMarketApiV2"/> 所有公共端点，并额外提供 V1 统计数据的 V2 包装。
+/// 内置 Polly 弹性管道：429 重试（指数退避 + 抖动）、令牌桶限流（3/s）、限流拒绝无限重试。
 /// </summary>
 public class WarframeMarketClient : IWarframeMarketApiV2
 {
@@ -44,16 +50,54 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	private readonly HttpClient _httpClient;
 
 	/// <summary>
-	/// 使用默认配置创建客户端（基址 https://api.warframe.market，Language: zh-hans，Platform: pc）
+	/// 使用默认配置创建客户端（基址 https://api.warframe.market，内置 Polly 弹性管道）
 	/// </summary>
 	public WarframeMarketClient()
 	{
-		_httpClient = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
-		_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("zms9110750.WarframeMarketApi/0.1.0");
-		_httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
-		_httpClient.DefaultRequestHeaders.Add("Language", "zh-hans");
-		_httpClient.DefaultRequestHeaders.Add("Platform", "pc");
+		var services = new ServiceCollection();
+
+		services.AddHttpClient("WarframeMarket", client =>
+		{
+			client.BaseAddress = new Uri("https://api.warframe.market");
+			client.DefaultRequestHeaders.UserAgent.ParseAdd("zms9110750.WarframeMarketApi/0.1.0");
+			client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+			client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
+			client.DefaultRequestHeaders.Add("Language", "zh-hans");
+			client.DefaultRequestHeaders.Add("Platform", "pc");
+		})
+		.AddResilienceHandler("wm", builder =>
+		{
+			// 429 Too Many Requests → 指数退避重试，最多 3 次
+			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+			{
+				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+					.HandleResult(r => r.StatusCode == HttpStatusCode.TooManyRequests),
+				MaxRetryAttempts = 3,
+				Delay = TimeSpan.FromSeconds(1),
+				BackoffType = DelayBackoffType.Exponential,
+				UseJitter = true,
+			});
+
+			// 限流拒绝 → 无限重试（直到排进队列）
+			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+			{
+				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+					.Handle<RateLimiterRejectedException>(),
+				MaxRetryAttempts = int.MaxValue,
+				Delay = TimeSpan.FromSeconds(1.5),
+			});
+
+			// 令牌桶限流：每秒最多 3 个请求，排队上限 6
+			builder.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
+			{
+				PermitLimit = 3,
+				SegmentsPerWindow = 1,
+				Window = TimeSpan.FromSeconds(1),
+			}));
+		});
+
+		var sp = services.BuildServiceProvider();
+		_httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("WarframeMarket");
 
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
@@ -62,7 +106,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// 使用自定义 HttpClient 和 Refit 客户端创建
+	/// 使用自定义 Refit 客户端（跳过内置 HttpClient 和弹性管道）
 	/// </summary>
 	public WarframeMarketClient(IWarframeMarketApiV2 apiV2)
 	{

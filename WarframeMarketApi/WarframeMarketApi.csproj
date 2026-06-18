@@ -8,6 +8,7 @@
 		<RootNamespace>zms9110750.$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
 		<AssemblyName>zms9110750.$(MSBuildProjectName)</AssemblyName>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<Authors>zms9110750</Authors>
 		<PackageProjectUrl>https://github.com/zms9110750/zms9110750Library</PackageProjectUrl>
@@ -21,6 +22,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="Refit.HttpClientFactory" Version="9.0.2" />
+		<PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
 	</ItemGroup>
 
 </Project>
