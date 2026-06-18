@@ -19,4 +19,8 @@
 		<PackageTags>Warframe Market API</PackageTags>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<PackageReference Include="Refit.HttpClientFactory" Version="9.0.2" />
+	</ItemGroup>
+
 </Project>
