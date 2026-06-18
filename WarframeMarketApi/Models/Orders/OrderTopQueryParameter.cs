@@ -11,7 +11,7 @@ namespace zms9110750.WarframeMarketApi.Models.Orders;
 /// <param name="AmberStarsLt">琥珀星星数量上限（存在时忽略 AmberStars）</param>
 /// <param name="CyanStars">精确青蓝星星数量匹配</param>
 /// <param name="CyanStarsLt">青蓝星星数量上限（存在时忽略 CyanStars）</param>
-/// <param name="Subtype">物品子类型</param>
+/// <param name="Subtype">物品子类型（字符串）</param>
 public record OrderTopQueryParameter(
 	int? Rank,
 	int? RankLt,
@@ -21,5 +21,5 @@ public record OrderTopQueryParameter(
 	int? AmberStarsLt,
 	int? CyanStars,
 	int? CyanStarsLt,
-	Items.ItemSubtypes? Subtype
+	string? Subtype
 );

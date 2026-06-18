@@ -21,7 +21,7 @@ namespace zms9110750.WarframeMarketApi.Models.Items;
 /// <param name="SetRoot">是否为套装根物品</param>
 /// <param name="SetParts">套装部件 ID 列表</param>
 /// <param name="QuantityInSet">在套装中的数量</param>
-/// <param name="Rarity">稀有度</param>
+/// <param name="Rarity">稀有度（字符串）</param>
 /// <param name="BulkTradable">是否可批量交易</param>
 /// <param name="MaxCharges">最大充能次数</param>
 /// <param name="Vosfor">Vosfor 价值</param>
@@ -46,7 +46,7 @@ public record Item(
 	bool? SetRoot,
 	HashSet<string>? SetParts,
 	int? QuantityInSet,
-	ItemSubtypes? Rarity,
+	string? Rarity,
 	bool? BulkTradable,
 	int? MaxCharges,
 	int? Vosfor,

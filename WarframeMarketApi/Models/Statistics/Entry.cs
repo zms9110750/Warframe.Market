@@ -13,7 +13,7 @@ namespace zms9110750.WarframeMarketApi.Models.Statistics;
 /// <param name="OrderType">订单类型</param>
 /// <param name="Id">虚拟订单 ID</param>
 /// <param name="ModRank">MOD 等级</param>
-/// <param name="Subtype">物品子类型</param>
+/// <param name="Subtype">物品子类型（字符串）</param>
 /// <param name="AmberStars">琥珀星星数量</param>
 /// <param name="CyanStars">青蓝星星数量</param>
 /// <param name="OpenPrice">开盘价格</param>
@@ -31,7 +31,7 @@ public record Entry(
 	string? OrderType,
 	string Id,
 	int? ModRank,
-	Items.ItemSubtypes? Subtype,
+	string? Subtype,
 	sbyte? AmberStars,
 	sbyte? CyanStars,
 	float? OpenPrice,
