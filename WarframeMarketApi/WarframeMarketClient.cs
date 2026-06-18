@@ -28,8 +28,8 @@ namespace zms9110750.WarframeMarketApi;
 
 /// <summary>
 /// Warframe.Market API 客户端。
-/// 实现 <see cref="IWarframeMarketApiV2"/> 所有公共端点，并额外提供 V1 统计数据的 V2 包装。
-/// 内置 Polly 弹性管道：429 重试（指数退避 + 抖动）、令牌桶限流（3/s）、限流拒绝无限重试。
+/// 实现所有公共端点，内置 Polly 弹性管道：
+/// 429 重试（指数退避+抖动）、令牌桶限流（3/s）、限流拒绝无限重试。
 /// </summary>
 public class WarframeMarketClient : IWarframeMarketApiV2
 {
@@ -50,7 +50,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	private readonly HttpClient _httpClient;
 
 	/// <summary>
-	/// 使用默认配置创建客户端（基址 https://api.warframe.market，内置 Polly 弹性管道）
+	/// 使用默认配置创建客户端。
+	/// 基址 https://api.warframe.market，内置 Polly 弹性管道（限流 3/s + 429 重试）。
 	/// </summary>
 	public WarframeMarketClient()
 	{
@@ -67,7 +68,6 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		})
 		.AddResilienceHandler("wm", builder =>
 		{
-			// 429 Too Many Requests → 指数退避重试，最多 3 次
 			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
 			{
 				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
@@ -78,7 +78,6 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 				UseJitter = true,
 			});
 
-			// 限流拒绝 → 无限重试（直到排进队列）
 			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
 			{
 				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
@@ -87,7 +86,6 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 				Delay = TimeSpan.FromSeconds(1.5),
 			});
 
-			// 令牌桶限流：每秒最多 3 个请求，排队上限 6
 			builder.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
 			{
 				PermitLimit = 3,
@@ -106,12 +104,19 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// 使用自定义 Refit 客户端（跳过内置 HttpClient 和弹性管道）
+	/// 使用自定义 HttpClient 创建客户端。
+	/// 注意：自定义 HttpClient 不会自动附加 Polly 弹性管道，
+	/// 请自行配置 BaseAddress、请求头、限流和重试。
 	/// </summary>
-	public WarframeMarketClient(IWarframeMarketApiV2 apiV2)
+	/// <param name="httpClient">已配置的 HttpClient（应设置 BaseAddress = https://api.warframe.market）</param>
+	public WarframeMarketClient(HttpClient httpClient)
 	{
-		_apiV2 = apiV2;
-		_httpClient = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
+		_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+
+		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
+		{
+			ContentSerializer = new SystemTextJsonContentSerializer(V2Options)
+		});
 	}
 
 	/// <inheritdoc/>
@@ -249,9 +254,6 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	/// <summary>
 	/// 获取指定物品的统计数据（V1 端点，内部自动反序列化并包装为 V2 统一响应格式）
 	/// </summary>
-	/// <param name="slug">物品 slug</param>
-	/// <param name="cancellation">取消令牌</param>
-	/// <returns>V2 格式的统计响应</returns>
 	public async Task<Response<Statistic>> GetStatisticsAsync(string slug, CancellationToken cancellation = default)
 	{
 		try

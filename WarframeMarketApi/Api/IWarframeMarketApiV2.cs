@@ -16,7 +16,7 @@ using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
 namespace zms9110750.WarframeMarketApi.Api;
 
 /// <summary>Warframe Market API - V2 公共端点</summary>
-public interface IWarframeMarketApiV2
+internal interface IWarframeMarketApiV2
 {
 	/// <summary>获取服务器资源的当前版本号</summary>
 	[Get("/v2/versions")]
