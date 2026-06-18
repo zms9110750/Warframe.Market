@@ -20,6 +20,27 @@ using (var efCtx = new EfPropTestContext(efTestDb))
 }
 try { File.Delete(efTestDb); } catch { }
 
+// ─── 测试 DateTime 存储对比 ───
+Console.Error.WriteLine("\n=== DateTime 存储对比测试 ===");
+var dtDb = Path.Combine(AppContext.BaseDirectory, "dt_test.db");
+File.Delete(dtDb);
+using (var dtCtx = new DtTestContext(dtDb))
+{
+	await dtCtx.Database.EnsureCreatedAsync();
+	dtCtx.CSharpSet.Add(new DtRecord("a", DateTime.UtcNow));
+	dtCtx.SqlDefault.Add(new DbDefault());
+	await dtCtx.SaveChangesAsync();
+}
+using (var dtCtx2 = new DtTestContext(dtDb))
+{
+	var a = await dtCtx2.CSharpSet.FirstAsync();
+	var b = await dtCtx2.SqlDefault.FirstAsync();
+	Console.Error.WriteLine($"  C# {a.Time:O}  Kind={a.Time.Kind}");
+	Console.Error.WriteLine($"  SQL {b.Time:O}  Kind={b.Time.Kind}  ToUniversal={b.Time.ToUniversalTime():O}");
+	Console.Error.WriteLine($"  DatesMatch={(a.Time.Date == b.Time.ToUniversalTime().Date)}");
+}
+try { File.Delete(dtDb); } catch { }
+
 // ─── 正式测试 ───
 var dbPath = Path.Combine(AppContext.BaseDirectory, "wfm_test.db");
 Console.Error.WriteLine($"数据库: {dbPath}");
@@ -103,6 +124,24 @@ public record ItemTranslation(
 ) : LanguagePake(Name, Description, WikiLink, Icon, Thumb, SubIcon)
 {
 	public ItemShort? Item { get; set; }
+}
+
+// ===== DateTime 对比测试 =====
+public record DtRecord(string Id, DateTime Time);
+public record DbDefault { public int Id { get; set; } = 1; public DateTime Time { get; set; } }
+
+public class DtTestContext : DbContext
+{
+	public DbSet<DtRecord> CSharpSet => Set<DtRecord>();
+	public DbSet<DbDefault> SqlDefault => Set<DbDefault>();
+	private readonly string _path;
+	public DtTestContext(string path) => _path = path;
+	protected override void OnConfiguring(DbContextOptionsBuilder o) => o.UseSqlite($"Data Source={_path}");
+	protected override void OnModelCreating(ModelBuilder mb)
+	{
+		mb.Entity<DtRecord>(e => e.HasKey(r => r.Id));
+		mb.Entity<DbDefault>(e => { e.HasKey(d => d.Id); e.Property(d => d.Time).HasDefaultValueSql("datetime('now')"); });
+	}
 }
 
 public class TestDb : DbContext
