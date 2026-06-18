@@ -3,8 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.RateLimiting;
-using Microsoft.Extensions.DependencyInjection;
-using Polly;
 using Polly.RateLimiting;
 using Polly.Retry;
 using Refit;
@@ -22,6 +20,7 @@ using zms9110750.WarframeMarketApi.Models.Rivens;
 using zms9110750.WarframeMarketApi.Models.Sisters;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.WarframeMarketApi.Models.Users;
+using Polly;
 using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
 
 namespace zms9110750.WarframeMarketApi;
@@ -46,6 +45,32 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
 	};
 
+	private static readonly ResiliencePipeline<HttpResponseMessage> Pipeline =
+		new ResiliencePipelineBuilder<HttpResponseMessage>()
+			.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+			{
+				ShouldHandle = args => ValueTask.FromResult(
+					args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
+				MaxRetryAttempts = 3,
+				Delay = TimeSpan.FromSeconds(1),
+				BackoffType = DelayBackoffType.Exponential,
+				UseJitter = true,
+			})
+			.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+			{
+				ShouldHandle = args => ValueTask.FromResult(
+					args.Outcome.Exception is RateLimiterRejectedException),
+				MaxRetryAttempts = int.MaxValue,
+				Delay = TimeSpan.FromSeconds(1.5),
+			})
+			.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
+			{
+				PermitLimit = 3,
+				SegmentsPerWindow = 1,
+				Window = TimeSpan.FromSeconds(1),
+			}))
+			.Build();
+
 	private readonly IWarframeMarketApiV2 _apiV2;
 	private readonly HttpClient _httpClient;
 
@@ -55,47 +80,23 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	/// </summary>
 	public WarframeMarketClient()
 	{
-		var services = new ServiceCollection();
-
-		services.AddHttpClient("WarframeMarket", client =>
+		var innerHandler = new SocketsHttpHandler
 		{
-			client.BaseAddress = new Uri("https://api.warframe.market");
-			client.DefaultRequestHeaders.UserAgent.ParseAdd("zms9110750.WarframeMarketApi/0.1.0");
-			client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-			client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
-			client.DefaultRequestHeaders.Add("Language", "zh-hans");
-			client.DefaultRequestHeaders.Add("Platform", "pc");
-		})
-		.AddResilienceHandler("wm", builder =>
+			PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+			EnableMultipleHttp2Connections = true,
+		};
+
+		var resilienceHandler = new ResilienceHandler(Pipeline, innerHandler);
+
+		_httpClient = new HttpClient(resilienceHandler)
 		{
-			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
-			{
-				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-					.HandleResult(r => r.StatusCode == HttpStatusCode.TooManyRequests),
-				MaxRetryAttempts = 3,
-				Delay = TimeSpan.FromSeconds(1),
-				BackoffType = DelayBackoffType.Exponential,
-				UseJitter = true,
-			});
-
-			builder.AddRetry(new RetryStrategyOptions<HttpResponseMessage>
-			{
-				ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-					.Handle<RateLimiterRejectedException>(),
-				MaxRetryAttempts = int.MaxValue,
-				Delay = TimeSpan.FromSeconds(1.5),
-			});
-
-			builder.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
-			{
-				PermitLimit = 3,
-				SegmentsPerWindow = 1,
-				Window = TimeSpan.FromSeconds(1),
-			}));
-		});
-
-		var sp = services.BuildServiceProvider();
-		_httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("WarframeMarket");
+			BaseAddress = new Uri("https://api.warframe.market")
+		};
+		_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("zms9110750.WarframeMarketApi/0.1.0");
+		_httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
+		_httpClient.DefaultRequestHeaders.Add("Language", "zh-hans");
+		_httpClient.DefaultRequestHeaders.Add("Platform", "pc");
 
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
@@ -266,5 +267,55 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		{
 			return new Response<Statistic>("0.25.0", null!, ex.Message);
 		}
+	}
+}
+
+/// <summary>
+/// 使用 Polly 弹性管道包装 HttpMessageHandler 的委托处理程序
+/// </summary>
+internal class ResilienceHandler : DelegatingHandler
+{
+	private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
+
+	public ResilienceHandler(ResiliencePipeline<HttpResponseMessage> pipeline, HttpMessageHandler inner)
+		: base(inner)
+	{
+		_pipeline = pipeline;
+	}
+
+	protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+	{
+		return await _pipeline.ExecuteAsync(async cancel =>
+		{
+			var clone = await CloneHttpRequestMessageAsync(request);
+			return await base.SendAsync(clone, cancel);
+		}, ct);
+	}
+
+	private static async Task<HttpRequestMessage> CloneHttpRequestMessageAsync(HttpRequestMessage request)
+	{
+		var clone = new HttpRequestMessage(request.Method, request.RequestUri);
+
+		if (request.Content != null)
+		{
+			var body = await request.Content.ReadAsByteArrayAsync();
+			clone.Content = new ByteArrayContent(body);
+			foreach (var header in request.Content.Headers)
+			{
+				clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+			}
+		}
+
+		foreach (var header in request.Headers)
+		{
+			clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+		}
+
+		foreach (var option in request.Options)
+		{
+			clone.Options.Set(new HttpRequestOptionsKey<object?>(option.Key), option.Value);
+		}
+
+		return clone;
 	}
 }
