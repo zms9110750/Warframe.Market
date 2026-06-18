@@ -1,4 +1,4 @@
-ï»¿using System.Net;
+using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,9 +27,9 @@ using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
 namespace zms9110750.WarframeMarketApi;
 
 /// <summary>
-/// Warframe.Market API å®¢æˆ·ç«¯ã€‚
-/// å®ç°æ‰€æœ‰å…¬å…±ç«¯ç‚¹ï¼Œå†…ç½® Polly å¼¹æ€§ç®¡é“ï¼š
-/// 429 é‡è¯•ï¼ˆæŒ‡æ•°é€€é¿+æŠ–åŠ¨ï¼‰ã€ä»¤ç‰Œæ¡¶é™æµï¼ˆ3/sï¼‰ã€é™æµæ‹’ç»æ— é™é‡è¯•ã€‚
+/// Warframe.Market API ¿Í»§¶Ë¡£
+/// ÊµÏÖËùÓĞ¹«¹²¶Ëµã£¬ÄÚÖÃ Polly µ¯ĞÔ¹ÜµÀ£º
+/// 429 ÖØÊÔ£¨Ö¸ÊıÍË±Ü+¶¶¶¯£©¡¢ÁîÅÆÍ°ÏŞÁ÷£¨3/s£©¡¢ÏŞÁ÷¾Ü¾øÎŞÏŞÖØÊÔ¡£
 /// </summary>
 public class WarframeMarketClient : IWarframeMarketApiV2
 {
@@ -79,8 +79,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	private bool _crossplay;
 
 	/// <summary>
-	/// è¯·æ±‚è¿”å›å†…å®¹çš„è¯­è¨€ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Language</c>ã€‚
-	/// é»˜è®¤ zh-hansï¼Œæ”¯æŒ en/ko/ru/de/fr/pt/zh-hans/zh-hant/es/it/pl/uk/tr/jaã€‚
+	/// ÇëÇó·µ»ØÄÚÈİµÄÓïÑÔ¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Language</c>¡£
+	/// Ä¬ÈÏ zh-hans£¬Ö§³Ö en/ko/ru/de/fr/pt/zh-hans/zh-hant/es/it/pl/uk/tr/ja¡£
 	/// </summary>
 	public Language Language
 	{
@@ -95,8 +95,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// ç­›é€‰ç»“æœçš„æ¸¸æˆå¹³å°ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Platform</c>ã€‚
-	/// é»˜è®¤ pcï¼Œæ”¯æŒ pc/ps4/xbox/switch/mobileã€‚
+	/// É¸Ñ¡½á¹ûµÄÓÎÏ·Æ½Ì¨¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Platform</c>¡£
+	/// Ä¬ÈÏ pc£¬Ö§³Ö pc/ps4/xbox/switch/mobile¡£
 	/// </summary>
 	public Platform Platform
 	{
@@ -111,8 +111,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// æ˜¯å¦å¯ç”¨è·¨å¹³å°äº¤æ˜“ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Crossplay</c>ã€‚
-	/// é»˜è®¤ falseã€‚
+	/// ÊÇ·ñÆôÓÃ¿çÆ½Ì¨½»Ò×¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Crossplay</c>¡£
+	/// Ä¬ÈÏ false¡£
 	/// </summary>
 	public bool Crossplay
 	{
@@ -126,9 +126,9 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// ä½¿ç”¨é»˜è®¤é…ç½®åˆ›å»ºå®¢æˆ·ç«¯ã€‚
-	/// åŸºå€ https://api.warframe.marketï¼Œå†…ç½® Polly å¼¹æ€§ç®¡é“ï¼ˆé™æµ 3/s + 429 é‡è¯•ï¼‰ã€‚
-	/// User-Agent è‡ªåŠ¨å–è°ƒç”¨æ–¹ç¨‹åºé›†åå’Œç‰ˆæœ¬ã€‚
+	/// Ê¹ÓÃÄ¬ÈÏÅäÖÃ´´½¨¿Í»§¶Ë¡£
+	/// »ùÖ· https://api.warframe.market£¬ÄÚÖÃ Polly µ¯ĞÔ¹ÜµÀ£¨ÏŞÁ÷ 3/s + 429 ÖØÊÔ£©¡£
+	/// User-Agent ×Ô¶¯È¡µ÷ÓÃ·½³ÌĞò¼¯ÃûºÍ°æ±¾¡£
 	/// </summary>
 	public WarframeMarketClient()
 	{
@@ -167,11 +167,11 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// ä½¿ç”¨è‡ªå®šä¹‰ HttpClient åˆ›å»ºå®¢æˆ·ç«¯ã€‚
-	/// æ³¨æ„ï¼šè‡ªå®šä¹‰ HttpClient ä¸ä¼šè‡ªåŠ¨é™„åŠ  Polly å¼¹æ€§ç®¡é“ï¼Œ
-	/// è¯·è‡ªè¡Œé…ç½® BaseAddressã€è¯·æ±‚å¤´ã€é™æµå’Œé‡è¯•ã€‚
+	/// Ê¹ÓÃ×Ô¶¨Òå HttpClient ´´½¨¿Í»§¶Ë¡£
+	/// ×¢Òâ£º×Ô¶¨Òå HttpClient ²»»á×Ô¶¯¸½¼Ó Polly µ¯ĞÔ¹ÜµÀ£¬
+	/// Çë×ÔĞĞÅäÖÃ BaseAddress¡¢ÇëÇóÍ·¡¢ÏŞÁ÷ºÍÖØÊÔ¡£
 	/// </summary>
-	/// <param name="httpClient">å·²é…ç½®çš„ HttpClientï¼ˆåº”è®¾ç½® BaseAddress = https://api.warframe.marketï¼‰</param>
+	/// <param name="httpClient">ÒÑÅäÖÃµÄ HttpClient£¨Ó¦ÉèÖÃ BaseAddress = https://api.warframe.market£©</param>
 	public WarframeMarketClient(HttpClient httpClient)
 	{
 		_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -195,139 +195,139 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Version>>> GetVersionsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Version>>> GetVersionsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetVersionsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetItemsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Item>>> GetItemAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Item>>> GetItemAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetItemAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Item>>> GetItemByIdAsync(string itemId, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Item>>> GetItemByIdAsync(string itemId, CancellationToken cancellation = default) =>
 		_apiV2.GetItemByIdAsync(itemId, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<ItemSet>>> GetItemSetAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<ItemSet>>> GetItemSetAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetItemSetAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<ItemSet>>> GetItemSetByIdAsync(string itemId, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<ItemSet>>> GetItemSetByIdAsync(string itemId, CancellationToken cancellation = default) =>
 		_apiV2.GetItemSetByIdAsync(itemId, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Riven[]>>> GetRivenWeaponsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Riven[]>>> GetRivenWeaponsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetRivenWeaponsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Riven>>> GetRivenWeaponAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Riven>>> GetRivenWeaponAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetRivenWeaponAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<RivenAttribute[]>>> GetRivenAttributesAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<RivenAttribute[]>>> GetRivenAttributesAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetRivenAttributesAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<LichWeapon[]>>> GetLichWeaponsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<LichWeapon[]>>> GetLichWeaponsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetLichWeaponsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<LichWeapon>>> GetLichWeaponAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<LichWeapon>>> GetLichWeaponAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetLichWeaponAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<LichEphemera[]>>> GetLichEphemerasAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<LichEphemera[]>>> GetLichEphemerasAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetLichEphemerasAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<LichQuirk[]>>> GetLichQuirksAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<LichQuirk[]>>> GetLichQuirksAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetLichQuirksAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<SisterWeapon[]>>> GetSisterWeaponsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<SisterWeapon[]>>> GetSisterWeaponsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetSisterWeaponsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<SisterWeapon>>> GetSisterWeaponAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<SisterWeapon>>> GetSisterWeaponAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetSisterWeaponAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<SisterEphemera[]>>> GetSisterEphemerasAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<SisterEphemera[]>>> GetSisterEphemerasAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetSisterEphemerasAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<SisterQuirk[]>>> GetSisterQuirksAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<SisterQuirk[]>>> GetSisterQuirksAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetSisterQuirksAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Location[]>>> GetLocationsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Location[]>>> GetLocationsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetLocationsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Npc[]>>> GetNpcsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Npc[]>>> GetNpcsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetNpcsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Mission[]>>> GetMissionsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Mission[]>>> GetMissionsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetMissionsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Order[]>>> GetOrdersRecentAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Order[]>>> GetOrdersRecentAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersRecentAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Order[]>>> GetOrdersItemAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Order[]>>> GetOrdersItemAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersItemAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Order[]>>> GetOrdersItemByIdAsync(string itemId, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Order[]>>> GetOrdersItemByIdAsync(string itemId, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersItemByIdAsync(itemId, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<OrderTop>>> GetOrdersItemTopAsync(string slug, OrderTopQueryParameter? query, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<OrderTop>>> GetOrdersItemTopAsync(string slug, OrderTopQueryParameter? query, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersItemTopAsync(slug, query, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<OrderTop>>> GetOrdersItemTopByIdAsync(string itemId, OrderTopQueryParameter? query, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<OrderTop>>> GetOrdersItemTopByIdAsync(string itemId, OrderTopQueryParameter? query, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersItemTopByIdAsync(itemId, query, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Order[]>>> GetOrdersFromUserAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Order[]>>> GetOrdersFromUserAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersFromUserAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Order[]>>> GetOrdersFromUserIdAsync(string userId, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Order[]>>> GetOrdersFromUserIdAsync(string userId, CancellationToken cancellation = default) =>
 		_apiV2.GetOrdersFromUserIdAsync(userId, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<User>>> GetUserAsync(string slug, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<User>>> GetUserAsync(string slug, CancellationToken cancellation = default) =>
 		_apiV2.GetUserAsync(slug, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<User>>> GetUserByIdAsync(string userId, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<User>>> GetUserByIdAsync(string userId, CancellationToken cancellation = default) =>
 		_apiV2.GetUserByIdAsync(userId, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Achievement[]>>> GetAchievementsAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Achievement[]>>> GetAchievementsAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetAchievementsAsync(cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Achievement[]>>> GetUserAchievementsAsync(string slug, bool? featured, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Achievement[]>>> GetUserAchievementsAsync(string slug, bool? featured, CancellationToken cancellation = default) =>
 		_apiV2.GetUserAchievementsAsync(slug, featured, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<Achievement[]>>> GetUserAchievementsByIdAsync(string userId, bool? featured, CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<Achievement[]>>> GetUserAchievementsByIdAsync(string userId, bool? featured, CancellationToken cancellation = default) =>
 		_apiV2.GetUserAchievementsByIdAsync(userId, featured, cancellation);
 
 	/// <inheritdoc/>
-	public Task<IApiResponse<Response<DashboardShowcase>>> GetDashboardShowcaseAsync(CancellationToken cancellation) =>
+	public Task<IApiResponse<Response<DashboardShowcase>>> GetDashboardShowcaseAsync(CancellationToken cancellation = default) =>
 		_apiV2.GetDashboardShowcaseAsync(cancellation);
 
 	/// <summary>
-	/// è·å–æŒ‡å®šç‰©å“çš„ç»Ÿè®¡æ•°æ®ï¼ˆV1 ç«¯ç‚¹ï¼Œå†…éƒ¨è‡ªåŠ¨ååºåˆ—åŒ–å¹¶åŒ…è£…ä¸º V2 ç»Ÿä¸€å“åº”æ ¼å¼ï¼‰
+	/// »ñÈ¡Ö¸¶¨ÎïÆ·µÄÍ³¼ÆÊı¾İ£¨V1 ¶Ëµã£¬ÄÚ²¿×Ô¶¯·´ĞòÁĞ»¯²¢°ü×°Îª V2 Í³Ò»ÏìÓ¦¸ñÊ½£©
 	/// </summary>
 	public async Task<Response<Statistic>> GetStatisticsAsync(string slug, CancellationToken cancellation = default)
 	{
@@ -345,7 +345,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 }
 
 /// <summary>
-/// ä½¿ç”¨ Polly å¼¹æ€§ç®¡é“åŒ…è£… HttpMessageHandler çš„å§”æ‰˜å¤„ç†ç¨‹åº
+/// Ê¹ÓÃ Polly µ¯ĞÔ¹ÜµÀ°ü×° HttpMessageHandler µÄÎ¯ÍĞ´¦Àí³ÌĞò
 /// </summary>
 internal class ResilienceHandler : DelegatingHandler
 {

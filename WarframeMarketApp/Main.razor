@@ -1,0 +1,62 @@
+@inject zms9110750.WarframeMarketApi.WarframeMarketClient Wfm
+
+<PageTitle>Warframe Market</PageTitle>
+
+<div style="padding: 20px;">
+    <h1>Warframe Market</h1>
+    <p>客户端状态：<code>@status</code></p>
+
+    <button @onclick="TestApi">测试 API 连接</button>
+
+    @if (result != null)
+    {
+        <pre style="margin-top: 12px; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; max-height: 400px; overflow: auto;">@result</pre>
+    }
+</div>
+
+@code {
+    private string status = "未就绪";
+    private string? result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var version = await Wfm.GetVersionsAsync();
+            if (version.IsSuccessStatusCode)
+            {
+                var v = version.Content!.Data!;
+                status = $"已连接 — API v{v.Id}";
+            }
+            else
+            {
+                status = $"连接失败: {version.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            status = $"错误: {ex.Message}";
+        }
+    }
+
+    private async Task TestApi()
+    {
+        try
+        {
+            var items = await Wfm.GetItemsAsync();
+            if (items.IsSuccessStatusCode)
+            {
+                var count = items.Content!.Data!.Length;
+                result = $"获取到 {count} 个物品";
+            }
+            else
+            {
+                result = $"失败: {items.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            result = $"异常: {ex.Message}";
+        }
+    }
+}

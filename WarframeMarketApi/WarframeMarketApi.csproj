@@ -14,7 +14,8 @@
 		<PackageProjectUrl>https://github.com/zms9110750/zms9110750Library</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/zms9110750/zms9110750Library</RepositoryUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<Version>0.1.0.0</Version>
+		<Version>0.1.0</Version>
+		<InformationalVersion>0.1.0+v0.23.0</InformationalVersion>
 		<Title>WarframeMarketApi</Title>
 		<Description>Warframe.Market API 的 .NET 封装库</Description>
 		<PackageTags>Warframe Market API</PackageTags>
