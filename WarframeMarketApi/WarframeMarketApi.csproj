@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>preview</LangVersion>
+		<RootNamespace>zms9110750.$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
+		<AssemblyName>zms9110750.$(MSBuildProjectName)</AssemblyName>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<Authors>zms9110750</Authors>
+		<PackageProjectUrl>https://github.com/zms9110750/zms9110750Library</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/zms9110750/zms9110750Library</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<Version>0.1.0.0</Version>
+		<Title>WarframeMarketApi</Title>
+		<Description>Warframe.Market API 的 .NET 封装库</Description>
+		<PackageTags>Warframe Market API</PackageTags>
+	</PropertyGroup>
+
+</Project>
