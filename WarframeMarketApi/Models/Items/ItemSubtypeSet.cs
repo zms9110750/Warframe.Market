@@ -1,105 +1,44 @@
-using System.Collections;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace zms9110750.WarframeMarketApi.Models.Items;
 
 /// <summary>
-/// 物品子类型集合。存储 API 返回的原始字符串，
-/// 并提供布尔属性快速判断物品类别。
+/// 物品子类型集合。继承 <see cref="HashSet{T}"/> 可直接 JSON 序列化。
+/// 提供布尔属性快速判断物品类别。
 /// </summary>
-[JsonConverter(typeof(ItemSubtypeSetConverter))]
-public class ItemSubtypeSet : IEnumerable<string>
+public class ItemSubtypeSet : HashSet<string>
 {
-	private readonly HashSet<string> _items = new(StringComparer.OrdinalIgnoreCase);
+	public ItemSubtypeSet() : base(StringComparer.OrdinalIgnoreCase) { }
 
-	/// <summary>添加子类型字符串</summary>
-	public void Add(string value) => _items.Add(value);
+	// ===== 静态查找集 =====
 
-	/// <summary>批量添加</summary>
-	public void AddRange(IEnumerable<string> values)
-	{
-		foreach (var v in values) _items.Add(v);
-	}
-
-	/// <summary>清空</summary>
-	public void Clear() => _items.Clear();
-
-	/// <summary>是否包含指定子类型</summary>
-	public bool Contains(string value) => _items.Contains(value);
-
-	public IEnumerator<string> GetEnumerator() => _items.GetEnumerator();
-	IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
-
-	public int Count => _items.Count;
+	public static HashSet<string> RivenKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "rivenmod", "riven_mod", "riven" };
+	public static HashSet<string> ModKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "mod", "rivenmod", "riven_mod" };
+	public static HashSet<string> RelicKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "relic", "intact", "exceptional", "flawless", "radiant" };
+	public static HashSet<string> FishKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "fish", "small", "medium", "large" };
+	public static HashSet<string> WeaponKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "weapon", "primary", "secondary", "melee", "archwing", "arch-gun", "arch-melee" };
+	public static HashSet<string> ComponentKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "component", "blueprint", "crafted" };
+	public static HashSet<string> ArcaneKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "arcane_enhancement", "arcane" };
+	public static HashSet<string> PrimeKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "prime_component", "prime" };
+	public static HashSet<string> RevealedKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "revealed" };
+	public static HashSet<string> UnrevealedKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "unrevealed" };
+	public static HashSet<string> GemKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "gem" };
+	public static HashSet<string> AyatanKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "ayatan_sculpture" };
+	public static HashSet<string> BlueprintKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "blueprint" };
+	public static HashSet<string> CraftedKeywords { get; } = new(StringComparer.OrdinalIgnoreCase) { "crafted" };
 
 	// ===== 快捷属性 =====
 
-	/// <summary>是否为裂罅 MOD</summary>
-	public bool IsRiven => _items.Overlaps(new[] { "rivenmod", "riven_mod", "riven" });
-
-	/// <summary>是否为已揭示裂罅</summary>
-	public bool IsRevealed => _items.Contains("revealed");
-
-	/// <summary>是否为未揭示裂罅</summary>
-	public bool IsUnrevealed => _items.Contains("unrevealed");
-
-	/// <summary>是否为 MOD</summary>
-	public bool IsMod => _items.Overlaps(new[] { "mod", "rivenmod", "riven_mod" });
-
-	/// <summary>是否为虚空遗物</summary>
-	public bool IsRelic => _items.Overlaps(new[] { "relic", "intact", "exceptional", "flawless", "radiant" });
-
-	/// <summary>是否为鱼类</summary>
-	public bool IsFish => _items.Overlaps(new[] { "fish", "small", "medium", "large" });
-
-	/// <summary>是否为宝石</summary>
-	public bool IsGem => _items.Contains("gem");
-
-	/// <summary>是否为安魂雕塑</summary>
-	public bool IsAyatan => _items.Contains("ayatan_sculpture");
-
-	/// <summary>是否为赋能</summary>
-	public bool IsArcane => _items.Overlaps(new[] { "arcane_enhancement", "arcane" });
-
-	/// <summary>是否为 Prime 部件</summary>
-	public bool IsPrimeComponent => _items.Overlaps(new[] { "prime_component", "prime" });
-
-	/// <summary>是否为蓝图</summary>
-	public bool IsBlueprint => _items.Contains("blueprint");
-
-	/// <summary>是否为成品</summary>
-	public bool IsCrafted => _items.Contains("crafted");
-
-	/// <summary>是否为组件</summary>
-	public bool IsComponent => _items.Overlaps(new[] { "component", "blueprint", "crafted" });
-
-	/// <summary>是否为装备/武器</summary>
-	public bool IsWeapon => _items.Overlaps(new[] { "weapon", "primary", "secondary", "melee", "archwing", "arch-gun", "arch-melee" });
-}
-
-internal class ItemSubtypeSetConverter : JsonConverter<ItemSubtypeSet>
-{
-	public override ItemSubtypeSet? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-	{
-		var set = new ItemSubtypeSet();
-		if (reader.TokenType == JsonTokenType.StartArray)
-		{
-			while (reader.Read())
-			{
-				if (reader.TokenType == JsonTokenType.EndArray) break;
-				if (reader.TokenType == JsonTokenType.String)
-					set.Add(reader.GetString()!);
-			}
-		}
-		return set;
-	}
-
-	public override void Write(Utf8JsonWriter writer, ItemSubtypeSet value, JsonSerializerOptions options)
-	{
-		writer.WriteStartArray();
-		foreach (var item in value)
-			writer.WriteStringValue(item);
-		writer.WriteEndArray();
-	}
+	public bool IsRiven => Overlaps(RivenKeywords);
+	public bool IsRevealed => Overlaps(RevealedKeywords);
+	public bool IsUnrevealed => Overlaps(UnrevealedKeywords);
+	public bool IsMod => Overlaps(ModKeywords);
+	public bool IsRelic => Overlaps(RelicKeywords);
+	public bool IsFish => Overlaps(FishKeywords);
+	public bool IsGem => Overlaps(GemKeywords);
+	public bool IsAyatan => Overlaps(AyatanKeywords);
+	public bool IsArcane => Overlaps(ArcaneKeywords);
+	public bool IsPrimeComponent => Overlaps(PrimeKeywords);
+	public bool IsBlueprint => Overlaps(BlueprintKeywords);
+	public bool IsCrafted => Overlaps(CraftedKeywords);
+	public bool IsComponent => Overlaps(ComponentKeywords);
+	public bool IsWeapon => Overlaps(WeaponKeywords);
 }

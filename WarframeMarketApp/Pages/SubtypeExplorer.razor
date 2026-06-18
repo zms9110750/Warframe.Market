@@ -1,0 +1,84 @@
+@page "/subtypes"
+@attribute [NavItem("子类型", "mdi-label", Order = 10)]
+@inject WarframeMarketApp.Services.AppState State
+
+<h3>物品子类型枚举</h3>
+<p class="text-caption text-medium-emphasis mb-6">从 API 拉取全部物品，收集所有不重复的 subtypes 值。</p>
+
+<MButton OnClick="Load" Disabled="@loading" Loading="@loading" Color="primary">加载全部物品</MButton>
+
+@if (result != null)
+{
+	<MAlert Class="mt-4" Type="@(ok ? AlertTypes.Success : AlertTypes.Error)">@result</MAlert>
+}
+
+@if (subtypes != null && subtypes.Count > 0)
+{
+	<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;">
+		@foreach (var s in subtypes.OrderBy(x => x))
+		{
+			<MChip Class="ma-1" Label Color="primary" TextColor="white" Small>@s</MChip>
+		}
+	</div>
+
+	<MCard Class="mt-4">
+		<MCardTitle>代码生成预览</MCardTitle>
+		<MCardText>
+			<pre style="background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px;">
+@codePreview
+			</pre>
+		</MCardText>
+	</MCard>
+}
+
+@code {
+	private bool loading;
+	private string? result;
+	private bool ok;
+	private HashSet<string>? subtypes;
+	private string codePreview = "";
+
+	private async Task Load()
+	{
+		loading = true;
+		try
+		{
+			var response = await State.Client.GetItemsAsync();
+			if (response?.Content?.Data != null)
+			{
+				var all = new ItemSubtypeSet();
+				foreach (var item in response.Content.Data)
+				{
+					if (item.Subtypes != null)
+					{
+						foreach (var s in item.Subtypes)
+							all.Add(s);
+					}
+				}
+				subtypes = new HashSet<string>(all, StringComparer.OrdinalIgnoreCase);
+				result = $"共 {response.Content.Data.Length} 个物品，发现 {subtypes.Count} 个不重复子类型";
+				ok = true;
+
+				var sb = new System.Text.StringBuilder();
+				sb.AppendLine($"// API v{response.Content.ApiVersion} — {subtypes.Count} 个子类型");
+				sb.AppendLine();
+				foreach (var s in subtypes.OrderBy(x => x))
+				{
+					sb.AppendLine($"\"{s}\",");
+				}
+				codePreview = sb.ToString();
+			}
+			else
+			{
+				result = $"无内容 (HTTP {(int?)response?.StatusCode} {response?.StatusCode})";
+				ok = false;
+			}
+		}
+		catch (Exception ex)
+		{
+			result = $"异常: {ex.Message}";
+			ok = false;
+		}
+		loading = false;
+	}
+}
