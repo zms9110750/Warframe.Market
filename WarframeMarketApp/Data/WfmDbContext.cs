@@ -15,6 +15,7 @@ public class WfmDbContext : DbContext
 	public DbSet<ItemSet> ItemSets => Set<ItemSet>();
 	public DbSet<Entry> StatEntries => Set<Entry>();
 	public DbSet<ItemTranslation> ItemTranslations => Set<ItemTranslation>();
+	public DbSet<CacheEntry> Cache => Set<CacheEntry>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
@@ -95,6 +96,12 @@ public class WfmDbContext : DbContext
 				.WithMany()
 				.HasForeignKey(t => t.ItemId)
 				.OnDelete(DeleteBehavior.Cascade);
+		});
+
+		modelBuilder.Entity<CacheEntry>(e =>
+		{
+			e.HasKey(c => c.Key);
+			e.Property(c => c.Key).HasMaxLength(128);
 		});
 	}
 }

@@ -32,6 +32,7 @@ public partial class MainWindow : Window
                 o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
             serviceCollection.AddTransient<CacheService>();
+            serviceCollection.AddTransient<LocalCacheService>();
 
 #if DEBUG
             serviceCollection.AddBlazorWebViewDeveloperTools();
