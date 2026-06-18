@@ -6,78 +6,89 @@ using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Versions;
 
-// ===== 数据库路径 =====
 var dbPath = Path.Combine(AppContext.BaseDirectory, "wfm_test.db");
 Console.Error.WriteLine($"数据库: {dbPath}");
 
-// ===== 建库 =====
 using var db = new TestDb(dbPath);
 await db.Database.EnsureCreatedAsync();
 Console.Error.WriteLine("✅ 数据库就绪");
 
-// ===== 1. 抓 API 物品列表 =====
 Console.Error.WriteLine("\n=== 抓取 /v2/items ===");
 var wfm = new WarframeMarketClient();
 var itemsResp = await wfm.GetItemsAsync();
-if (itemsResp?.Content?.Data == null)
-{
-    Console.Error.WriteLine($"❌ API 失败: HTTP {itemsResp?.StatusCode} / Content null");
-    return;
-}
+if (itemsResp?.Content?.Data == null) { Console.Error.WriteLine("❌ API 失败"); return; }
 
 var items = itemsResp.Content.Data;
 Console.Error.WriteLine($"✅ 获取 {items.Length} 个物品");
-Console.Error.WriteLine($"   API 版本: {itemsResp.Content.ApiVersion}");
-Console.Error.WriteLine($"   第一个: {items[0].Slug}");
 
-// ===== 2. 写入数据库 =====
-Console.Error.WriteLine("\n=== 写入 Items 表 ===");
+Console.Error.WriteLine("\n=== 写入 Items + ItemLocalizations ===");
 db.Items.RemoveRange(db.Items);
-await db.Items.AddRangeAsync(items);
-await db.SaveChangesAsync();
-Console.Error.WriteLine($"✅ 写入 {items.Length} 行");
+db.ItemLocalizations.RemoveRange(db.ItemLocalizations);
 
-// ===== 3. 读回并验证 =====
+await db.Items.AddRangeAsync(items);
+
+// I18n 字典展平写入 ItemLocalizations 表
+var localizations = new List<ItemLocalization>();
+foreach (var item in items)
+{
+	foreach (var (lang, pake) in item.I18n)
+	{
+		localizations.Add(new ItemLocalization
+		{
+			ItemId = item.Id,
+			Language = lang.ToString(),
+			Name = pake.Name,
+			Description = pake.Description,
+			WikiLink = pake.WikiLink,
+			Icon = pake.Icon,
+			Thumb = pake.Thumb,
+			SubIcon = pake.SubIcon,
+		});
+	}
+}
+await db.ItemLocalizations.AddRangeAsync(localizations);
+await db.SaveChangesAsync();
+Console.Error.WriteLine($"✅ Items: {items.Length} 行");
+Console.Error.WriteLine($"✅ ItemLocalizations: {localizations.Count} 行");
+
 Console.Error.WriteLine("\n=== 读回验证 ===");
 var readBack = await db.Items.OrderBy(i => i.Slug).ToListAsync();
-Console.Error.WriteLine($"✅ 读回 {readBack.Count} 条");
+Console.Error.WriteLine($"✅ Items: {readBack.Count}");
 
-// 验证前 3 条
-for (int i = 0; i < Math.Min(3, readBack.Count); i++)
-{
-    var original = items.First(x => x.Id == readBack[i].Id);
-    Console.Error.WriteLine($"\n  [{i}] {readBack[i].Slug}");
-    Console.Error.WriteLine($"     Tags: {string.Join(", ", readBack[i].Tags)}");
-    Console.Error.WriteLine($"     Tags 匹配: {original.Tags.SetEquals(readBack[i].Tags)}");
-    Console.Error.WriteLine($"     I18n 语言数: {readBack[i].I18n.Count}");
-    Console.Error.WriteLine($"     I18n 匹配: {original.I18n.Count == readBack[i].I18n.Count}");
-    Console.Error.WriteLine($"     Subtypes: {(readBack[i].Subtypes?.Count > 0 ? string.Join(", ", readBack[i].Subtypes!) : "(空)")}");
-}
+var locs = await db.ItemLocalizations.Take(3).ToListAsync();
+foreach (var loc in locs)
+	Console.Error.WriteLine($"   {loc.ItemId} [{loc.Language}] = {loc.Name}");
 
-// ===== 4. 统计子类型 =====
+Console.Error.WriteLine("\n=== 子类型汇总 ===");
 var allSubtypes = new ItemSubtypeSet();
 foreach (var item in readBack.Where(i => i.Subtypes != null))
-    foreach (var st in item.Subtypes!)
-        allSubtypes.Add(st);
-Console.Error.WriteLine($"\n=== 子类型汇总 ({allSubtypes.Count} 个不重复值) ===");
+	foreach (var st in item.Subtypes!)
+		allSubtypes.Add(st);
+Console.Error.WriteLine($"共 {allSubtypes.Count} 个");
 foreach (var st in allSubtypes.OrderBy(x => x))
-    Console.Error.WriteLine($"   \"{st}\",");
+	Console.Error.WriteLine($"   \"{st}\",");
 
-// OfType 需要 TPH 配置，跳过
-Console.Error.WriteLine("\n   TPH 继承检查跳过（列表 API 只返回 ItemShort）");
-
-// ===== 6. 清理 =====
 Console.Error.WriteLine("\n✅ 完成");
 
-// ===== EF Core DbContext =====
+public class ItemLocalization
+{
+	public string ItemId { get; set; } = "";
+	public string Language { get; set; } = "";
+	public string Name { get; set; } = "";
+	public string? Description { get; set; }
+	public string? WikiLink { get; set; }
+	public string Icon { get; set; } = "";
+	public string Thumb { get; set; } = "";
+	public string? SubIcon { get; set; }
+}
+
 public class TestDb : DbContext
 {
 	public DbSet<ItemShort> Items => Set<ItemShort>();
+	public DbSet<ItemLocalization> ItemLocalizations => Set<ItemLocalization>();
 
 	private readonly string _dbPath;
-
 	public TestDb(string dbPath) => _dbPath = dbPath;
-
 	protected override void OnConfiguring(DbContextOptionsBuilder options)
 		=> options.UseSqlite($"Data Source={_dbPath}");
 
@@ -88,6 +99,14 @@ public class TestDb : DbContext
 		modelBuilder.Entity<ItemShort>(e =>
 		{
 			e.HasKey(i => i.Id);
+
+			e.Property(i => i.I18n).HasConversion(
+				v => JsonSerializer.Serialize(v, JsonOpts),
+				v => JsonSerializer.Deserialize<Dictionary<Language, LanguagePake>>(v, JsonOpts) ?? new())
+				.Metadata.SetValueComparer(new ValueComparer<Dictionary<Language, LanguagePake>>(
+					(c1, c2) => c1!.Count == c2!.Count && !c1.Except(c2).Any(),
+					c => c.Aggregate(0, (a, kv) => HashCode.Combine(a, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
+					c => new Dictionary<Language, LanguagePake>(c)));
 
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
@@ -104,14 +123,12 @@ public class TestDb : DbContext
 					(c1, c2) => c1!.SetEquals(c2!),
 					c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v!.GetHashCode())),
 					c => new ItemSubtypeSet()));
+		});
 
-			e.Property(i => i.I18n).HasConversion(
-				v => JsonSerializer.Serialize(v, JsonOpts),
-				v => JsonSerializer.Deserialize<Dictionary<Language, LanguagePake>>(v, JsonOpts) ?? new())
-				.Metadata.SetValueComparer(new ValueComparer<Dictionary<Language, LanguagePake>>(
-					(c1, c2) => c1!.Count == c2!.Count && !c1.Except(c2).Any(),
-					c => c.Aggregate(0, (a, kv) => HashCode.Combine(a, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
-					c => new Dictionary<Language, LanguagePake>(c)));
+		modelBuilder.Entity<ItemLocalization>(e =>
+		{
+			e.HasKey(l => new { l.ItemId, l.Language });
+			e.Property(l => l.Language).HasMaxLength(16);
 		});
 	}
 }

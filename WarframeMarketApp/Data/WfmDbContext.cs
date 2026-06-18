@@ -14,7 +14,7 @@ public class WfmDbContext : DbContext
 	public DbSet<Item> ItemDetails => Set<Item>();
 	public DbSet<ItemSet> ItemSets => Set<ItemSet>();
 	public DbSet<Entry> StatEntries => Set<Entry>();
-	public DbSet<LocalizationRecord> ItemLocalizations => Set<LocalizationRecord>();
+	public DbSet<ItemLocalization> ItemLocalizations => Set<ItemLocalization>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
@@ -22,7 +22,6 @@ public class WfmDbContext : DbContext
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
-		// ===== ServerVersion =====
 		modelBuilder.Entity<ServerVersion>(e =>
 		{
 			e.HasKey(v => v.Id);
@@ -34,7 +33,15 @@ public class WfmDbContext : DbContext
 		{
 			e.HasKey(i => i.Id);
 
-			// 复杂类型 → JSON TEXT
+			// I18n 字典存 JSON（供 EF 构造函数）
+			e.Property(i => i.I18n).HasConversion(
+				v => JsonSerializer.Serialize(v, JsonOpts),
+				v => JsonSerializer.Deserialize<Dictionary<Language, LanguagePake>>(v, JsonOpts) ?? new())
+				.Metadata.SetValueComparer(new ValueComparer<Dictionary<Language, LanguagePake>>(
+					(c1, c2) => c1!.Count == c2!.Count && !c1.Except(c2).Any(),
+					c => c.Aggregate(0, (a, kv) => HashCode.Combine(a, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
+					c => new Dictionary<Language, LanguagePake>(c)));
+
 			e.Property(i => i.Tags).HasConversion(
 				v => JsonSerializer.Serialize(v, JsonOpts),
 				v => JsonSerializer.Deserialize<HashSet<string>>(v, JsonOpts) ?? new())
@@ -51,20 +58,11 @@ public class WfmDbContext : DbContext
 					c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
 					c => new ItemSubtypeSet()));
 
-			e.Property(i => i.I18n).HasConversion(
-				v => JsonSerializer.Serialize(v, JsonOpts),
-				v => JsonSerializer.Deserialize<Dictionary<Language, LanguagePake>>(v, JsonOpts) ?? new())
-				.Metadata.SetValueComparer(new ValueComparer<Dictionary<Language, LanguagePake>>(
-					(c1, c2) => c1!.Count == c2!.Count && !c1.Except(c2).Any(),
-					c => c.Aggregate(0, (a, kv) => HashCode.Combine(a, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
-					c => new Dictionary<Language, LanguagePake>(c)));
-
 			e.HasDiscriminator<string>("ItemType")
 				.HasValue<ItemShort>(nameof(ItemShort))
 				.HasValue<Item>(nameof(Item));
 		});
 
-		// ===== Item (额外字段) =====
 		modelBuilder.Entity<Item>(e =>
 		{
 			e.Property(i => i.SetParts).HasConversion(
@@ -76,7 +74,6 @@ public class WfmDbContext : DbContext
 					c => new HashSet<string>(c)));
 		});
 
-		// ===== ItemSet =====
 		modelBuilder.Entity<ItemSet>(e =>
 		{
 			e.HasKey(s => s.Id);
@@ -85,29 +82,25 @@ public class WfmDbContext : DbContext
 				v => JsonSerializer.Deserialize<Item[]>(v, JsonOpts) ?? Array.Empty<Item>());
 		});
 
-		// ===== Entry (统计) =====
 		modelBuilder.Entity<Entry>(e =>
 		{
 			e.HasKey(x => x.Id);
-			e.HasIndex(x => x.Id);
 		});
 
-		// ===== 本地化记录 =====
-		modelBuilder.Entity<LocalizationRecord>(e =>
+		// ===== 本地化表：Language + ItemId 联合主键 =====
+		modelBuilder.Entity<ItemLocalization>(e =>
 		{
-			e.HasKey(l => l.Id);
-			e.HasIndex(l => new { l.ItemId, l.Language }).IsUnique();
-			e.Property(l => l.Id).ValueGeneratedOnAdd();
+			e.HasKey(l => new { l.ItemId, l.Language });
+			e.Property(l => l.Language).HasMaxLength(16);
 		});
 	}
 }
 
 /// <summary>
-/// 物品多语言本地化（单独 FK 表）
+/// 物品多语言本地化。（ItemId, Language）联合主键
 /// </summary>
-public class LocalizationRecord
+public class ItemLocalization
 {
-	public long Id { get; set; }
 	public string ItemId { get; set; } = "";
 	public string Language { get; set; } = "";
 	public string Name { get; set; } = "";
