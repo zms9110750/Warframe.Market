@@ -1,8 +1,17 @@
+@using System.Net.Http
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Web
-@using Microsoft.AspNetCore.Components.WebView.Wpf
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@using Masa.Blazor
+@using Masa.Blazor.Presets
 @using zms9110750.WarframeMarketApi
 @using zms9110750.WarframeMarketApi.Models
 @using zms9110750.WarframeMarketApi.Models.Items
 @using zms9110750.WarframeMarketApi.Models.Orders
 @using zms9110750.WarframeMarketApi.Models.Users
 @using zms9110750.WarframeMarketApi.Models.Statistics
+@using WarframeMarketApp.Shared
+
+@inject WarframeMarketClient Wfm

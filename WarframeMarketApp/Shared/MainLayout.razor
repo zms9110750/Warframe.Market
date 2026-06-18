@@ -1,0 +1,81 @@
+@using System.Reflection
+@inherits LayoutComponentBase
+
+<MApp>
+    <MAppBar App>
+        <MToolbarTitle> Warframe Market </MToolbarTitle>
+        <MSpacer></MSpacer>
+        @msg
+    </MAppBar>
+    <MNavigationDrawer App Permanent MiniVariant>
+        <MList Nav Routable>
+            @foreach (var navItem in navItems)
+            {
+                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="() => currentTitle = navItem.Title">
+                    <MListItemIcon>
+                        <MIcon>@navItem.Icon</MIcon>
+                    </MListItemIcon>
+                    <MListItemContent>
+                        <MListItemTitle>@navItem.Title</MListItemTitle>
+                    </MListItemContent>
+                </MListItem>
+            }
+        </MList>
+    </MNavigationDrawer>
+    <MMain>
+        <MContainer Fluid>
+            <MErrorHandler>
+                @Body
+            </MErrorHandler>
+        </MContainer>
+    </MMain>
+</MApp>
+
+@code {
+    string currentTitle = "";
+    string msg = "";
+    private List<NavItemInfo> navItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        navItems = GetNavItemsFromAssembly();
+        currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
+    }
+
+    private List<NavItemInfo> GetNavItemsFromAssembly()
+    {
+        var items = new List<NavItemInfo>();
+        var assembly = Assembly.GetExecutingAssembly();
+
+        var pageTypes = assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<RouteAttribute>() != null &&
+                       t.GetCustomAttribute<NavItemAttribute>() != null);
+
+        foreach (var type in pageTypes)
+        {
+            var routeAttr = type.GetCustomAttribute<RouteAttribute>();
+            var navAttr = type.GetCustomAttribute<NavItemAttribute>();
+
+            if (routeAttr != null && navAttr != null)
+            {
+                items.Add(new NavItemInfo
+                {
+                    Route = routeAttr.Template,
+                    Title = navAttr.Title,
+                    Icon = navAttr.Icon,
+                    Order = navAttr.Order
+                });
+            }
+        }
+
+        return items.OrderBy(x => x.Order).ToList();
+    }
+
+    private class NavItemInfo
+    {
+        public string Route { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public int Order { get; set; }
+    }
+}

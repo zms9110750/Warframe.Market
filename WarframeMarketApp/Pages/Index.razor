@@ -1,0 +1,67 @@
+@page "/"
+@attribute [NavItem("首页", "mdi-home", Order = 0)]
+
+<MTitle Class="mb-6">Warframe Market 查询工具</MTitle>
+
+<MCard Class="mb-4">
+    <MCardText>
+        <p>客户端就绪：<MAlert Dense Type="@(ready ? AlertTypes.Success : AlertTypes.Info)" Class="d-inline-flex">@status</MAlert></p>
+    </MCardText>
+</MCard>
+
+<MButton Color="primary" OnClick="TestApi" Loading="loading">测试 API 连接</MButton>
+
+@if (result != null)
+{
+    <MAlert Class="mt-4" Type="@(result.StartsWith("✅") ? AlertTypes.Success : AlertTypes.Error)">@result</MAlert>
+}
+
+@code {
+    private string status = "初始化中...";
+    private string? result;
+    private bool ready;
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var version = await Wfm.GetVersionsAsync();
+            if (version.IsSuccessStatusCode)
+            {
+                status = $"已连接 — API 版本 {version.Content!.Data!.Id}";
+                ready = true;
+            }
+            else
+            {
+                status = $"连接失败: {version.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            status = $"错误: {ex.Message}";
+        }
+    }
+
+    private async Task TestApi()
+    {
+        loading = true;
+        try
+        {
+            var items = await Wfm.GetItemsAsync();
+            if (items.IsSuccessStatusCode)
+            {
+                result = $"✅ 获取到 {items.Content!.Data!.Length} 个可交易物品";
+            }
+            else
+            {
+                result = $"❌ {items.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            result = $"💥 {ex.Message}";
+        }
+        loading = false;
+    }
+}
