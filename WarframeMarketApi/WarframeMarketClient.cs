@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading.RateLimiting;
 using Polly;
 using Polly.RateLimiting;
@@ -34,6 +35,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 {
 	private static readonly JsonSerializerOptions V2Options = new(JsonSerializerDefaults.Web)
 	{
+		TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
 		Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
 		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
 	};

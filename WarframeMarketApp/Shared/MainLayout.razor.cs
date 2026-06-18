@@ -98,11 +98,12 @@ public partial class MainLayout : LayoutComponentBase
 		}
 	}
 
-	protected override void OnAfterRender(bool firstRender)
+	private void OnVersionLeave()
 	{
-		if (firstRender)
+		if (State.ShowRefreshPrompt && !State.IsUpdating && State.VersionUpdatedAt != null)
 		{
-			// 监听 blur 事件还原文字
+			State.VersionText = $"数据日期 {State.VersionUpdatedAt[..10]}";
+			State.ShowRefreshPrompt = false;
 		}
 	}
 

@@ -1,11 +1,15 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace zms9110750.WarframeMarketApi.Models.Items;
 
 /// <summary>
 /// 物品子类型（裂罅类型、遗物品质、鱼大小、组件状态等）
 /// </summary>
+[JsonConverter(typeof(ItemSubtypesConverter))]
 public enum ItemSubtypes
 {
-	/// <summary>占位符</summary>
+	/// <summary>占位符 / 未知类型</summary>
 	Node = 0,
 	/// <summary>裂罅 MOD</summary>
 	RivenMod = 0x10,
@@ -53,4 +57,35 @@ public enum ItemSubtypes
 	Blueprint,
 	/// <summary>成品</summary>
 	Crafted,
+}
+
+internal class ItemSubtypesConverter : JsonConverter<ItemSubtypes>
+{
+	public override ItemSubtypes Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+	{
+		if (reader.TokenType == JsonTokenType.String)
+		{
+			var str = reader.GetString();
+			if (Enum.TryParse<ItemSubtypes>(str, ignoreCase: true, out var result))
+				return result;
+
+			// 尝试 kebab-case → PascalCase
+			var pascal = JsonNamingPolicy.KebabCaseLower.ConvertName(str ?? "");
+			if (Enum.TryParse<ItemSubtypes>(pascal, ignoreCase: true, out result))
+				return result;
+
+			// 未知值 → Node
+			return ItemSubtypes.Node;
+		}
+		if (reader.TokenType == JsonTokenType.Number)
+			return (ItemSubtypes)reader.GetInt32();
+
+		return ItemSubtypes.Node;
+	}
+
+	public override void Write(Utf8JsonWriter writer, ItemSubtypes value, JsonSerializerOptions options)
+	{
+		var name = JsonNamingPolicy.KebabCaseLower.ConvertName(value.ToString());
+		writer.WriteStringValue(name);
+	}
 }

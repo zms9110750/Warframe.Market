@@ -6,7 +6,8 @@
 
 		<MSpacer></MSpacer>
 
-		<MButton OnClick="OnVersionClick" Disabled="@State.IsUpdating" Class="mr-2" Color="primary" Outlined Small>
+		<MButton OnClick="OnVersionClick" Disabled="@State.IsUpdating" Class="mr-2" Color="primary" Outlined Small
+				  onmouseleave="@OnVersionLeave">
 			@if (State.IsUpdating)
 			{
 				<MProgressCircular Size="18" Width="2" Indeterminate Class="mr-1" />
@@ -35,7 +36,7 @@
 		</MSelect>
 
 		<MSwitch @bind-Value="State.Crossplay" Dense Inset HideDetails="true">
-			<LabelContent>跨</LabelContent>
+			<LabelContent>跨平台</LabelContent>
 		</MSwitch>
 	</MAppBar>
 
