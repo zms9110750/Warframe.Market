@@ -102,6 +102,7 @@ public class WfmDbContext : DbContext
 		{
 			e.HasKey(c => c.Key);
 			e.Property(c => c.Key).HasMaxLength(128);
+			e.Property(c => c.CachedAt).HasDefaultValueSql("datetime('now')");
 		});
 	}
 }

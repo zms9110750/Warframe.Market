@@ -6,7 +6,7 @@ namespace WarframeMarketApp.Services;
 
 /// <summary>
 /// 通用本地缓存服务。Value 存 JSON。
-/// 过期策略按 UTC 日期判断：同天直接返回，跨 1 天后台刷新，跨 ≥2 天失效。
+/// CachedAt 由 SQLite 自动填。DaysOld > 0 时后台刷新，≥ 2 时失效。
 /// </summary>
 public class LocalCacheService
 {
@@ -16,27 +16,30 @@ public class LocalCacheService
 
 	public LocalCacheService(WfmDbContext db) => _db = db;
 
-	/// <summary>读缓存。未命中或跨 ≥2 天返回 null</summary>
+	/// <summary>启动时清理跨 2 天以上的旧缓存</summary>
+	public async Task CleanupAsync()
+	{
+		await _db.Database.ExecuteSqlRawAsync(
+			"DELETE FROM Cache WHERE (julianday('now') - julianday(CachedAt)) >= 2");
+	}
+
+	/// <summary>读缓存。未命中或跨 ≥ 2 天返回 null</summary>
 	public async Task<T?> GetAsync<T>(string key) where T : class
 	{
 		var entry = await _db.Cache.FindAsync(key);
 		if (entry == null) return null;
 
-		var daysOld = (DateTime.UtcNow.Date - entry.CachedAt.Date).Days;
-
-		if (daysOld >= 2)
+		if (entry.DaysOld >= 2)
 		{
 			_db.Cache.Remove(entry);
 			await _db.SaveChangesAsync();
 			return null;
 		}
 
-		var data = JsonSerializer.Deserialize<T>(entry.Value, JsonOpts);
-
-		if (daysOld >= 1)
+		if (entry.DaysOld > 0)
 			_ = TryRefreshAsync(key);
 
-		return data;
+		return JsonSerializer.Deserialize<T>(entry.Value, JsonOpts);
 	}
 
 	/// <summary>写入缓存</summary>
@@ -44,6 +47,7 @@ public class LocalCacheService
 	{
 		var json = JsonSerializer.Serialize(value, JsonOpts);
 		var existing = await _db.Cache.FindAsync(key);
+
 		if (existing != null)
 		{
 			existing.Value = json;
@@ -51,7 +55,8 @@ public class LocalCacheService
 		}
 		else
 		{
-			_db.Cache.Add(new CacheEntry { Key = key, Value = json, CachedAt = DateTime.UtcNow });
+			// 新行：SQLite 自动填 CachedAt
+			_db.Cache.Add(new CacheEntry { Key = key, Value = json });
 		}
 		await _db.SaveChangesAsync();
 	}
@@ -83,6 +88,5 @@ public class LocalCacheService
 		}
 	}
 
-	/// <summary>子类重写此方法实现具体刷新逻辑</summary>
 	protected virtual Task RefreshAsync(string key) => Task.CompletedTask;
 }

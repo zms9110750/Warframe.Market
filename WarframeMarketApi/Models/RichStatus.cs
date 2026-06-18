@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace zms9110750.WarframeMarketApi.Models;
 
 /// <summary>
@@ -14,14 +12,4 @@ public record RichStatus(
 	string? StatusUntil,
 	string? StatusSetAt,
 	Users.Activity? Activity
-)
-{
-	/// <summary>状态过期时间（本地时间）</summary>
-	public DateTime? StatusUntilLocal => StatusUntil != null
-		? DateTime.Parse(StatusUntil, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
-		: null;
-	/// <summary>状态设置时间（本地时间）</summary>
-	public DateTime? StatusSetAtLocal => StatusSetAt != null
-		? DateTime.Parse(StatusSetAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
-		: null;
-}
+);
