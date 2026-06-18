@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace zms9110750.WarframeMarketApi.Models.Users;
 
 /// <summary>
@@ -15,12 +17,12 @@ namespace zms9110750.WarframeMarketApi.Models.Users;
 /// <param name="MasteryRank">精通等级</param>
 /// <param name="Status">在线状态</param>
 /// <param name="Activity">当前活动</param>
-/// <param name="LastSeen">最后在线时间</param>
+/// <param name="LastSeen">最后在线时间（ISO 8601）</param>
 /// <param name="Platform">游戏平台</param>
 /// <param name="Crossplay">是否启用跨平台交易</param>
 /// <param name="Locale">偏好语言</param>
 /// <param name="Banned">是否被封禁</param>
-/// <param name="BanUntil">封禁到期时间</param>
+/// <param name="BanUntil">封禁到期时间（ISO 8601）</param>
 public record User(
 	string Id,
 	string Role,
@@ -42,5 +44,12 @@ public record User(
 	string? BanUntil
 )
 {
+	/// <summary>最后在线时间（本地时间）</summary>
+	public DateTime LastSeenLocal => DateTime.Parse(LastSeen, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime();
+	/// <summary>封禁到期时间（本地时间）</summary>
+	public DateTime? BanUntilLocal => BanUntil != null
+		? DateTime.Parse(BanUntil, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
+		: null;
+
 	public static implicit operator string(User item) => item.Slug;
 }

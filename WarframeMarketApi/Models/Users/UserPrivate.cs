@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace zms9110750.WarframeMarketApi.Models.Users;
 
 /// <summary>
@@ -16,7 +18,7 @@ namespace zms9110750.WarframeMarketApi.Models.Users;
 /// <param name="Reputation">声望分数</param>
 /// <param name="MasteryRank">精通等级</param>
 /// <param name="Credits">游戏内货币余额</param>
-/// <param name="LastSeen">最后在线时间</param>
+/// <param name="LastSeen">最后在线时间（ISO 8601）</param>
 /// <param name="Platform">游戏平台</param>
 /// <param name="Crossplay">是否启用跨平台交易</param>
 /// <param name="Locale">偏好语言</param>
@@ -25,10 +27,10 @@ namespace zms9110750.WarframeMarketApi.Models.Users;
 /// <param name="SyncTheme">是否跨设备同步主题</param>
 /// <param name="Verification">验证状态</param>
 /// <param name="CheckCode">唯一校验码</param>
-/// <param name="CreatedAt">账号创建时间</param>
+/// <param name="CreatedAt">账号创建时间（ISO 8601）</param>
 /// <param name="UnreadNotifications">未读通知数</param>
 /// <param name="DeleteInProgress">是否正在删除账号</param>
-/// <param name="DeleteAt">计划删除日期</param>
+/// <param name="DeleteAt">计划删除日期（ISO 8601）</param>
 /// <param name="HasEmail">是否有邮箱地址</param>
 /// <param name="Email">邮箱地址</param>
 public record UserPrivate(
@@ -62,5 +64,16 @@ public record UserPrivate(
 	string? Email
 )
 {
+	/// <summary>最后在线时间（本地时间）</summary>
+	public DateTime LastSeenLocal => DateTime.Parse(LastSeen, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime();
+	/// <summary>账号创建时间（本地时间）</summary>
+	public DateTime? CreatedAtLocal => CreatedAt != null
+		? DateTime.Parse(CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
+		: null;
+	/// <summary>计划删除日期（本地时间）</summary>
+	public DateTime? DeleteAtLocal => DeleteAt != null && DeleteAt.Length > 0
+		? DateTime.Parse(DeleteAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime()
+		: null;
+
 	public static implicit operator string(UserPrivate item) => item.Slug;
 }

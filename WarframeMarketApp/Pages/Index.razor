@@ -28,15 +28,24 @@
         try
         {
             var response = await Wfm.GetVersionsAsync();
-            if (response?.IsSuccessStatusCode == true && response.Content?.Data != null)
+
+            if (response?.Content?.Data != null)
             {
                 var v = response.Content.Data;
-                status = $"已连接 — 数据版本: {v.UpdatedAt}";
+                status = $"已连接 — 数据版本: {v.UpdatedAtLocal:yyyy-MM-dd HH:mm:ss}";
                 ready = true;
+            }
+            else if (response?.Content != null && response.Content.Error != null)
+            {
+                status = $"API 错误: {response.Content.Error}";
+            }
+            else if (response?.StatusCode != null)
+            {
+                status = $"HTTP {(int)response.StatusCode} {response.StatusCode}";
             }
             else
             {
-                status = $"连接失败: {response?.StatusCode}";
+                status = "无响应";
             }
         }
         catch (Exception ex)
@@ -51,14 +60,25 @@
         try
         {
             var response = await Wfm.GetItemsAsync();
-            if (response?.IsSuccessStatusCode == true && response.Content?.Data != null)
+
+            if (response?.Content?.Data != null)
             {
                 result = $"获取到 {response.Content.Data.Length} 个可交易物品";
                 ok = true;
             }
+            else if (response?.Content != null && response.Content.Error != null)
+            {
+                result = $"API 错误: {response.Content.Error}";
+                ok = false;
+            }
+            else if (response?.StatusCode != null)
+            {
+                result = $"HTTP {(int)response.StatusCode} {response.StatusCode}";
+                ok = false;
+            }
             else
             {
-                result = $"失败: {response?.StatusCode}";
+                result = "无响应";
                 ok = false;
             }
         }

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarframeMarketQueryWPF", "W
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarframeMarketApi", "WarframeMarketApi\WarframeMarketApi.csproj", "{D078475E-A034-EDB1-E7CD-9613A5CB2085}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarframeMarketApp", "WarframeMarketApp\WarframeMarketApp.csproj", "{FC88466A-BAFA-95A4-0DB4-C4B128FD8420}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{D078475E-A034-EDB1-E7CD-9613A5CB2085}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D078475E-A034-EDB1-E7CD-9613A5CB2085}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D078475E-A034-EDB1-E7CD-9613A5CB2085}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC88466A-BAFA-95A4-0DB4-C4B128FD8420}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC88466A-BAFA-95A4-0DB4-C4B128FD8420}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC88466A-BAFA-95A4-0DB4-C4B128FD8420}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC88466A-BAFA-95A4-0DB4-C4B128FD8420}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

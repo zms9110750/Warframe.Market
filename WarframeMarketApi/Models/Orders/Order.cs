@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace zms9110750.WarframeMarketApi.Models.Orders;
 
 /// <summary>
@@ -14,8 +16,8 @@ namespace zms9110750.WarframeMarketApi.Models.Orders;
 /// <param name="AmberStars">琥珀星星数量</param>
 /// <param name="CyanStars">青蓝星星数量</param>
 /// <param name="Visible">是否公开可见</param>
-/// <param name="CreatedAt">创建时间</param>
-/// <param name="UpdatedAt">最后修改时间</param>
+/// <param name="CreatedAt">创建时间（ISO 8601）</param>
+/// <param name="UpdatedAt">最后修改时间（ISO 8601）</param>
 /// <param name="ItemId">物品标识符</param>
 /// <param name="GroupId">用户自定义分组 ID</param>
 /// <param name="User">创建订单的用户</param>
@@ -38,5 +40,10 @@ public record Order(
 	Users.UserShort? User
 )
 {
+	/// <summary>创建时间（本地时间）</summary>
+	public DateTime CreatedAtLocal => DateTime.Parse(CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime();
+	/// <summary>最后修改时间（本地时间）</summary>
+	public DateTime UpdatedAtLocal => DateTime.Parse(UpdatedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToLocalTime();
+
 	public static implicit operator string(Order item) => item.ItemId ?? string.Empty;
 }
