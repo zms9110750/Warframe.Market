@@ -16,6 +16,7 @@
 		<PackageReference Include="Masa.Blazor" Version="1.11.9" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.71" />
 		<PackageReference Include="Humanizer.Core.zh-Hans" Version="3.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
 		<ProjectReference Include="..\WarframeMarketApi\WarframeMarketApi.csproj" />
 	</ItemGroup>
 
