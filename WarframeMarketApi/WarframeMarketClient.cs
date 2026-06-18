@@ -1,8 +1,10 @@
 ﻿using System.Net;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.RateLimiting;
+using Polly;
 using Polly.RateLimiting;
 using Polly.Retry;
 using Refit;
@@ -20,7 +22,6 @@ using zms9110750.WarframeMarketApi.Models.Rivens;
 using zms9110750.WarframeMarketApi.Models.Sisters;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.WarframeMarketApi.Models.Users;
-using Polly;
 using Version = zms9110750.WarframeMarketApi.Models.Versions.Version;
 
 namespace zms9110750.WarframeMarketApi;
@@ -73,10 +74,44 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 
 	private readonly IWarframeMarketApiV2 _apiV2;
 	private readonly HttpClient _httpClient;
+	private Language _language = Language.ZhHans;
+	private Platform _platform = Platform.PC;
+
+	/// <summary>
+	/// 请求返回内容的语言。修改后自动更新请求头。
+	/// 默认 zh-hans，支持 en/ko/ru/de/fr/pt/zh-hans/zh-hant/es/it/pl/uk/tr/ja。
+	/// </summary>
+	public Language Language
+	{
+		get => _language;
+		set
+		{
+			_language = value;
+			_httpClient.DefaultRequestHeaders.Remove("Language");
+			_httpClient.DefaultRequestHeaders.Add("Language",
+				JsonNamingPolicy.KebabCaseLower.ConvertName(value.ToString()));
+		}
+	}
+
+	/// <summary>
+	/// 筛选结果的游戏平台。修改后自动更新请求头。
+	/// 默认 pc，支持 pc/ps4/xbox/switch/mobile。
+	/// </summary>
+	public Platform Platform
+	{
+		get => _platform;
+		set
+		{
+			_platform = value;
+			_httpClient.DefaultRequestHeaders.Remove("Platform");
+			_httpClient.DefaultRequestHeaders.Add("Platform", value.ToString().ToLowerInvariant());
+		}
+	}
 
 	/// <summary>
 	/// 使用默认配置创建客户端。
 	/// 基址 https://api.warframe.market，内置 Polly 弹性管道（限流 3/s + 429 重试）。
+	/// User-Agent 自动取调用方程序集名和版本。
 	/// </summary>
 	public WarframeMarketClient()
 	{
@@ -92,11 +127,12 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		{
 			BaseAddress = new Uri("https://api.warframe.market")
 		};
-		_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("zms9110750.WarframeMarketApi/0.1.0");
 		_httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9");
-		_httpClient.DefaultRequestHeaders.Add("Language", "zh-hans");
-		_httpClient.DefaultRequestHeaders.Add("Platform", "pc");
+
+		ApplyUserAgent();
+		ApplyLanguage();
+		ApplyPlatform();
 
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
@@ -114,10 +150,35 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	{
 		_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
 
+		ApplyUserAgent();
+
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
 			ContentSerializer = new SystemTextJsonContentSerializer(V2Options)
 		});
+	}
+
+	private void ApplyUserAgent()
+	{
+		var asm = Assembly.GetEntryAssembly();
+		if (asm != null)
+		{
+			var name = asm.GetName().Name;
+			var ver = asm.GetName().Version;
+			var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "1.0.0";
+			_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"{name}/{verStr}");
+		}
+	}
+
+	private void ApplyLanguage()
+	{
+		_httpClient.DefaultRequestHeaders.Add("Language",
+			JsonNamingPolicy.KebabCaseLower.ConvertName(_language.ToString()));
+	}
+
+	private void ApplyPlatform()
+	{
+		_httpClient.DefaultRequestHeaders.Add("Platform", _platform.ToString().ToLowerInvariant());
 	}
 
 	/// <inheritdoc/>
