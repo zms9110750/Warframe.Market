@@ -48,11 +48,14 @@ public partial class MainWindow : Window
 
             Resources.Add("services", serviceCollection.BuildServiceProvider());
 
-            // 初始化数据库 + 启动清理
+            // 初始化数据库 + 创建缺失的表
             using (var scope = ((IServiceProvider)Resources["services"]).CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
                 db.Database.EnsureCreated();
+                // 确保 QuickReplyItems 表存在（旧库可能没有）
+                db.Database.ExecuteSqlRaw(
+                    "CREATE TABLE IF NOT EXISTS QuickReplies (Id INTEGER PRIMARY KEY AUTOINCREMENT, Text TEXT NOT NULL, SortOrder INTEGER NOT NULL)");
             }
 
             // 延迟清理（不阻塞 UI）

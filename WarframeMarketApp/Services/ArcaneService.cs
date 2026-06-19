@@ -1,4 +1,3 @@
-using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using WarframeMarketApp.Data;
 
@@ -9,7 +8,6 @@ namespace WarframeMarketApp.Services;
 /// </summary>
 public class ArcaneService
 {
-	private readonly WarframeMarketClient _wfm;
 	private readonly CacheService _cache;
 	private readonly ItemsService _items;
 
@@ -19,9 +17,8 @@ public class ArcaneService
 	// 一组小小黑(420荧尘) × 6组/包 / 200(每包价格) × 3(每包开3个赋能)
 	public const double PackGainRate = 420.0 * 6 / 200 * 3; // = 37.8
 
-	public ArcaneService(WarframeMarketClient wfm, CacheService cache, ItemsService items)
+	public ArcaneService(CacheService cache, ItemsService items)
 	{
-		_wfm = wfm;
 		_cache = cache;
 		_items = items;
 	}

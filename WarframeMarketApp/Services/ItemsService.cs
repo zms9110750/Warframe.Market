@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -15,7 +14,6 @@ namespace WarframeMarketApp.Services;
 /// </summary>
 public class ItemsService
 {
-	private readonly WarframeMarketClient _wfm;
 	private readonly CacheService _cache;
 	private readonly IServiceScopeFactory _scopeFactory;
 
@@ -24,9 +22,8 @@ public class ItemsService
 	private bool _trieBuilt;
 	private readonly object _trieLock = new();
 
-	public ItemsService(WarframeMarketClient wfm, CacheService cache, IServiceScopeFactory scopeFactory)
+	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory)
 	{
-		_wfm = wfm;
 		_cache = cache;
 		_scopeFactory = scopeFactory;
 	}
@@ -113,6 +110,12 @@ public class ItemsService
 			return stat;
 		}
 		catch { return null; }
+	}
+
+	/// <summary>只读缓存，不发请求（用于渐进刷新）</summary>
+	public Statistic? GetStatisticFromCache(string itemId)
+	{
+		return _statsCache.GetValueOrDefault(itemId);
 	}
 
 	// ─── 参考价计算 ───

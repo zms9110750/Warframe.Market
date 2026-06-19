@@ -1,0 +1,137 @@
+@* 每个搜索词的结果表：内置异步价格加载 + 渐进刷新 *@
+@using zms9110750.WarframeMarketApi.Models.Items
+@using zms9110750.WarframeMarketApi.Models.Statistics
+@inject ItemsService ItemSvc
+
+@if (results.Count == 0)
+{
+	<p class="text-caption mt-2">无匹配结果</p>
+	return;
+}
+
+<p class="text-caption mt-2">@Tab — 共 @results.Count 个结果</p>
+
+<MDataTable Items="results" Headers="_headers" Dense MultiSort ShowExpand
+			HideDefaultFooter ItemsPerPage="-1" @key="Tab"
+			Class="elevation-1">
+	<ItemColContent>
+		@if (context.Header.Text == "中文名称")
+		{
+			if (ClickLink)
+			{
+				<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}")">
+					@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)
+				</a>
+			}
+			else
+			{
+				@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)
+			}
+		}
+		else if (context.Header.Text == "英文名称")
+		{
+			@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
+		}
+		else if (context.Header.Text == "价格")
+		{
+			var p = GetPrice(context.Item.Slug);
+			if (p.HasValue)
+			{
+				if (ClickLink)
+				{
+					<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@p?.ToString("F1")</a>
+				}
+				else { @p?.ToString("F1") }
+			}
+			else { @("") }
+		}
+		else if (context.Header.Text == "满级价格")
+		{
+			var mp = GetMaxPrice(context.Item.Slug);
+			if (mp.HasValue)
+			{
+				if (ClickLink)
+				{
+					<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@mp?.ToString("F1")</a>
+				}
+				else { @mp?.ToString("F1") }
+			}
+			else { @("") }
+		}
+		else { @context.Value?.ToString() }
+	</ItemColContent>
+	<ExpandedItemContent>
+		<td colspan="@_headers.Count" @key="context.Item.Id">
+			<OrderTop Item="@((ItemShort)context.Item)" />
+		</td>
+	</ExpandedItemContent>
+</MDataTable>
+
+@code {
+	[Parameter] public string Tab { get; set; } = "";
+	[Parameter] public List<ItemShort> results { get; set; } = new();
+	[CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+
+	private List<DataTableHeader<ItemShort>> _headers = new()
+	{
+		new("中文名称", "zh"),
+		new("英文名称", "en"),
+		new("价格", "price") { Align = DataTableHeaderAlign.End },
+		new("满级价格", "maxprice") { Align = DataTableHeaderAlign.End },
+	};
+
+	private Dictionary<string, Statistic?> _stats = new();
+	private Dictionary<string, double?> _prices = new();
+	private Dictionary<string, double?> _maxPrices = new();
+
+	double? GetPrice(string slug) => _prices.GetValueOrDefault(slug);
+	double? GetMaxPrice(string slug) => _maxPrices.GetValueOrDefault(slug);
+
+	protected override async Task OnInitializedAsync()
+	{
+		await base.OnInitializedAsync();
+
+		var geting = new HashSet<Task>();
+		foreach (var item in results)
+		{
+			var statTask = ItemSvc.GetStatisticAsync(item.Slug);
+			if (!statTask.IsCompleted)
+				geting.Add(statTask);
+			// 即使已完成也先缓存，后续会在循环中统一刷新
+		}
+
+		// 渐进刷新：While(!allDone) { 刷新，等0.2秒 }
+		var allTasks = Task.WhenAll(geting);
+		do
+		{
+			// 刷新当前已完成的任务结果
+			foreach (var item in results)
+			{
+				if (_stats.ContainsKey(item.Slug)) continue;
+				var stat = ItemSvc.GetStatisticFromCache(item.Slug);
+				if (stat != null)
+				{
+					_stats[item.Slug] = stat;
+					_prices[item.Slug] = ItemSvc.GetReferencePrice(stat);
+					_maxPrices[item.Slug] = ItemSvc.GetMaxReferencePrice(stat);
+				}
+			}
+			StateHasChanged();
+			await Task.Delay(200);
+		} while (!allTasks.IsCompleted);
+
+		// 最后补一轮
+		foreach (var item in results)
+		{
+			if (_stats.ContainsKey(item.Slug)) continue;
+			var stat = await ItemSvc.GetStatisticAsync(item.Slug);
+			if (stat != null)
+			{
+				_stats[item.Slug] = stat;
+				_prices[item.Slug] = ItemSvc.GetReferencePrice(stat);
+				_maxPrices[item.Slug] = ItemSvc.GetMaxReferencePrice(stat);
+			}
+		}
+		StateHasChanged();
+	}
+}
