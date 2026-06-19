@@ -1,8 +1,5 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
-@implements IDisposable
-@inject SearchService Search
-@inject ItemsCacheService ItemsCache
 
 <h3>物品搜索</h3>
 
@@ -12,101 +9,26 @@
 			OnKeyDown="@(e => { if (e.Key == "Enter") _ = DoSearch(); })"
 			Dense Solo Class="mb-4" Style="max-width: 500px;" />
 
-<MButton OnClick="DoSearch" Disabled="@loading" Loading="@loading" Color="primary">搜索</MButton>
+<MButton OnClick="DoSearch" Color="primary">搜索</MButton>
 
-@if (error != null) { <p style="color:#c62828;">@error</p> }
-
-@if (results.Count > 0)
+@if (ItemsList.Count > 0)
 {
-	<p class="mt-2">共 @results.Count 个结果 @(loadingPrices ? " — 加载价格中..." : "")</p>
-
-	@foreach (var item in results)
-	{
-		<MCard key="@item.Id" Class="mt-2 pa-3" Outlined>
-			<div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-				<span style="min-width:130px;font-weight:600;">
-					@(item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : item.Slug)
-				</span>
-				<span style="min-width:140px;color:#888;">
-					@(item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
-				</span>
-				<span style="min-width:60px;">@GetPrice(item.Id, false)</span>
-				<span style="min-width:60px;">@GetPrice(item.Id, true)</span>
-			</div>
-		</MCard>
-	}
+	<MDataTable Items="ItemsList" Headers="_headers" Dense MultiSort ShowExpand
+				HideDefaultFooter ItemsPerPage="-1" @key="query"
+				Class="elevation-1 mt-4">
+		<ItemColContent>
+			@if (context.Header.Text == "中文名称") { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
+			else if (context.Header.Text == "英文名称") { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
+			else if (context.Header.Text == "价格") { @GetPrice(context.Item.Slug) }
+			else if (context.Header.Text == "满级价格") { @GetMaxPrice(context.Item.Slug) }
+			else { @context.Value?.ToString() }
+		</ItemColContent>
+		<ExpandedItemContent>
+			<td colspan="4" @key="context.Item.Id">
+				<OrderTop Item="@((ItemShort)context.Item)" />
+			</td>
+		</ExpandedItemContent>
+	</MDataTable>
+	<p class="mt-2 text-caption">共 @ItemsList.Count 个结果</p>
 }
 else if (searched) { <p class="mt-2">无匹配</p> }
-
-@code {
-	private string query = "";
-	private List<ItemShort> results = new();
-	private bool loading;
-	private bool searched;
-	private bool loadingPrices;
-	private string? error;
-	private CancellationTokenSource _cts = new();
-	private Dictionary<string, Statistic?> _prices = new();
-
-	private async Task DoSearch()
-	{
-		if (string.IsNullOrWhiteSpace(query)) return;
-		loading = true;
-		searched = true;
-		error = null;
-		results.Clear();
-		_prices.Clear();
-		loadingPrices = false;
-		_cts?.Cancel();
-		_cts = new();
-
-		try
-		{
-			results = await Search.SearchAsync(query);
-			if (results.Count == 0) { searched = true; return; }
-
-			loading = false; // 立即显示结果
-			loadingPrices = true;
-			_ = LoadPricesAsync();
-		}
-		catch (Exception ex) { error = $"异常: {ex.Message}"; loading = false; }
-	}
-
-	private async Task LoadPricesAsync()
-	{
-		foreach (var item in results)
-		{
-			if (_cts.IsCancellationRequested) break;
-			try
-			{
-				var resp = await ItemsCache.GetStatisticsAsync(item.Slug, _cts.Token);
-				_prices[item.Id] = resp?.Data;
-			}
-			catch { /* 单个失败忽略 */ }
-			if (!_cts.IsCancellationRequested)
-			{
-				StateHasChanged();
-				await Task.Delay(250);
-			}
-		}
-		loadingPrices = false;
-		StateHasChanged();
-	}
-
-	private string GetPrice(string itemId, bool maxRank)
-	{
-		if (!_prices.TryGetValue(itemId, out var stat) || stat == null)
-			return loadingPrices ? "" : "-";
-		var entries = stat.Payload?.StatisticsLive?.Day90;
-		if (entries == null || entries.Length == 0) return "-";
-		if (maxRank)
-		{
-			var ranked = entries.Where(e => e.ModRank > 0).OrderByDescending(e => e.ModRank).FirstOrDefault();
-			return ranked?.AvgPrice.ToString("F0") ?? "-";
-		}
-		var avg = entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average();
-		return avg > 0 ? avg.ToString("F0") : "-";
-	}
-
-	public void Dispose() { _cts?.Cancel(); _cts?.Dispose(); }
-}

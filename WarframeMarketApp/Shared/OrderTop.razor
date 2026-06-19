@@ -1,0 +1,36 @@
+@using zms9110750.WarframeMarketApi.Models.Orders
+@using zms9110750.WarframeMarketApi.Models.Users
+
+@if (Item == null) { return; }
+
+<MDataTable Items="@TopOrder" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
+			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
+			Loading="@loading" @key="@Item.Id">
+	<GroupHeaderContent>
+		<td colspan="6">
+			@if (context.Group is "buy" or "Buy") { @("买家") }
+			else { @("卖家") }
+		</td>
+	</GroupHeaderContent>
+	<ItemColContent>
+		@if (context.Header.Text == "联系")
+		{
+			var name = Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug;
+			var type = context.Item.Type == "buy" ? "sell" : "buy";
+			var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: {name}{(context.Item.Rank.HasValue ? $" rank {context.Item.Rank}" : "")} for {context.Item.Platinum} platinum.";
+			<MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
+		}
+		else if (context.Header.Text == "卖家")
+		{
+			@context.Item.User?.IngameName
+		}
+		else if (context.Header.Text == "买/卖")
+		{
+			@(context.Item.Type == "buy" ? "购" : "售")
+		}
+		else
+		{
+			@context.Value?.ToString()
+		}
+	</ItemColContent>
+</MDataTable>

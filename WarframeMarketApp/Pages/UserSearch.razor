@@ -1,8 +1,5 @@
 @page "/user"
 @attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
-@implements IDisposable
-@inject zms9110750.WarframeMarketApi.WarframeMarketClient Wfm
-@inject ItemsCacheService ItemsCache
 
 <h3>用户订单查询</h3>
 
@@ -21,108 +18,29 @@
 			<span><strong>@user.IngameName</strong></span>
 			<span>平台: @user.Platform</span>
 			<span>声望: @user.Reputation</span>
-			<span class="text-caption">最后在线: @user.LastSeenLocal.ToString("g")</span>
+			<span>@user.LastSeenLocal.ToString("g")</span>
 		</div>
 	</MCard>
 }
 
 @if (orders != null && orders.Count > 0)
 {
-	<p class="mt-2">共 @orders.Count 个订单 @(loadingPrices ? " — 加载价格中..." : "")</p>
+	<p class="mt-2">共 @orders.Count 个订单 @(loadingPrices ? " — 加载中..." : "")</p>
 
 	@foreach (var o in orders)
 	{
 		<MCard key="@o.Id" Class="mt-2 pa-3" Outlined>
 			<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-				<span style="min-width:120px;"><strong>@(o.ItemId?[..Math.Min(16, o.ItemId!.Length)] ?? "-")</strong></span>
-				<span style="min-width:50px;">@(o.Type == "sell" ? "出售" : "收购")</span>
-				<span style="min-width:60px;color:#e65100;">@o.Platinum</span>
-				<span style="min-width:30px;">x@o.Quantity</span>
-				<span style="min-width:60px;">参考: @GetRefPrice(o.ItemId)</span>
-				<span style="min-width:60px;">@GetDiff(o.ItemId, o.Platinum)</span>
-				@if (o.Rank.HasValue) { <span class="text-caption">R@(o.Rank)</span> }
+				<span style="min-width:100px;"><strong>@GetItemName(o)</strong></span>
+				<span style="min-width:40px;">@(o.Type == "sell" ? "售" : "购")</span>
+				<span style="min-width:50px;">@o.Platinum</span>
+				<span style="min-width:20px;">x@o.Quantity</span>
+				<span style="min-width:60px;">参考 @GetRef(o)</span>
+				<span style="min-width:60px;">@GetDiff(o)</span>
 			</div>
 		</MCard>
 	}
 }
-else if (searched && !loading) { <p class="mt-2">该用户无公开订单</p> }
+else if (searched && !loading) { <p class="mt-2">无公开订单</p> }
 
 @if (error != null) { <p style="color:#c62828;">@error</p> }
-
-@code {
-	private string slug = "";
-	private User? user;
-	private List<Order>? orders;
-	private bool loading;
-	private bool searched;
-	private bool loadingPrices;
-	private string? error;
-	private CancellationTokenSource _cts = new();
-	private Dictionary<string, string> _slugMap = new();
-	private Dictionary<string, Statistic?> _prices = new();
-
-	private async Task SearchAsync()
-	{
-		if (string.IsNullOrWhiteSpace(slug)) return;
-		loading = true; searched = true; error = null;
-		user = null; orders = null; _prices.Clear();
-		_cts?.Cancel(); _cts = new();
-
-		try
-		{
-			var allItems = await ItemsCache.GetItemsAsync("zh-hans");
-			if (allItems != null)
-				_slugMap = allItems.ToDictionary(i => i.Id, i => i.Slug);
-
-			var userResp = await Wfm.GetUserAsync(slug);
-			user = userResp?.Content?.Data;
-
-			var orderResp = await Wfm.GetOrdersFromUserAsync(slug);
-			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0) { searched = true; return; }
-
-			orders = orderResp.Content.Data.ToList();
-			loading = false;
-			loadingPrices = true;
-			_ = LoadPricesAsync();
-		}
-		catch (Exception ex) { error = ex.Message; loading = false; }
-	}
-
-	private async Task LoadPricesAsync()
-	{
-		foreach (var o in orders!)
-		{
-			if (_cts.IsCancellationRequested) break;
-			if (o.ItemId == null || !_slugMap.TryGetValue(o.ItemId, out var itemSlug)) continue;
-			try
-			{
-				var resp = await ItemsCache.GetStatisticsAsync(itemSlug, _cts.Token);
-				_prices[o.ItemId] = resp?.Data;
-			}
-			catch { }
-			if (!_cts.IsCancellationRequested) { StateHasChanged(); await Task.Delay(250); }
-		}
-		loadingPrices = false; StateHasChanged();
-	}
-
-	private string GetRefPrice(string? itemId)
-	{
-		if (itemId == null || !_prices.TryGetValue(itemId, out var stat) || stat == null) return loadingPrices ? "" : "-";
-		var entries = stat.Payload?.StatisticsLive?.Day90;
-		if (entries == null || entries.Length == 0) return "-";
-		return entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average().ToString("F0");
-	}
-
-	private string GetDiff(string? itemId, int orderPrice)
-	{
-		if (itemId == null || !_prices.TryGetValue(itemId, out var stat) || stat == null) return "";
-		var entries = stat.Payload?.StatisticsLive?.Day90;
-		if (entries == null || entries.Length == 0) return "";
-		var avg = entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average();
-		if (avg <= 0) return "";
-		var diff = orderPrice - avg;
-		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
-	}
-
-	public void Dispose() { _cts?.Cancel(); _cts?.Dispose(); }
-}

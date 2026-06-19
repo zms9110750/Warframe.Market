@@ -33,9 +33,8 @@ public partial class MainWindow : Window
             serviceCollection.AddSingleton<AppState>();
             serviceCollection.AddTransient<CacheService>();
             serviceCollection.AddTransient<LocalCacheService>();
-            serviceCollection.AddTransient<SearchService>();
+            serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();
-            serviceCollection.AddTransient<ItemsCacheService>();
 
 #if DEBUG
             serviceCollection.AddBlazorWebViewDeveloperTools();

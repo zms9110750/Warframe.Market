@@ -1,39 +1,17 @@
 @page "/reply"
 @attribute [NavItem("快捷回复", "mdi-reply-all", Order = 3)]
-@inject IJSRuntime Js
 
 <h3>快捷回复</h3>
 <p class="text-caption mb-4">点击复制到剪贴板</p>
 
-<div style="display: flex; flex-direction: column; gap: 8px; max-width: 400px;">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:400px;">
 	@foreach (var (label, template) in templates)
 	{
-		<MButton Outlined Block OnClick="@(() => Copy(template))">
-			@label
-		</MButton>
+		<MButton Outlined Block OnClick="@(() => Copy(template))">@label</MButton>
 	}
 </div>
 
 @if (copied != null)
 {
 	<MAlert Dense Class="mt-4" Type="@AlertTypes.Success">已复制: @copied</MAlert>
-}
-
-@code {
-	private string? copied;
-
-	private readonly (string, string)[] templates = new[]
-	{
-	("询价", "/w {user} Hi! I want to buy your {item} for {plat} platinum. (Warframe Market)"),
-	("卖单(已设置价格)", "/w {user} Hi! I want to sell my {item} for {plat} platinum. (Warframe Market)"),
-	("求购", "/w {user} Hi! I want to buy your {item} platinum. (Warframe Market)"),
-	("交易完成", "/w {user} Thank you for the trade! Good luck!"),
-	("邀请组队", "/w {user} Hi! Do you still have {item} for {plat} platinum?"),
-	};
-
-	private async Task Copy(string text)
-	{
-		await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
-		copied = text.Length > 40 ? text[..40] + "..." : text;
-	}
 }
