@@ -41,6 +41,14 @@ public partial class MainWindow : Window
 #endif
 
             Resources.Add("services", serviceCollection.BuildServiceProvider());
+
+            // 初始化数据库
+            using (var initScope = ((IServiceProvider)Resources["services"]).CreateScope())
+            {
+                var db = initScope.ServiceProvider.GetRequiredService<WfmDbContext>();
+                db.Database.EnsureCreated();
+                new LocalCacheService(db).CleanupAsync().GetAwaiter().GetResult();
+            }
         }
         catch (Exception ex)
         {
