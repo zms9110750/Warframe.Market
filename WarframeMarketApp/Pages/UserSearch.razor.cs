@@ -57,11 +57,16 @@ public partial class UserSearch : ComponentBase
 		var names = slug.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 		foreach (var name in names)
 		{
-			if (!_activeUsers.Contains(name) && !_pinnedUsers.Contains(name))
+			if (_pinnedUsers.Contains(name))
+			{
+				activeTabIndex = 1 + _pinnedUsers.IndexOf(name);
+				continue;
+			}
+			if (!_activeUsers.Contains(name))
 			{
 				_activeUsers.Add(name);
-				activeTabIndex = 1 + _pinnedUsers.Count + _activeUsers.Count - 1;
 			}
+			activeTabIndex = 1 + _pinnedUsers.Count + _activeUsers.IndexOf(name);
 			_ = SearchUserAsync(name, false);
 		}
 		StateHasChanged();
