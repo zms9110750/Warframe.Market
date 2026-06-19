@@ -3,7 +3,20 @@
 
 @if (TargetItem == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
 
-<MDataTable Items="@TopOrder" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
+@* 筛选开关 *@
+<div class="d-flex align-center mb-2" style="gap:12px;">
+	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
+		<LabelContent>购</LabelContent>
+	</MSwitch>
+	<MSwitch @bind-Value="_showSell" Dense Inset HideDetails="true">
+		<LabelContent>售</LabelContent>
+	</MSwitch>
+	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true">
+		<LabelContent>@_maxRankLabel</LabelContent>
+	</MSwitch>
+</div>
+
+<MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
 			Loading="@loading" @key="@TargetItem.Id">
 	<GroupHeaderContent>
@@ -26,14 +39,9 @@
 		}
 		else if (context.Header.Text == "卖家")
 		{
-			if (ClickLink)
-			{
-				<a href="@($"https://warframe.market/zh-hans/profile/{context.Item.User?.IngameName}")">@context.Item.User?.IngameName</a>
-			}
-			else
-			{
-				<text>@context.Item.User?.IngameName</text>
-			}
+			@(ClickLink
+				? (MarkupString)$"<a href='https://warframe.market/zh-hans/profile/{context.Item.User?.IngameName}'>{context.Item.User?.IngameName}</a>"
+				: (MarkupString)$"{context.Item.User?.IngameName}")
 		}
 		else
 		{

@@ -17,7 +17,29 @@ public partial class OrderTop : ComponentBase, IDisposable
 	[Parameter] public ItemShort? TargetItem { get; set; }
 
 	protected bool loading = true;
+	protected bool _showBuy = true;
+	protected bool _showSell = true;
+	protected bool _showMaxRank;
+	protected string _maxRankLabel = "满级";
+
 	protected Order[] TopOrder = Array.Empty<Order>();
+
+	protected IEnumerable<Order> FilteredOrders
+	{
+		get
+		{
+			var q = TopOrder.AsEnumerable();
+			if (!_showBuy) q = q.Where(o => o.Type is not "buy" and not "Buy");
+			if (!_showSell) q = q.Where(o => o.Type is not "sell" and not "Sell");
+			if (_showMaxRank && TargetItem != null)
+			{
+				var maxRank = TargetItem.MaxRank ?? 0;
+				if (maxRank > 0)
+					q = q.Where(o => o.Rank == maxRank);
+			}
+			return q;
+		}
+	}
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
 		new("联系", nameof(Order.Id)) { Sortable = false },
@@ -35,6 +57,29 @@ public partial class OrderTop : ComponentBase, IDisposable
 			if (TargetItem == null) { Log.Warning("OrderTop TargetItem 为 null"); loading = false; return; }
 			Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
 			loading = true;
+
+			// 默认开关：MOD/赋能→满级，遗物→光辉，组件→成品
+			var tags = TargetItem.Tags ?? new();
+			if (tags.Contains("mod") || tags.Contains("arcane_enhancement"))
+			{
+				_showMaxRank = true;
+				_maxRankLabel = "满级";
+			}
+			else if (tags.Contains("relic"))
+			{
+				_showMaxRank = true;
+				_maxRankLabel = "光辉";
+			}
+			else if (tags.Contains("component"))
+			{
+				_showMaxRank = true;
+				_maxRankLabel = "成品";
+			}
+			else if (tags.Contains("ayatan_sculpture"))
+			{
+				_showMaxRank = true;
+				_maxRankLabel = "满星";
+			}
 
 			var orders = new List<Order>();
 			HashSet<string> Tags = TargetItem.Tags ?? new();
