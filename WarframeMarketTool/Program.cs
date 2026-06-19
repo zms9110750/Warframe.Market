@@ -1,5 +1,9 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿// ═══════════════════════════════════════════
+// WarframeMarketTool — 测试沙盒
+// 先验证算法再搬进 App，最终不留。
+// ═══════════════════════════════════════════
+
+using System.Text.Json;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 
 var raw = await new HttpClient { BaseAddress = new Uri("https://api.warframe.market") }
@@ -8,44 +12,47 @@ var raw = await new HttpClient { BaseAddress = new Uri("https://api.warframe.mar
 var opts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 var stat = JsonSerializer.Deserialize<Statistic>(raw, opts);
 
-Console.Error.WriteLine("=== StatisticsClosed (已结算) ===");
-var closed = stat?.Payload?.StatisticsClosed?.Day90;
-if (closed != null)
-{
-	Console.Error.WriteLine($"Day90 共 {closed.Length} 条");
-	Console.Error.WriteLine($"  ModRank 分布: {string.Join(", ", closed.GroupBy(e => e.ModRank ?? 0).OrderBy(g => g.Key).Select(g => $"R{g.Key}={g.Count()}"))}");
-	Console.Error.WriteLine($"  第一/最后一条: {closed.Min(e => e.Datetime):yyyy-MM-dd} ~ {closed.Max(e => e.Datetime):yyyy-MM-dd}");
+if (stat?.Payload?.StatisticsClosed?.Day90 == null) { Console.Error.WriteLine("无数据"); return; }
 
-	// R0 的卖单
-	var r0 = closed.Where(e => e.ModRank is null or 0).ToArray();
-	Console.Error.WriteLine($"\n  R0 共 {r0.Length} 条");
-	if (r0.Any())
-	{
-		Console.Error.WriteLine($"  均价范围: {r0.Min(e => e.AvgPrice):F1} ~ {r0.Max(e => e.AvgPrice):F1}");
-		Console.Error.WriteLine($"  中位数范围: {r0.Min(e => e.Median):F1} ~ {r0.Max(e => e.Median):F1}");
-		Console.Error.WriteLine($"  最近7天均价: {r0.Where(e => e.Datetime > DateTime.UtcNow.AddDays(-7)).Select(e => e.AvgPrice).DefaultIfEmpty(0).Average():F1}");
-	}
+var day90 = stat.Payload.StatisticsClosed.Day90;
+Console.Error.WriteLine($"Day90 共 {day90.Length} 条, 日期: {day90.Min(e => e.Datetime):yyyy-MM-dd} ~ {day90.Max(e => e.Datetime):yyyy-MM-dd}");
 
-	// R10 的卖单
-	var r10 = closed.Where(e => e.ModRank == 10).ToArray();
-	Console.Error.WriteLine($"\n  R10 共 {r10.Length} 条");
-	if (r10.Any())
-	{
-		Console.Error.WriteLine($"  均价范围: {r10.Min(e => e.AvgPrice):F1} ~ {r10.Max(e => e.AvgPrice):F1}");
-		Console.Error.WriteLine($"  中位数范围: {r10.Min(e => e.Median):F1} ~ {r10.Max(e => e.Median):F1}");
+// 0 级价
+static double? Calc(double[] ws, Entry[] entries) {
+	var tw = 0.0; var ws_ = 0.0;
+	for (int i = 0; i < entries.Length; i++) {
+		var w = ws[i] * entries[i].Volume;
+		tw += w; ws_ += w * entries[i].Median;
 	}
+	return tw > 0 ? ws_ / tw : null;
+}
+double[] ws = [40, 25, 15, 5, 5, 5, 5];
+
+var r0 = day90.Where(e => e.ModRank is null or 0).OrderByDescending(e => e.Datetime).Take(7).ToArray();
+Console.Error.WriteLine($"\n0 级价 ({r0.Length} 天): {Calc(ws, r0)?.ToString("F1")}");
+
+var maxRanked = day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.ModRank).FirstOrDefault();
+if (maxRanked != null) Console.Error.WriteLine($"\n最高 ModRank={maxRanked.ModRank}");
+
+// 满级价：ModRank > 0, subtype in (null, crafted, radiant, magnificent, large)
+var max = day90.Where(e => e.ModRank > 0 && (e.Subtype is null or "crafted" or "radiant" or "magnificent" or "large"))
+	.OrderByDescending(e => e.Datetime).Take(7).ToArray();
+if (max.Length > 0) {
+	Console.Error.WriteLine($"满级价 ({max.Length} 天, subtype 分布: {string.Join(", ", max.Select(m => m.Subtype ?? "null").Distinct())}): {Calc(ws, max)?.ToString("F1")}");
+} else {
+	// fallback: 直接按最高等级
+	var fallback = day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.Datetime).Take(7).ToArray();
+	if (fallback.Length > 0) Console.Error.WriteLine($"满级价(fallback) ({fallback.Length} 天): {Calc(ws, fallback)?.ToString("F1")}");
 }
 
-Console.Error.WriteLine("\n\n=== StatisticsLive (实时) ===");
-var live = stat?.Payload?.StatisticsLive?.Day90;
-if (live != null)
+// 混合价
+static int SynCons(int? rank) => rank switch { 1 => 3, 2 => 6, 3 => 10, 4 => 15, 5 => 21, _ => 1 };
+var firstRanked = day90.FirstOrDefault(e => e.ModRank > 0);
+if (firstRanked != null)
 {
-	Console.Error.WriteLine($"Day90 共 {live.Length} 条");
-	var sells = live.Where(e => e.OrderType == "sell").ToArray();
-	var buys = live.Where(e => e.OrderType == "buy").ToArray();
-	Console.Error.WriteLine($"  卖单: {sells.Length} 条  买单: {buys.Length} 条");
-
-	Console.Error.WriteLine($"\n  卖单 R0 均价: {sells.Where(e => e.ModRank is null or 0).Select(e => e.AvgPrice).DefaultIfEmpty(0).Average():F1}");
-	Console.Error.WriteLine($"  卖单 R10 均价: {sells.Where(e => e.ModRank == 10).Select(e => e.AvgPrice).DefaultIfEmpty(0).Average():F1}");
-	Console.Error.WriteLine($"  买单 R10 均价: {buys.Where(e => e.ModRank == 10).Select(e => e.AvgPrice).DefaultIfEmpty(0).Average():F1}");
+	var syn = SynCons(firstRanked.ModRank);
+	var maxP = Calc(ws, max.Length > 0 ? max : day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.Datetime).Take(7).ToArray());
+	Console.Error.WriteLine($"\n混合价 (ModRank={firstRanked.ModRank}, 消耗={syn}): 满级价/{syn} = {maxP / syn:F1}");
 }
+
+Console.Error.WriteLine("\n=== 完成 ===");

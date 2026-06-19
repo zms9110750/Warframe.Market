@@ -132,7 +132,7 @@ public class ItemsService
 		if (stat?.Payload?.StatisticsClosed?.Day90 == null) return null;
 		return CalcWeightedMedian(stat.Payload.StatisticsClosed.Day90,
 			e => e.ModRank is > 0 &&
-				 (e.Subtype is "crafted" or "radiant" or "magnificent" or "large"));
+				 (e.Subtype is null or "crafted" or "radiant" or "magnificent" or "large"));
 	}
 
 	public double? GetReferencePriceFiltered(Statistic? stat, Func<Entry, bool> filter)
