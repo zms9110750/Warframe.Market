@@ -11,7 +11,6 @@ public partial class MainLayout : LayoutComponentBase
 {
 	[Inject] private AppState State { get; set; } = null!;
 	[Inject] private CacheService Cache { get; set; } = null!;
-	[Inject] private FileLogger Log { get; set; } = null!;
 
 	private string currentTitle = "";
 	protected bool canWrite;

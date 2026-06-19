@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using System.Windows;
 using zms9110750.WarframeMarketApi;
 using WarframeMarketApp.Data;
@@ -11,6 +12,9 @@ public partial class MainWindow : Window
 {
     public MainWindow()
     {
+        LogSetup.Configure();
+        Log.Information("=== 会话启动 ===");
+
         try
         {
             InitializeComponent();
@@ -37,7 +41,6 @@ public partial class MainWindow : Window
             serviceCollection.AddDbContext<WfmDbContext>(o =>
                 o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
-            serviceCollection.AddSingleton<FileLogger>();
             serviceCollection.AddSingleton<CacheService>();
             serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();

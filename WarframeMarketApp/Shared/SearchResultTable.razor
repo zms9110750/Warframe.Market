@@ -2,7 +2,6 @@
 @using zms9110750.WarframeMarketApi.Models.Items
 @using zms9110750.WarframeMarketApi.Models.Statistics
 @inject ItemsService ItemSvc
-@inject FileLogger Log
 
 @if (results.Count == 0)
 {
@@ -91,7 +90,6 @@
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
-		Log.Info($"SearchResultTable 开始加载价格，{results.Count} 个物品");
 
 		var geting = new HashSet<Task>();
 		foreach (var item in results)

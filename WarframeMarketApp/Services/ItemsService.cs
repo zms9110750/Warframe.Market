@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -16,19 +17,17 @@ public class ItemsService
 {
 	private readonly CacheService _cache;
 	private readonly IServiceScopeFactory _scopeFactory;
-	private readonly FileLogger _log;
 
 	private Trie? _trie;
-	private Dictionary<string, ItemShort>? _slugMap;
-	private Dictionary<string, ItemShort>? _nameMap;
+	/// <summary>所有 Trie 条目（slug/id/名字）→ ItemShort 的统一映射</summary>
+	private Dictionary<string, ItemShort>? _itemByKey;
 	private bool _trieBuilt;
 	private readonly object _trieLock = new();
 
-	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory, FileLogger log)
+	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory)
 	{
 		_cache = cache;
 		_scopeFactory = scopeFactory;
-		_log = log;
 	}
 
 	// ─── Trie 构建（从 SQLite 加载） ───
@@ -45,32 +44,39 @@ public class ItemsService
 		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 
 		var items = await db.Items.ToListAsync();
-		_slugMap = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
-		_nameMap = new(StringComparer.OrdinalIgnoreCase);
+		var bySlug = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
+		var byId = items.ToDictionary(i => i.Id, StringComparer.OrdinalIgnoreCase);
 
 		var trie = new Trie(['_', ' ', '·']);
+		var keyMap = new Dictionary<string, ItemShort>(StringComparer.OrdinalIgnoreCase);
+
 		foreach (var item in items)
 		{
 			trie.Add(item.Slug);
+			keyMap[item.Slug] = item;
 			trie.Add(item.Id);
+			keyMap[item.Id] = item;
 		}
 
 		var translations = await db.ItemTranslations.ToListAsync();
 		foreach (var t in translations)
 		{
-			if (!string.IsNullOrEmpty(t.Name))
-			{
-				trie.Add(t.Name);
-				if (_slugMap.TryGetValue(t.ItemId, out var itemForName))
-					_nameMap.TryAdd(t.Name, itemForName);
-			}
+			if (string.IsNullOrEmpty(t.Name)) continue;
+			trie.Add(t.Name);
+			// 用 ItemId 找到对应的 ItemShort
+			if (byId.TryGetValue(t.ItemId, out var item))
+				keyMap.TryAdd(t.Name, item);
+			else if (bySlug.TryGetValue(t.ItemId, out var item2))
+				keyMap.TryAdd(t.Name, item2);
 		}
 
 		lock (_trieLock)
 		{
 			_trie = trie;
+			_itemByKey = keyMap;
 			_trieBuilt = true;
 		}
+		Log.Information("Trie 构建完成：{Keys} 个条目, {Items} 个物品", keyMap.Count, items.Count);
 	}
 
 	// ─── 搜索 ───
@@ -79,8 +85,8 @@ public class ItemsService
 	{
 		if (string.IsNullOrWhiteSpace(query)) return new();
 		await EnsureTrieAsync();
-		if (_trie == null || _slugMap == null) return new();
-		_log.Info($"搜索: {query}");
+		if (_trie == null || _itemByKey == null) return new();
+		Log.Information("搜索: {Query}", query);
 
 		var terms = query.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 		if (terms.Length == 0) return new();
@@ -96,13 +102,12 @@ public class ItemsService
 			var matched = _trie.Search(term);
 			foreach (var m in matched)
 			{
-				if (_slugMap.TryGetValue(m, out var item) && resultSet.Add(item.Id))
+				if (_itemByKey.TryGetValue(m, out var item) && resultSet.Add(item.Id))
 					results.Add(item);
-				else if (_nameMap?.TryGetValue(m, out var item2) == true && resultSet.Add(item2.Id))
-					results.Add(item2);
 			}
 		}
 
+		Log.Information("搜索 {Query}: {Count} 个结果", query, results.Count);
 		return results;
 	}
 
@@ -123,7 +128,6 @@ public class ItemsService
 		catch { return null; }
 	}
 
-	/// <summary>只读缓存，不发请求（用于渐进刷新）</summary>
 	public Statistic? GetStatisticFromCache(string itemId)
 	{
 		return _statsCache.GetValueOrDefault(itemId);
