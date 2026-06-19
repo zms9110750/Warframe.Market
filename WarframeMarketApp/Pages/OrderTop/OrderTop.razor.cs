@@ -6,7 +6,7 @@ using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
 
-namespace WarframeMarketApp.Shared;
+namespace WarframeMarketApp.Pages.OrderTop;
 
 public partial class OrderTop : ComponentBase, IDisposable
 {
@@ -14,7 +14,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 	[Inject] private IJSRuntime Js { get; set; } = null!;
 
 	[CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
-	[Parameter] public ItemShort? Item { get; set; }
+	[Parameter] public ItemShort? TargetItem { get; set; }
 
 	protected bool loading = true;
 	protected Order[] TopOrder = Array.Empty<Order>();
@@ -32,38 +32,42 @@ public partial class OrderTop : ComponentBase, IDisposable
 	{
 		try
 		{
-			if (Item == null) { Log.Warning("OrderTop Item 为 null"); loading = false; return; }
-			Log.Information("OrderTop 初始化: {Slug}", Item.Slug);
+			if (TargetItem == null) { Log.Warning("OrderTop TargetItem 为 null"); loading = false; return; }
+			Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
 			loading = true;
 
 			var orders = new List<Order>();
-			HashSet<string> Tags = Item.Tags ?? new();
+			HashSet<string> Tags = TargetItem.Tags ?? new();
+			var slug = TargetItem.Slug;
+			var maxRank = TargetItem.MaxRank;
+			var maxAmber = TargetItem.MaxAmberStars;
+			var maxCyan = TargetItem.MaxCyanStars;
+
 			var itemType =
 				Tags.Contains("riven") ? "riven" :
 				Tags.Contains("mod") ? "mod" :
 				Tags.Contains("arcane_enhancement") ? "arcane" :
 				Tags.Contains("relic") ? "relic" :
 				Tags.Contains("ayatan_sculpture") ? "ayatan" :
-				Tags.Contains("component") ? "component" :
-				null;
+				Tags.Contains("component") ? "component" : null;
 
 			switch (itemType)
 			{
 				case "arcane":
 				case "mod":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(RankLt: (Item.MaxRank ?? 1) - 1, Rank: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new(RankLt: (maxRank ?? 1) - 1, Rank: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Rank: Item.MaxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+					a = await Wfm.GetOrdersItemTopAsync(slug, new(Rank: maxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					_headers.Add(new("等级", nameof(Order.Rank)));
 					break;
 				}
 				case "ayatan":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: (Item.MaxAmberStars ?? 1) - 1, AmberStars: null, CyanStarsLt: (Item.MaxCyanStars ?? 1) - 1, CyanStars: null, Subtype: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new(Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: (maxAmber ?? 1) - 1, AmberStars: null, CyanStarsLt: (maxCyan ?? 1) - 1, CyanStars: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(AmberStars: Item.MaxAmberStars, CyanStars: Item.MaxCyanStars, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: null, CyanStarsLt: null, Subtype: null));
+					a = await Wfm.GetOrdersItemTopAsync(slug, new(AmberStars: maxAmber, CyanStars: maxCyan, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: null, CyanStarsLt: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					_headers.Add(new("琥珀星", nameof(Order.AmberStars)));
 					_headers.Add(new("青蓝星", nameof(Order.CyanStars)));
@@ -71,34 +75,34 @@ public partial class OrderTop : ComponentBase, IDisposable
 				}
 				case "component":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "blueprint", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "blueprint", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "crafted", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "crafted", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					_headers.Add(new("类型", nameof(Order.Subtype)));
 					break;
 				}
 				case "relic":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "intact", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "intact", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "radiant", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "radiant", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					_headers.Add(new("类型", nameof(Order.Subtype)));
 					break;
 				}
 				case "riven":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "revealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "revealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "unrevealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: "unrevealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					_headers.Add(new("类型", nameof(Order.Subtype)));
 					break;
 				}
 				default:
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, null);
+					var a = await Wfm.GetOrdersItemTopAsync(slug, null);
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}

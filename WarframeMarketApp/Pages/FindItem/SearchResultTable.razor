@@ -14,7 +14,11 @@
 	<ItemColContent>
 		@if (context.Header.Text == "中文名称")
 		{
-			@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)
+			if (ClickLink)
+			{
+				<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
+			}
+			else { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
 		}
 		else if (context.Header.Text == "英文名称")
 		{
@@ -22,16 +26,26 @@
 		}
 		else if (context.Header.Text == "价格")
 		{
-			@(_prices.TryGetValue(context.Item.Slug, out var p) && p.HasValue ? $"{p:F1}" : "")
+			var p = _prices.TryGetValue(context.Item.Slug, out var pv) && pv.HasValue ? pv : null;
+			if (ClickLink && p.HasValue)
+			{
+				<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{p:F1}")</a>
+			}
+			else { @(p?.ToString("F1") ?? "") }
 		}
 		else if (context.Header.Text == "满级价格")
 		{
-			@(_maxPrices.TryGetValue(context.Item.Slug, out var mp) && mp.HasValue ? $"{mp:F1}" : "")
+			var mp = _maxPrices.TryGetValue(context.Item.Slug, out var mpv) && mpv.HasValue ? mpv : null;
+			if (ClickLink && mp.HasValue)
+			{
+				<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{mp:F1}")</a>
+			}
+			else { @(mp?.ToString("F1") ?? "") }
 		}
 	</ItemColContent>
 	<ExpandedItemContent>
 		<td colspan="@_headers.Count" @key="context.Item.Id">
-			<OrderTop Item="@((ItemShort)context.Item)" />
+			<OrderTop TargetItem="@((ItemShort)context.Item)" />
 		</td>
 	</ExpandedItemContent>
 </MDataTable>

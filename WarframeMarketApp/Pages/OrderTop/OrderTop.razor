@@ -1,11 +1,11 @@
 @using zms9110750.WarframeMarketApi.Models.Orders
 @using zms9110750.WarframeMarketApi.Models.Users
 
-@if (Item == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
+@if (TargetItem == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
 
 <MDataTable Items="@TopOrder" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
-			Loading="@loading" @key="@Item.Id">
+			Loading="@loading" @key="@TargetItem.Id">
 	<GroupHeaderContent>
 		<td colspan="@_headers.Count">
 			@if (context.Group is "buy" or "Buy") { @("购") }
@@ -16,8 +16,8 @@
 		@if (context.Header.Text == "联系")
 		{
 			var locale = context.Item.User?.Locale;
-			var enName = Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug;
-			var zhName = locale == "zh-hans" && Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
+			var enName = TargetItem.I18n.TryGetValue(Language.En, out var en) ? en.Name : TargetItem.Slug;
+			var zhName = locale == "zh-hans" && TargetItem.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
 			var hasSubtype = context.Item.Subtype != null ? $" of {context.Item.Subtype}" : null;
 			var rank = context.Item.Rank != null ? $" rank {context.Item.Rank}" : null;
 			var type = context.Item.Type is "buy" or "Buy" ? "sell" : "buy";
