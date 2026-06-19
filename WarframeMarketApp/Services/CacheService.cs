@@ -105,12 +105,32 @@ public class CacheService
 		}
 	}
 
-	// ─── 统计数据 ───
+	// ─── 统计数据（带进程内缓存） ───
+
+	private readonly Dictionary<string, zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> _statsCache = new();
 
 	public async Task<zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> GetStatisticsAsync(
 		string itemId, CancellationToken ct = default)
 	{
-		var resp = await _wfm.GetStatisticsAsync(itemId, ct);
-		return resp?.Data;
+		if (_statsCache.TryGetValue(itemId, out var cached))
+			return cached;
+
+		try
+		{
+			var resp = await _wfm.GetStatisticsAsync(itemId, ct);
+			var stat = resp?.Data;
+			_statsCache[itemId] = stat;
+			return stat;
+		}
+		catch
+		{
+			_statsCache[itemId] = null;
+			return null;
+		}
+	}
+
+	public void ClearStatsCache()
+	{
+		_statsCache.Clear();
 	}
 }

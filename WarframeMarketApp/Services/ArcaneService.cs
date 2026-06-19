@@ -32,6 +32,7 @@ public class ArcaneService
 	public async Task<double> GetReferencePriceAsync(ArcanePackConfig pack, int purchase = 0)
 	{
 		double total = 0;
+		int reqCount = 0;
 		foreach (var q in pack.Items)
 		{
 			foreach (var itemName in q.Items)
@@ -43,7 +44,12 @@ public class ArcaneService
 				var slug = item.Slug;
 				Log.Information("  找到 {Name} → slug={Slug}", itemName, slug);
 
-				// 获取统计数据
+				// 限流：每 3 个请求等 500ms（≈ 6 req/s，API 上限 3/s 但有缓存）
+				reqCount++;
+				if (reqCount % 3 == 0)
+					await Task.Delay(500);
+
+				// 获取统计数据（有进程内缓存）
 				var stat = await _cache.GetStatisticsAsync(slug);
 				if (stat == null) continue;
 

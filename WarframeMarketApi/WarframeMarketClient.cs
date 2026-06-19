@@ -1,4 +1,4 @@
-using System.Net;
+ï»¿using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,9 +27,9 @@ using zms9110750.WarframeMarketApi.Models.Versions;
 namespace zms9110750.WarframeMarketApi;
 
 /// <summary>
-/// Warframe.Market API ¿Í»§¶Ë¡£
-/// ÊµÏÖËùÓĞ¹«¹²¶Ëµã£¬ÄÚÖÃ Polly µ¯ĞÔ¹ÜµÀ£º
-/// 429 ÖØÊÔ£¨Ö¸ÊıÍË±Ü+¶¶¶¯£©¡¢ÁîÅÆÍ°ÏŞÁ÷£¨3/s£©¡¢ÏŞÁ÷¾Ü¾øÎŞÏŞÖØÊÔ¡£
+/// Warframe.Market API å®¢æˆ·ç«¯ã€‚
+/// å®ç°æ‰€æœ‰å…¬å…±ç«¯ç‚¹ï¼Œå†…ç½® Polly å¼¹æ€§ç®¡é“ï¼š
+/// 429 é‡è¯•ï¼ˆæŒ‡æ•°é€€é¿+æŠ–åŠ¨ï¼‰ã€ä»¤ç‰Œæ¡¶é™æµï¼ˆ3/sï¼‰ã€é™æµæ‹’ç»æ— é™é‡è¯•ã€‚
 /// </summary>
 public class WarframeMarketClient : IWarframeMarketApiV2
 {
@@ -68,6 +68,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 				PermitLimit = 3,
 				SegmentsPerWindow = 1,
 				Window = TimeSpan.FromSeconds(1),
+				QueueLimit=6
 			}))
 			.Build();
 
@@ -78,8 +79,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	private bool _crossplay;
 
 	/// <summary>
-	/// ÇëÇó·µ»ØÄÚÈİµÄÓïÑÔ¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Language</c>¡£
-	/// Ä¬ÈÏ zh-hans£¬Ö§³Ö en/ko/ru/de/fr/pt/zh-hans/zh-hant/es/it/pl/uk/tr/ja¡£
+	/// è¯·æ±‚è¿”å›å†…å®¹çš„è¯­è¨€ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Language</c>ã€‚
+	/// é»˜è®¤ zh-hansï¼Œæ”¯æŒ en/ko/ru/de/fr/pt/zh-hans/zh-hant/es/it/pl/uk/tr/jaã€‚
 	/// </summary>
 	public Language Language
 	{
@@ -94,8 +95,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// É¸Ñ¡½á¹ûµÄÓÎÏ·Æ½Ì¨¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Platform</c>¡£
-	/// Ä¬ÈÏ pc£¬Ö§³Ö pc/ps4/xbox/switch/mobile¡£
+	/// ç­›é€‰ç»“æœçš„æ¸¸æˆå¹³å°ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Platform</c>ã€‚
+	/// é»˜è®¤ pcï¼Œæ”¯æŒ pc/ps4/xbox/switch/mobileã€‚
 	/// </summary>
 	public Platform Platform
 	{
@@ -110,8 +111,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// ÊÇ·ñÆôÓÃ¿çÆ½Ì¨½»Ò×¡£ĞŞ¸Äºó×Ô¶¯¸üĞÂÇëÇóÍ· <c>Crossplay</c>¡£
-	/// Ä¬ÈÏ false¡£
+	/// æ˜¯å¦å¯ç”¨è·¨å¹³å°äº¤æ˜“ã€‚ä¿®æ”¹åè‡ªåŠ¨æ›´æ–°è¯·æ±‚å¤´ <c>Crossplay</c>ã€‚
+	/// é»˜è®¤ falseã€‚
 	/// </summary>
 	public bool Crossplay
 	{
@@ -125,9 +126,9 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// Ê¹ÓÃÄ¬ÈÏÅäÖÃ´´½¨¿Í»§¶Ë¡£
-	/// »ùÖ· https://api.warframe.market£¬ÄÚÖÃ Polly µ¯ĞÔ¹ÜµÀ£¨ÏŞÁ÷ 3/s + 429 ÖØÊÔ£©¡£
-	/// User-Agent ×Ô¶¯È¡µ÷ÓÃ·½³ÌĞò¼¯ÃûºÍ°æ±¾¡£
+	/// ä½¿ç”¨é»˜è®¤é…ç½®åˆ›å»ºå®¢æˆ·ç«¯ã€‚
+	/// åŸºå€ https://api.warframe.marketï¼Œå†…ç½® Polly å¼¹æ€§ç®¡é“ï¼ˆé™æµ 3/s + 429 é‡è¯•ï¼‰ã€‚
+	/// User-Agent è‡ªåŠ¨å–è°ƒç”¨æ–¹ç¨‹åºé›†åå’Œç‰ˆæœ¬ã€‚
 	/// </summary>
 	public WarframeMarketClient()
 	{
@@ -166,11 +167,11 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 	}
 
 	/// <summary>
-	/// Ê¹ÓÃ×Ô¶¨Òå HttpClient ´´½¨¿Í»§¶Ë¡£
-	/// ×¢Òâ£º×Ô¶¨Òå HttpClient ²»»á×Ô¶¯¸½¼Ó Polly µ¯ĞÔ¹ÜµÀ£¬
-	/// Çë×ÔĞĞÅäÖÃ BaseAddress¡¢ÇëÇóÍ·¡¢ÏŞÁ÷ºÍÖØÊÔ¡£
+	/// ä½¿ç”¨è‡ªå®šä¹‰ HttpClient åˆ›å»ºå®¢æˆ·ç«¯ã€‚
+	/// æ³¨æ„ï¼šè‡ªå®šä¹‰ HttpClient ä¸ä¼šè‡ªåŠ¨é™„åŠ  Polly å¼¹æ€§ç®¡é“ï¼Œ
+	/// è¯·è‡ªè¡Œé…ç½® BaseAddressã€è¯·æ±‚å¤´ã€é™æµå’Œé‡è¯•ã€‚
 	/// </summary>
-	/// <param name="httpClient">ÒÑÅäÖÃµÄ HttpClient£¨Ó¦ÉèÖÃ BaseAddress = https://api.warframe.market£©</param>
+	/// <param name="httpClient">å·²é…ç½®çš„ HttpClientï¼ˆåº”è®¾ç½® BaseAddress = https://api.warframe.marketï¼‰</param>
 	public WarframeMarketClient(HttpClient httpClient)
 	{
 		_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -326,7 +327,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		_apiV2.GetDashboardShowcaseAsync(cancellation);
 
 	/// <summary>
-	/// »ñÈ¡Ö¸¶¨ÎïÆ·µÄÍ³¼ÆÊı¾İ£¨V1 ¶Ëµã£¬ÄÚ²¿×Ô¶¯·´ĞòÁĞ»¯²¢°ü×°Îª V2 Í³Ò»ÏìÓ¦¸ñÊ½£©
+	/// è·å–æŒ‡å®šç‰©å“çš„ç»Ÿè®¡æ•°æ®ï¼ˆV1 ç«¯ç‚¹ï¼Œå†…éƒ¨è‡ªåŠ¨ååºåˆ—åŒ–å¹¶åŒ…è£…ä¸º V2 ç»Ÿä¸€å“åº”æ ¼å¼ï¼‰
 	/// </summary>
 	public async Task<Response<Statistic>> GetStatisticsAsync(string slug, CancellationToken cancellation = default)
 	{
@@ -344,7 +345,7 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 }
 
 /// <summary>
-/// Ê¹ÓÃ Polly µ¯ĞÔ¹ÜµÀ°ü×° HttpMessageHandler µÄÎ¯ÍĞ´¦Àí³ÌĞò
+/// ä½¿ç”¨ Polly å¼¹æ€§ç®¡é“åŒ…è£… HttpMessageHandler çš„å§”æ‰˜å¤„ç†ç¨‹åº
 /// </summary>
 internal class ResilienceHandler : DelegatingHandler
 {
