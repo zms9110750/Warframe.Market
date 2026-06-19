@@ -10,6 +10,7 @@ public class ArcaneService
 {
 	private readonly CacheService _cache;
 	private readonly ItemsService _items;
+	private readonly FileLogger _log;
 
 	// 合成消耗（赋能用）：从 R0 合到 R1-R5 各需多少个 R0
 	public static IReadOnlyList<int> SyntheticConsumption { get; } = [1, 3, 6, 10, 15, 21];
@@ -17,10 +18,11 @@ public class ArcaneService
 	// 一组小小黑(420荧尘) × 6组/包 / 200(每包价格) × 3(每包开3个赋能)
 	public const double PackGainRate = 420.0 * 6 / 200 * 3; // = 37.8
 
-	public ArcaneService(CacheService cache, ItemsService items)
+	public ArcaneService(CacheService cache, ItemsService items, FileLogger log)
 	{
 		_cache = cache;
 		_items = items;
+		_log = log;
 	}
 
 	/// <summary>
@@ -38,7 +40,7 @@ public class ArcaneService
 				// 通过物品名搜索 slug
 				var results = await _items.SearchAsync(itemName);
 				var item = results.FirstOrDefault();
-				if (item == null) continue;
+				if (item == null) { _log.Warn($"找不到物品: {itemName}"); continue; }
 				var slug = item.Slug;
 
 				// 获取统计数据

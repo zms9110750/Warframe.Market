@@ -16,16 +16,19 @@ public class ItemsService
 {
 	private readonly CacheService _cache;
 	private readonly IServiceScopeFactory _scopeFactory;
+	private readonly FileLogger _log;
 
 	private Trie? _trie;
 	private Dictionary<string, ItemShort>? _slugMap;
+	private Dictionary<string, ItemShort>? _nameMap;
 	private bool _trieBuilt;
 	private readonly object _trieLock = new();
 
-	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory)
+	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory, FileLogger log)
 	{
 		_cache = cache;
 		_scopeFactory = scopeFactory;
+		_log = log;
 	}
 
 	// ─── Trie 构建（从 SQLite 加载） ───
@@ -43,6 +46,7 @@ public class ItemsService
 
 		var items = await db.Items.ToListAsync();
 		_slugMap = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
+		_nameMap = new(StringComparer.OrdinalIgnoreCase);
 
 		var trie = new Trie(['_', ' ', '·']);
 		foreach (var item in items)
@@ -55,7 +59,11 @@ public class ItemsService
 		foreach (var t in translations)
 		{
 			if (!string.IsNullOrEmpty(t.Name))
+			{
 				trie.Add(t.Name);
+				if (_slugMap.TryGetValue(t.ItemId, out var itemForName))
+					_nameMap.TryAdd(t.Name, itemForName);
+			}
 		}
 
 		lock (_trieLock)
@@ -72,6 +80,7 @@ public class ItemsService
 		if (string.IsNullOrWhiteSpace(query)) return new();
 		await EnsureTrieAsync();
 		if (_trie == null || _slugMap == null) return new();
+		_log.Info($"搜索: {query}");
 
 		var terms = query.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 		if (terms.Length == 0) return new();
@@ -89,6 +98,8 @@ public class ItemsService
 			{
 				if (_slugMap.TryGetValue(m, out var item) && resultSet.Add(item.Id))
 					results.Add(item);
+				else if (_nameMap?.TryGetValue(m, out var item2) == true && resultSet.Add(item2.Id))
+					results.Add(item2);
 			}
 		}
 

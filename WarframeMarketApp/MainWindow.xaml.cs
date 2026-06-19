@@ -37,6 +37,7 @@ public partial class MainWindow : Window
             serviceCollection.AddDbContext<WfmDbContext>(o =>
                 o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
+            serviceCollection.AddSingleton<FileLogger>();
             serviceCollection.AddSingleton<CacheService>();
             serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();
