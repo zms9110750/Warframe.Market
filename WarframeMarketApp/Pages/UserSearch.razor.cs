@@ -98,22 +98,29 @@ public partial class UserSearch : ComponentBase, IDisposable
 	{
 		try
 		{
+			// Phase 1: 快速加载所有物品信息（让子面板可展开）
 			foreach (var o in orders!)
 			{
 				if (ct.IsCancellationRequested) break;
-
 				var itemId = o.ItemId ?? "";
 				if (!_itemCache.ContainsKey(itemId))
 				{
 					try
 					{
 						var resp = await Wfm.GetItemByIdAsync(itemId, ct);
-						_itemCache[itemId] = resp?.Content?.Data;
+						if (resp?.Content?.Data != null)
+							_itemCache[itemId] = resp.Content.Data;
 					}
-					catch { _itemCache[itemId] = null; }
+					catch { }
 				}
+			}
+			StateHasChanged();
 
-				var item = _itemCache.GetValueOrDefault(itemId);
+			// Phase 2: 逐条加载价格
+			foreach (var o in orders!)
+			{
+				if (ct.IsCancellationRequested) break;
+				var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
 				if (item != null)
 				{
 					try
@@ -123,7 +130,6 @@ public partial class UserSearch : ComponentBase, IDisposable
 					}
 					catch { }
 				}
-
 				StateHasChanged();
 				await Task.Delay(100, ct);
 			}

@@ -43,6 +43,7 @@ public partial class MainWindow : Window
                 o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
             serviceCollection.AddSingleton<CacheService>();
+            serviceCollection.AddSingleton<PersistentStorage>();
             serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();
             serviceCollection.AddSingleton<ArcaneService>();

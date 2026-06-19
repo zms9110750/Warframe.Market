@@ -105,6 +105,8 @@ public partial class MainLayout : LayoutComponentBase
 			Log.Information("MainLayout: 执行强制刷新");
 			State.IsUpdating = true;
 			State.VersionText = "正在刷新...";
+			State.ShowRefreshPrompt = false;
+			StateHasChanged(); // 立即刷新 UI 显示 loading 状态
 			try
 			{
 				await Cache.RefreshAllAsync();
@@ -118,7 +120,6 @@ public partial class MainLayout : LayoutComponentBase
 				State.VersionText = "刷新失败";
 			}
 			State.IsUpdating = false;
-			State.ShowRefreshPrompt = false;
 		}
 		else
 		{
