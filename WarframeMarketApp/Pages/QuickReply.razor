@@ -26,7 +26,7 @@
 @if (canWrite)
 {
 	<div class="mt-2" style="display:flex;gap:8px;max-width:600px;">
-		<input @bind-Value="newItem" @bind-Value:event="oninput"
+		<input @bind-Value="newItem" @bind-Value:event="oninput" @key="@_inputKey"
 			   placeholder="添加新回复（失焦保存）"
 			   style="flex:1;border:1px solid #ccc;padding:4px 8px;border-radius:4px;"
 			   @onblur="@(() => AddNew())" />

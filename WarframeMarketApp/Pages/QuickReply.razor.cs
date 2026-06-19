@@ -14,6 +14,7 @@ public partial class QuickReply : ComponentBase
 	public bool canWrite { get; set; }
 
 	protected string newItem = "";
+	private int _inputKey;
 	protected string? copied;
 	protected List<string> Tags = new();
 
@@ -40,6 +41,7 @@ public partial class QuickReply : ComponentBase
 		Tags.Add(newItem.Trim());
 		Storage.AddQuickReply(newItem.Trim());
 		newItem = "";
+		_inputKey++;
 		await InvokeAsync(StateHasChanged);
 	}
 

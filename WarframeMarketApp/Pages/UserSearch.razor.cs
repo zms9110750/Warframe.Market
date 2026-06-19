@@ -150,7 +150,7 @@ public partial class UserSearch : ComponentBase, IDisposable
 	protected string GetItemName(Order o)
 	{
 		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null) return o.ItemId?.Length > 16 ? $"{o.ItemId?[..16]}..." : o.ItemId ?? "-";
+		if (item == null) return "加载中...";
 
 		return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
 			 : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
