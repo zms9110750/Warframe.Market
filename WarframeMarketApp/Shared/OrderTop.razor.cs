@@ -30,11 +30,12 @@ public partial class OrderTop : ComponentBase, IDisposable
 
 	protected override async Task OnInitializedAsync()
 	{
-		if (Item == null) { Log.Warning("OrderTop Item 为 null"); loading = false; return; }
-		Log.Information("OrderTop 初始化: {Slug}", Item.Slug);
-		loading = true;
 		try
 		{
+			if (Item == null) { Log.Warning("OrderTop Item 为 null"); loading = false; return; }
+			Log.Information("OrderTop 初始化: {Slug}", Item.Slug);
+			loading = true;
+
 			var orders = new List<Order>();
 			HashSet<string> Tags = Item.Tags ?? new();
 			var itemType =
@@ -105,6 +106,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 
 			TopOrder = orders.Distinct().ToArray();
 		}
+		catch (Exception ex) { Log.Error(ex, "OrderTop 加载失败"); }
 		finally { loading = false; }
 	}
 
