@@ -20,7 +20,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 	protected Order[] TopOrder = Array.Empty<Order>();
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
-		new("联系", "msg") { Sortable = false },
+		new("联系", "") { Sortable = false },
 		new("卖家", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.IngameName) },
 		new("声誉", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Reputation) },
 		new("语言", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Locale) },
