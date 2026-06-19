@@ -8,9 +8,8 @@ public static class LogSetup
 {
 	public static void Configure()
 	{
-		var logPath = Path.Combine(
-			Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-			"WarframeMarket", "app.log");
+		var logPath = System.IO.Path.Combine(
+			AppContext.BaseDirectory, "app.log");
 
 		Log.Logger = new LoggerConfiguration()
 			.MinimumLevel.Information()

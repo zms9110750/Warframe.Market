@@ -91,30 +91,42 @@ public partial class UserSearch : ComponentBase, IDisposable
 
 	private async Task LoadItemInfoAsync(CancellationToken ct)
 	{
-		foreach (var o in orders!)
+		try
 		{
-			if (ct.IsCancellationRequested) break;
-
-			var itemId = o.ItemId ?? "";
-			if (!_itemCache.ContainsKey(itemId))
+			foreach (var o in orders!)
 			{
-				try
+				if (ct.IsCancellationRequested) break;
+
+				var itemId = o.ItemId ?? "";
+				if (!_itemCache.ContainsKey(itemId))
 				{
-					var resp = await Wfm.GetItemByIdAsync(itemId, ct);
-					_itemCache[itemId] = resp?.Content?.Data;
+					try
+					{
+						var resp = await Wfm.GetItemByIdAsync(itemId, ct);
+						_itemCache[itemId] = resp?.Content?.Data;
+					}
+					catch { _itemCache[itemId] = null; }
 				}
-				catch { _itemCache[itemId] = null; }
-			}
 
-			var item = _itemCache.GetValueOrDefault(itemId);
-			if (item != null)
-			{
-				var stat = await ItemSvc.GetStatisticAsync(item.Slug, ct);
-				_prices[item.Slug] = stat;
-			}
+				var item = _itemCache.GetValueOrDefault(itemId);
+				if (item != null)
+				{
+					try
+					{
+						var stat = await ItemSvc.GetStatisticAsync(item.Slug, ct);
+						_prices[item.Slug] = stat;
+					}
+					catch { }
+				}
 
-			StateHasChanged();
-			await Task.Delay(100, ct);
+				StateHasChanged();
+				await Task.Delay(100, ct);
+			}
+		}
+		catch (OperationCanceledException) { }
+		catch (Exception ex)
+		{
+			error = ex.Message;
 		}
 		loadingPrices = false;
 		StateHasChanged();

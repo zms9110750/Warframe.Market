@@ -72,14 +72,7 @@
 	[Parameter] public List<ItemShort> results { get; set; } = new();
 	[CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
 
-	private List<DataTableHeader<ItemShort>> _headers = new()
-	{
-		new("中文名称", "zh"),
-		new("英文名称", "en"),
-		new("价格", "price") { Align = DataTableHeaderAlign.End },
-		new("满级价格", "maxprice") { Align = DataTableHeaderAlign.End },
-	};
-
+	private List<DataTableHeader<ItemShort>> _headers = new();
 	private Dictionary<string, Statistic?> _stats = new();
 	private Dictionary<string, double?> _prices = new();
 	private Dictionary<string, double?> _maxPrices = new();
@@ -90,6 +83,24 @@
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
+
+		_headers = new()
+		{
+			new("中文名称", "zh")
+			{
+				ValueExpression = (Func<ItemShort, object?>)(r =>
+					r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug)
+			},
+			new("英文名称", "en")
+			{
+				ValueExpression = (Func<ItemShort, object?>)(r =>
+					r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
+			},
+			new("价格", "price") { Align = DataTableHeaderAlign.End,
+				ValueExpression = (Func<ItemShort, object?>)(r => GetPrice(r.Slug)) },
+			new("满级价格", "maxprice") { Align = DataTableHeaderAlign.End,
+				ValueExpression = (Func<ItemShort, object?>)(r => GetMaxPrice(r.Slug)) },
+		};
 
 		var geting = new HashSet<Task>();
 		foreach (var item in results)

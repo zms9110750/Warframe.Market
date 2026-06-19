@@ -41,6 +41,7 @@ public class ArcaneService
 				var item = results.FirstOrDefault();
 				if (item == null) { Log.Warning("找不到物品: {Name}", itemName); continue; }
 				var slug = item.Slug;
+				Log.Information("  找到 {Name} → slug={Slug}", itemName, slug);
 
 				// 获取统计数据
 				var stat = await _cache.GetStatisticsAsync(slug);

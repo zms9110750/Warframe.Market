@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -19,10 +20,11 @@ public class ItemsService
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	private Trie? _trie;
-	/// <summary>所有 Trie 条目（slug/id/名字）→ ItemShort 的统一映射</summary>
-	private Dictionary<string, ItemShort>? _itemByKey;
 	private bool _trieBuilt;
 	private readonly object _trieLock = new();
+
+	// 内存缓存：key=slug/id/名字 → ItemShort
+	private readonly ConcurrentDictionary<string, ItemShort> _itemCache = new();
 
 	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory)
 	{
@@ -44,39 +46,66 @@ public class ItemsService
 		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 
 		var items = await db.Items.ToListAsync();
-		var bySlug = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
-		var byId = items.ToDictionary(i => i.Id, StringComparer.OrdinalIgnoreCase);
 
 		var trie = new Trie(['_', ' ', '·']);
-		var keyMap = new Dictionary<string, ItemShort>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var item in items)
 		{
 			trie.Add(item.Slug);
-			keyMap[item.Slug] = item;
 			trie.Add(item.Id);
-			keyMap[item.Id] = item;
 		}
 
 		var translations = await db.ItemTranslations.ToListAsync();
 		foreach (var t in translations)
 		{
-			if (string.IsNullOrEmpty(t.Name)) continue;
-			trie.Add(t.Name);
-			// 用 ItemId 找到对应的 ItemShort
-			if (byId.TryGetValue(t.ItemId, out var item))
-				keyMap.TryAdd(t.Name, item);
-			else if (bySlug.TryGetValue(t.ItemId, out var item2))
-				keyMap.TryAdd(t.Name, item2);
+			if (!string.IsNullOrEmpty(t.Name))
+				trie.Add(t.Name);
 		}
 
 		lock (_trieLock)
 		{
 			_trie = trie;
-			_itemByKey = keyMap;
 			_trieBuilt = true;
 		}
-		Log.Information("Trie 构建完成：{Keys} 个条目, {Items} 个物品", keyMap.Count, items.Count);
+		Log.Information("Trie 构建完成：{Items} 个物品", items.Count);
+	}
+
+	/// <summary>从缓存或数据库按 key（slug/id/名字）查 ItemShort</summary>
+	private async Task<ItemShort?> GetItemByKeyAsync(string key)
+	{
+		if (_itemCache.TryGetValue(key, out var cached)) return cached;
+
+		using var scope = _scopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+
+		ItemShort? item = null;
+
+		// 按 slug 查
+		item = await db.Items.FirstOrDefaultAsync(i => i.Slug == key);
+		if (item == null)
+			item = await db.Items.FirstOrDefaultAsync(i => i.Id == key);
+		if (item == null)
+		{
+			// 按翻译名查
+			var t = await db.ItemTranslations.FirstOrDefaultAsync(t => t.Name == key);
+			if (t != null)
+				item = await db.Items.FirstOrDefaultAsync(i => i.Id == t.ItemId);
+		}
+
+		if (item == null) return null;
+
+		// 填充 I18n（EF Core Ignore 了，需要手动加载）
+		var translations = await db.ItemTranslations
+			.Where(t => t.ItemId == item.Id)
+			.ToListAsync();
+		foreach (var tr in translations)
+		{
+			if (Enum.TryParse<Language>(tr.Language, ignoreCase: true, out var lang))
+				item.I18n[lang] = tr;
+		}
+
+		_itemCache[key] = item;
+		return item;
 	}
 
 	// ─── 搜索 ───
@@ -85,7 +114,7 @@ public class ItemsService
 	{
 		if (string.IsNullOrWhiteSpace(query)) return new();
 		await EnsureTrieAsync();
-		if (_trie == null || _itemByKey == null) return new();
+		if (_trie == null) return new();
 		Log.Information("搜索: {Query}", query);
 
 		var terms = query.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -102,7 +131,9 @@ public class ItemsService
 			var matched = _trie.Search(term);
 			foreach (var m in matched)
 			{
-				if (_itemByKey.TryGetValue(m, out var item) && resultSet.Add(item.Id))
+				if (resultSet.Contains(m)) continue;
+				var item = await GetItemByKeyAsync(m);
+				if (item != null && resultSet.Add(item.Id))
 					results.Add(item);
 			}
 		}
