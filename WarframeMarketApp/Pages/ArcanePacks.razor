@@ -1,24 +1,35 @@
 @page "/arcane"
 @attribute [NavItem("赋能包", "mdi-package-variant", Order = 2)]
 
-<h3>赋能包配置</h3>
+<h3>赋能包查询</h3>
 
-@if (packs != null)
-{
-	<p>共 @packs.Length 个赋能包</p>
-	@foreach (var pack in packs)
-	{
-		<MCard Class="mt-4">
-			<MCardTitle>@pack.Name</MCardTitle>
-			<MCardText>
-				@foreach (var q in pack.Items)
-				{
-					<div style="margin-bottom: 8px;">
-						<strong>@q.Subtypes</strong> (@(q.Quality * 100)%, 每件 @(q.Quality / q.Items.Length * 100):F2%)
-						<ul>@foreach (var item in q.Items) { <li>@item</li> }</ul>
-					</div>
-				}
-			</MCardText>
-		</MCard>
-	}
-}
+<text class="text-caption">
+	这里列出的数字是指，购买一组小小黑赋能（2520荧尘）开箱子的期望价值。
+	表头的数字是指每天购买多少组小小黑赋能。例如35是指一天买35组。
+	如果某列期望值暴跌 → 开出的赋能比市场流通量还多，按成交量封顶。
+</text>
+
+<MDataTable Items="Pack" Headers="_headers" Dense Loading="@(Pack.Length == 0)"
+			ShowExpand ItemKey="r => r.Name" HideDefaultFooter
+			Class="elevation-1 mt-2" ItemsPerPage="-1">
+	<ItemColContent>
+		@if (context.Header.Text == context.Item.Name)
+		{
+			@context.Item.Name
+		}
+		else if (int.TryParse(context.Header.Text, out var count)
+			&& _tasks.TryGetValue((context.Item.Name, count), out var task))
+		{
+			@(task.IsCompleted ? $"{task.Result,-6:f1}" : "加载中")
+		}
+		else
+		{
+			@context.Value?.ToString()
+		}
+	</ItemColContent>
+	<ExpandedItemContent>
+		<td colspan="@_headers.Count" @key="@context.Item.Name">
+			<ArcaneTable Pack="context.Item" />
+		</td>
+	</ExpandedItemContent>
+</MDataTable>

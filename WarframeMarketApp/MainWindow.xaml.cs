@@ -40,6 +40,7 @@ public partial class MainWindow : Window
             serviceCollection.AddSingleton<CacheService>();
             serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();
+            serviceCollection.AddSingleton<ArcaneService>();
 
 #if DEBUG
             serviceCollection.AddBlazorWebViewDeveloperTools();

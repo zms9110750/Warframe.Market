@@ -1,0 +1,90 @@
+@* 赋能包展开明细：各赋能的出货率、参考价、率×价、日均交易量 *@
+@using WarframeMarketApp.Data
+@using zms9110750.WarframeMarketApi
+@inject WarframeMarketClient Wfm
+@inject ItemsService ItemSvc
+@inject CacheService Cache
+
+@if (Pack == null)
+{
+	<MAlert Dense Type="@AlertTypes.Error">参数为 null</MAlert>
+	return;
+}
+
+<MDataTable Items="@Pack.Items.SelectMany(q => q.Items)" Headers="_headersItem"
+			Dense HideDefaultFooter Class="elevation-1" ItemsPerPage="-1">
+	<ItemColContent>
+		@switch (context.Value)
+		{
+			case null:
+				@("加载中")
+				break;
+			case double d:
+				@($"{d,-6:f2}")
+				break;
+			default:
+				@context.Value
+				break;
+		}
+	</ItemColContent>
+</MDataTable>
+
+@code {
+	[Parameter] public ArcanePackConfig Pack { get; set; } = default!;
+
+	private List<DataTableHeader<string>> _headersItem = [];
+	private Dictionary<string, (double Prob, double? Price, double? Expected, double DailyVol)> _data = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		_headersItem.Add(new("名称", "名称") { ValueExpression = t => t });
+		_headersItem.Add(new("出货率%", "rate")
+		{
+			Align = DataTableHeaderAlign.End,
+			ValueExpression = name => _data.TryGetValue(name, out var d) ? d.Prob * 100 : null
+		});
+		_headersItem.Add(new("参考价", "price")
+		{
+			Align = DataTableHeaderAlign.End,
+			ValueExpression = name => _data.TryGetValue(name, out var d) ? d.Price : null
+		});
+		_headersItem.Add(new("出货率×价", "expected")
+		{
+			Align = DataTableHeaderAlign.End,
+			ValueExpression = name => _data.TryGetValue(name, out var d) ? d.Expected : null
+		});
+		_headersItem.Add(new("日均交易量", "daily")
+		{
+			Align = DataTableHeaderAlign.End,
+			ValueExpression = name => _data.TryGetValue(name, out var d) ? d.DailyVol : null
+		});
+
+		// 逐条加载数据
+		foreach (var itemName in Pack.Items.SelectMany(q => q.Items))
+		{
+			var prob = Pack.GetProbability(itemName);
+			var results = await ItemSvc.SearchAsync(itemName);
+			var item = results.FirstOrDefault();
+			if (item == null) continue;
+
+			var stat = await Cache.GetStatisticsAsync(item.Slug);
+			double? price = null;
+			if (stat != null)
+			{
+				var maxPrice = ItemSvc.GetMaxReferencePrice(stat);
+				if (maxPrice != null)
+				{
+					var firstRanked = stat.Payload?.StatisticsClosed?.Day90?.FirstOrDefault(e => e.ModRank > 0);
+					var rank = firstRanked?.ModRank ?? 0;
+					var syn = rank > 0 && rank <= 5 ? ItemsService.SyntheticConsumption[rank] : 1;
+					price = maxPrice / syn;
+				}
+			}
+
+			var dailyVol = ArcaneService.PackGainRate * prob; // 按概率的预期日均量
+			_data[itemName] = (prob, price, price * prob, dailyVol);
+			StateHasChanged();
+			await Task.Delay(50);
+		}
+	}
+}
