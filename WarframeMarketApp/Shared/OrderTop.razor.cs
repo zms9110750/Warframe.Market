@@ -20,11 +20,12 @@ public partial class OrderTop : ComponentBase, IDisposable
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
 		new("买/卖", nameof(Order.Type)),
+		new("联系", "msg") { Sortable = false },
+		new("卖家", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.IngameName) },
+		new("声誉", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Reputation) },
+		new("语言", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Locale) },
 		new("价格", nameof(Order.Platinum)),
 		new("数量", nameof(Order.Quantity)),
-		new("等级", nameof(Order.Rank)),
-		new("卖家", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.IngameName) },
-		new("联系", "msg") { Sortable = false },
 	};
 
 	protected override async Task OnInitializedAsync()
@@ -33,9 +34,75 @@ public partial class OrderTop : ComponentBase, IDisposable
 		loading = true;
 		try
 		{
-			var top = await Wfm.GetOrdersItemTopAsync(Item.Slug, null);
-			if (top?.Content?.Data != null)
-				TopOrder = top.Content.Data.Sell.Concat(top.Content.Data.Buy).ToArray();
+			var orders = new List<Order>();
+			HashSet<string> Tags = Item.Tags ?? new();
+			var itemType =
+				Tags.Contains("riven") ? "riven" :
+				Tags.Contains("mod") ? "mod" :
+				Tags.Contains("arcane_enhancement") ? "arcane" :
+				Tags.Contains("relic") ? "relic" :
+				Tags.Contains("ayatan_sculpture") ? "ayatan" :
+				Tags.Contains("component") ? "component" :
+				null;
+
+			switch (itemType)
+			{
+				case "arcane":
+				case "mod":
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(RankLt: (Item.MaxRank ?? 1) - 1, Rank: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Rank: Item.MaxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					_headers.Add(new("等级", nameof(Order.Rank)));
+					break;
+				}
+				case "ayatan":
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: (Item.MaxAmberStars ?? 1) - 1, AmberStars: null, CyanStarsLt: (Item.MaxCyanStars ?? 1) - 1, CyanStars: null, Subtype: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(AmberStars: Item.MaxAmberStars, CyanStars: Item.MaxCyanStars, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: null, CyanStarsLt: null, Subtype: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					_headers.Add(new("琥珀星", nameof(Order.AmberStars)));
+					_headers.Add(new("青蓝星", nameof(Order.CyanStars)));
+					break;
+				}
+				case "component":
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "blueprint", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "crafted", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					_headers.Add(new("类型", nameof(Order.Subtype)));
+					break;
+				}
+				case "relic":
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "intact", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "radiant", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					_headers.Add(new("类型", nameof(Order.Subtype)));
+					break;
+				}
+				case "riven":
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "revealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					a = await Wfm.GetOrdersItemTopAsync(Item.Slug, new OrderTopQueryParameter(Subtype: "unrevealed", Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					_headers.Add(new("类型", nameof(Order.Subtype)));
+					break;
+				}
+				default:
+				{
+					var a = await Wfm.GetOrdersItemTopAsync(Item.Slug, null);
+					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
+					break;
+				}
+			}
+
+			TopOrder = orders.Distinct().ToArray();
 		}
 		finally { loading = false; }
 	}

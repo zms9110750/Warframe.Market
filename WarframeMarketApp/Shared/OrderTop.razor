@@ -1,39 +1,63 @@
 @using zms9110750.WarframeMarketApi.Models.Orders
 @using zms9110750.WarframeMarketApi.Models.Users
 
-@if (Item == null) { return; }
+@if (Item == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
 
 <MDataTable Items="@TopOrder" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
 			Loading="@loading" @key="@Item.Id">
 	<GroupHeaderContent>
-		<td colspan="6">
-			@if (context.Group is "buy" or "Buy") { @("买家") }
-			else { @("卖家") }
+		<td colspan="@_headers.Count">
+			@if (context.Group is "buy" or "Buy") { @("购") }
+			else { @("售") }
 		</td>
 	</GroupHeaderContent>
 	<ItemColContent>
 		@if (context.Header.Text == "联系")
 		{
 			var locale = context.Item.User?.Locale;
-			var itemName = locale == "zh-hans" || locale == "zh-hant"
-				? (Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : Item.Slug)
-				: (Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug);
-			var type = context.Item.Type == "buy" ? "sell" : "buy";
-			var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: {itemName}{(context.Item.Rank.HasValue ? $" rank {context.Item.Rank}" : "")} for {context.Item.Platinum} platinum.";
+			var enName = Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug;
+			var zhName = context.Item.User?.Locale == "zh-hans" && Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
+			var hasSubtype = context.Item.Subtype != null ? $" of {context.Item.Subtype}" : null;
+			var rank = context.Item.Rank != null ? $" rank {context.Item.Rank}" : null;
+			var type = context.Item.Type is "buy" or "Buy" ? "sell" : "buy";
+			var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: \"{enName}\"{zhName}{hasSubtype}{rank} for {context.Item.Platinum} platinum.";
 			<MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
 		}
 		else if (context.Header.Text == "卖家")
 		{
-			@context.Item.User?.IngameName
+			if (ClickLink)
+			{
+				<a href="@($"https://warframe.market/zh-hans/profile/{context.Item.User?.IngameName}")">@context.Item.User?.IngameName</a>
+			}
+			else
+			{
+				@context.Item.User?.IngameName
+			}
 		}
 		else if (context.Header.Text == "买/卖")
 		{
-			@(context.Item.Type == "buy" ? "购" : "售")
+			@(context.Item.Type is "buy" or "Buy" ? "购" : "售")
 		}
 		else
 		{
-			@context.Value?.ToString()
+			@(context.Value switch
+			{
+				null => "",
+				"blueprint" => "蓝图",
+				"crafted" => "成品",
+				"intact" => "完整",
+				"radiant" => "光辉",
+				"revealed" => "已揭示",
+				"unrevealed" => "未揭示",
+				"exceptional" => "优良",
+				"flawless" => "无暇",
+				string s when s.StartsWith("zh-") => s == "zh-hans" ? "简体中文" : "繁体中文",
+				"en" => "英语", "ko" => "韩语", "ru" => "俄语", "de" => "德语",
+				"fr" => "法语", "pt" => "葡萄牙语", "es" => "西班牙语",
+				"it" => "意大利语", "pl" => "波兰语", "uk" => "乌克兰语",
+				_ => context.Value?.ToString()
+			})
 		}
 	</ItemColContent>
 </MDataTable>
