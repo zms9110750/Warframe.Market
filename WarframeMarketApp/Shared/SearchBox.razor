@@ -1,15 +1,14 @@
 @namespace WarframeMarketApp.Shared
 
-<!-- 搜索输入框独立子组件 -->
 <MTextField @bind-Value="query"
-			@bind-Value:event="oninput"
-			AppendIcon="mdi-magnify"
-			AppendIconClick="@(() => _ = SubmitSearch())"
-			Label="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
-			@onkeydown="@(e => { if (e.Key == "Enter") _ = SubmitSearch(); })"
-			Clearable
-			Dense Solo Class="mb-2"
-			Style="max-width: 600px;" />
+            @bind-Value:event="oninput"
+            Label="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
+            AppendIcon="mdi-magnify"
+            Clearable
+            Dense Solo Class="mb-2"
+            Style="max-width: 600px;" />
+
+<MButton Class="mt-1" Color="primary" Small OnClick="@(() => _ = DoSearch())">搜索</MButton>
 
 @if (SavedQueries.Count > 0)
 {
@@ -37,15 +36,11 @@
 
 	public List<string> SavedQueries { get; set; } = new();
 
-	protected override void OnInitialized()
+	private async Task DoSearch()
 	{
-		// TODO: 从 EF Core 加载收藏列表
-	}
-
-	private async Task SubmitSearch()
-	{
-		if (!string.IsNullOrWhiteSpace(query))
-			await OnSearch.InvokeAsync(query);
+		var q = query?.Trim();
+		if (!string.IsNullOrWhiteSpace(q))
+			await OnSearch.InvokeAsync(q);
 	}
 
 	private async Task OpenTab(string q)
@@ -59,7 +54,6 @@
 		if (!string.IsNullOrWhiteSpace(query) && !SavedQueries.Contains(query))
 		{
 			SavedQueries.Add(query);
-			// TODO: 持久化到 EF Core
 			StateHasChanged();
 		}
 	}

@@ -37,6 +37,7 @@ public partial class MainWindow : Window
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddWpfBlazorWebView();
             serviceCollection.AddMasaBlazor();
+            serviceCollection.AddMemoryCache();
             serviceCollection.AddSingleton(wfm);
             serviceCollection.AddDbContext<WfmDbContext>(o =>
                 o.UseSqlite($"Data Source={dbPath}"));

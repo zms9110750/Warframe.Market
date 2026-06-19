@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using zms9110750.WarframeMarketApi;
@@ -15,12 +16,14 @@ public class CacheService
 {
 	private readonly WarframeMarketClient _wfm;
 	private readonly IServiceScopeFactory _scopeFactory;
+	private readonly IMemoryCache _memCache;
 	private static readonly Random _rng = new();
 
-	public CacheService(WarframeMarketClient wfm, IServiceScopeFactory scopeFactory)
+	public CacheService(WarframeMarketClient wfm, IServiceScopeFactory scopeFactory, IMemoryCache memCache)
 	{
 		_wfm = wfm;
 		_scopeFactory = scopeFactory;
+		_memCache = memCache;
 	}
 
 	// ─── 启动后延迟清理 ───
@@ -105,32 +108,72 @@ public class CacheService
 		}
 	}
 
-	// ─── 统计数据（带进程内缓存） ───
-
-	private readonly Dictionary<string, zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> _statsCache = new();
+	// ─── 统计数据（SQLite 持久缓存 + IMemoryCache 热缓存） ───
 
 	public async Task<zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> GetStatisticsAsync(
 		string itemId, CancellationToken ct = default)
 	{
-		if (_statsCache.TryGetValue(itemId, out var cached))
+		var cacheKey = "stat:" + itemId;
+
+		// 1. IMemoryCache 热缓存
+		if (_memCache.TryGetValue(cacheKey, out zms9110750.WarframeMarketApi.Models.Statistics.Statistic? cached))
 			return cached;
 
+		// 2. SQLite 持久缓存（不超过 2 天）
+		try
+		{
+			using var scope = _scopeFactory.CreateScope();
+			var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+			var row = await db.Cache.FindAsync(new object[] { cacheKey }, ct);
+			if (row != null && row.DaysOld < 2)
+			{
+				var stat = System.Text.Json.JsonSerializer.Deserialize<zms9110750.WarframeMarketApi.Models.Statistics.Statistic>(
+					row.Value, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+				if (stat != null)
+				{
+					_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
+					return stat;
+				}
+			}
+		}
+		catch { /* 读缓存失败就请求 API */ }
+
+		// 3. 从 API 获取
 		try
 		{
 			var resp = await _wfm.GetStatisticsAsync(itemId, ct);
 			var stat = resp?.Data;
-			_statsCache[itemId] = stat;
-			return stat;
-		}
-		catch
-		{
-			_statsCache[itemId] = null;
-			return null;
-		}
-	}
+			if (stat != null)
+			{
+				// 写入 IMemoryCache
+				_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
 
-	public void ClearStatsCache()
-	{
-		_statsCache.Clear();
+				// 写入 SQLite
+				try
+				{
+					using var scope = _scopeFactory.CreateScope();
+					var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+					var json = System.Text.Json.JsonSerializer.Serialize(stat,
+						new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+					var existing = await db.Cache.FindAsync(new object[] { cacheKey }, ct);
+					if (existing != null)
+					{
+						existing.Value = json;
+						existing.CachedAt = DateTime.UtcNow;
+					}
+					else
+					{
+						db.Cache.Add(new CacheEntry { Key = cacheKey, Value = json });
+					}
+					await db.SaveChangesAsync(ct);
+				}
+				catch { /* 写缓存失败不影响返回 */ }
+
+				return stat;
+			}
+		}
+		catch { }
+
+		return null;
 	}
 }

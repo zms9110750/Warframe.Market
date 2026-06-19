@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
@@ -18,18 +18,19 @@ public class ItemsService
 {
 	private readonly CacheService _cache;
 	private readonly IServiceScopeFactory _scopeFactory;
+	private readonly IMemoryCache _memCache;
 
 	private Trie? _trie;
 	private bool _trieBuilt;
 	private readonly object _trieLock = new();
 
-	// 内存缓存：key=slug/id/名字 → ItemShort
-	private readonly ConcurrentDictionary<string, ItemShort> _itemCache = new();
+	private const string ItemCachePrefix = "item:";
 
-	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory)
+	public ItemsService(CacheService cache, IServiceScopeFactory scopeFactory, IMemoryCache memCache)
 	{
 		_cache = cache;
 		_scopeFactory = scopeFactory;
+		_memCache = memCache;
 	}
 
 	// ─── Trie 构建（从 SQLite 加载） ───
@@ -70,23 +71,23 @@ public class ItemsService
 		Log.Information("Trie 构建完成：{Items} 个物品", items.Count);
 	}
 
-	/// <summary>从缓存或数据库按 key（slug/id/名字）查 ItemShort</summary>
+	/// <summary>从 IMemoryCache 或数据库按 key（slug/id/名字）查 ItemShort</summary>
 	private async Task<ItemShort?> GetItemByKeyAsync(string key)
 	{
-		if (_itemCache.TryGetValue(key, out var cached)) return cached;
+		var cacheKey = ItemCachePrefix + key;
+		if (_memCache.TryGetValue(cacheKey, out ItemShort? cached))
+			return cached;
 
 		using var scope = _scopeFactory.CreateScope();
 		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 
 		ItemShort? item = null;
 
-		// 按 slug 查
 		item = await db.Items.FirstOrDefaultAsync(i => i.Slug == key);
 		if (item == null)
 			item = await db.Items.FirstOrDefaultAsync(i => i.Id == key);
 		if (item == null)
 		{
-			// 按翻译名查
 			var t = await db.ItemTranslations.FirstOrDefaultAsync(t => t.Name == key);
 			if (t != null)
 				item = await db.Items.FirstOrDefaultAsync(i => i.Id == t.ItemId);
@@ -94,7 +95,7 @@ public class ItemsService
 
 		if (item == null) return null;
 
-		// 填充 I18n（EF Core Ignore 了，需要手动加载）
+		// 填充 I18n
 		var translations = await db.ItemTranslations
 			.Where(t => t.ItemId == item.Id)
 			.ToListAsync();
@@ -104,7 +105,7 @@ public class ItemsService
 				item.I18n[lang] = tr;
 		}
 
-		_itemCache[key] = item;
+		_memCache.Set(cacheKey, item, TimeSpan.FromMinutes(30));
 		return item;
 	}
 
@@ -142,26 +143,21 @@ public class ItemsService
 		return results;
 	}
 
-	// ─── 统计数据 ───
-
-	private readonly Dictionary<string, Statistic?> _statsCache = new();
+	// ─── 统计数据（委托给 CacheService，它有 IMemoryCache） ───
 
 	public async Task<Statistic?> GetStatisticAsync(string itemId, CancellationToken ct = default)
 	{
-		if (_statsCache.TryGetValue(itemId, out var cached))
-			return cached;
 		try
 		{
-			var stat = await _cache.GetStatisticsAsync(itemId, ct);
-			_statsCache[itemId] = stat;
-			return stat;
+			return await _cache.GetStatisticsAsync(itemId, ct);
 		}
 		catch { return null; }
 	}
 
 	public Statistic? GetStatisticFromCache(string itemId)
 	{
-		return _statsCache.GetValueOrDefault(itemId);
+		_memCache.TryGetValue("stat:" + itemId, out Statistic? stat);
+		return stat;
 	}
 
 	// ─── 参考价计算 ───
