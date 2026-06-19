@@ -1,58 +1,79 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
-@* 标签栏始终在最上面 *@
-<MTabs Value="@activeTabIndex" @key="canWrite">
-	@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
+@* 标签栏：第0个永远是"搜索"标签 *@
+<MTabs Value="@activeTabIndex">
+	@* 搜索标签（常驻，不可关闭/钉住） *@
+	<MTab OnClick="@(() => { activeTabIndex = 0; StateHasChanged(); })">
+		搜索
+	</MTab>
+
+	@* 钉住的标签 *@
+	@foreach (var (tab, idx) in _pinnedSearches.Select((t, i) => (t, i)))
 	{
-		var isPinned = _pinnedSearches.Contains(tab);
-		<MTab OnClick="@(() => { activeTabIndex = idx; StateHasChanged(); })">
+		var realIdx = idx + 1;
+		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
 			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
 			@if (canWrite)
 			{
-				@if (isPinned)
-				{
-					<MButton Small Icon OnClick="@(() => UnpinTab(tab))"><MIcon Small Style="color:orange;">mdi-pin-off</MIcon></MButton>
-				}
-				else
-				{
-					<MButton Small Icon OnClick="@(() => PinTab(tab))"><MIcon Small>mdi-pin-outline</MIcon></MButton>
-				}
+				<MButton Small Icon OnClick="@(() => UnpinTab(tab))">
+					<MIcon Small Style="color:orange;">mdi-pin-off</MIcon>
+				</MButton>
 			}
-			else if (!isPinned)
+		</MTab>
+	}
+
+	@* 临时搜索标签 *@
+	@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
+	{
+		if (_pinnedSearches.Contains(tab)) continue;
+		var realIdx = idx + 1 + _pinnedSearches.Count;
+		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
+			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
+			@if (canWrite)
 			{
-				<MButton Small Icon OnClick="@(() => CloseTab(idx))"><MIcon Small>mdi-close</MIcon></MButton>
+				<MButton Small Icon OnClick="@(() => PinTab(tab))">
+					<MIcon Small>mdi-pin-outline</MIcon>
+				</MButton>
+			}
+			else
+			{
+				<MButton Small Icon OnClick="@(() => CloseTab(idx))">
+					<MIcon Small>mdi-close</MIcon>
+				</MButton>
 			}
 		</MTab>
 	}
 </MTabs>
 
-@* 搜索框在标签下方，钉住的标签不显示搜索框 *@
-@if (activeTabIndex >= 0 && activeTabIndex < activeTabs.Count && !_pinnedSearches.Contains(activeTabs[activeTabIndex]))
+@if (activeTabIndex == 0)
 {
+	@* 搜索标签：显示搜索框 + README *@
 	<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
-}
-else if (activeTabs.Count == 0)
-{
-	<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
-}
-
-@* 内容区 *@
-@if (activeTabs.Count == 0)
-{
-	@if (readme != null) { @((MarkupString)readme) }
-}
-else if (activeTabIndex >= 0 && activeTabIndex < activeTabs.Count)
-{
-	var tab = activeTabs[activeTabIndex];
-	if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
+	if (activeTabs.Count == 0 && _pinnedSearches.Count == 0)
 	{
-		@for (int ti = 0; ti < termResults.Count; ti++)
-		{
-			var results = termResults[ti];
-			<p class="text-caption"><strong>@tabTerms[tab][ti]</strong> — @results.Count 个结果</p>
-			@if (results.Count > 0) { <SearchResultTable Tab="@tabTerms[tab][ti]" results="@results" @key="@($"{tab}_{ti}")" /> }
-		}
+		@if (readme != null) { @((MarkupString)readme) }
 	}
-	else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
+}
+else
+{
+	@* 其他标签：显示搜索结果 *@
+	var allTabs = new List<string>();
+	allTabs.AddRange(_pinnedSearches);
+	allTabs.AddRange(activeTabs.Where(t => !_pinnedSearches.Contains(t)));
+	var idx2 = activeTabIndex - 1;
+	if (idx2 >= 0 && idx2 < allTabs.Count)
+	{
+		var tab = allTabs[idx2];
+		if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
+		{
+			@for (int ti = 0; ti < termResults.Count; ti++)
+			{
+				var results = termResults[ti];
+				<p class="text-caption"><strong>@tabTerms[tab][ti]</strong> — @results.Count 个结果</p>
+				@if (results.Count > 0) { <SearchResultTable Tab="@tabTerms[tab][ti]" results="@results" @key="@($"{tab}_{ti}")" /> }
+			}
+		}
+		else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
+	}
 }

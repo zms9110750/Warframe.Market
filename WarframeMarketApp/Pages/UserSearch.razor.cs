@@ -11,222 +11,194 @@ using WarframeMarketApp.Services;
 
 namespace WarframeMarketApp.Pages;
 
-public partial class UserSearch : ComponentBase, IDisposable
+public partial class UserSearch : ComponentBase
 {
 	[Inject] private ItemsService ItemSvc { get; set; } = null!;
 	[Inject] private WarframeMarketClient Wfm { get; set; } = null!;
+	[Inject] private PersistentStorage Storage { get; set; } = null!;
+	[CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
 
 	protected string slug = "";
-	protected User? user;
-	protected List<Order>? orders;
-	protected bool loading;
-	protected bool searched;
-	protected bool notFound;
-	protected bool loadingPrices;
-	protected string? error;
-	private CancellationTokenSource _cts = new();
+	protected int activeTabIndex;
+
+	protected List<string> _pinnedUsers = new();
+	protected List<string> _activeUsers = new();
+	protected HashSet<string> _searchingUsers = new();
+	protected Dictionary<string, UserSearchResult> _userResults = new();
 
 	protected List<DataTableHeader<Order>> _headers = new();
+	private CancellationTokenSource _cts = new();
 
-	// ItemId → ItemShort 缓存（用 API 查）
-	private Dictionary<string, ItemShort?> _itemCache = new();
-	// ItemId → Statistic 缓存
-	private Dictionary<string, Statistic?> _prices = new();
-
-	protected async Task SearchAsync()
+	protected override void OnInitialized()
 	{
-		Log.Information("UserSearch 查询: {User}", slug);
-		if (string.IsNullOrWhiteSpace(slug)) return;
+		Log.Information("UserSearch 初始化");
+		_pinnedUsers = Storage.Load().PinnedUsers.ToList();
+		foreach (var name in _pinnedUsers)
+			_ = SearchUserAsync(name, true);
+
 		if (_headers.Count == 0)
 		{
-			_headers.Add(new("物品", "item") { ValueExpression = (Func<Order, object?>)(o => GetItemName(o)) });
-			_headers.Add(new("英文名称", "en") { ValueExpression = (Func<Order, object?>)(o => GetEnName(o)) });
+			_headers.Add(new("物品", "item") { Sortable = false });
+			_headers.Add(new("英文名称", "en") { Sortable = false });
 			_headers.Add(new("类型", "Type") { Sortable = false });
 			_headers.Add(new("铂金", nameof(Order.Platinum)));
 			_headers.Add(new("数量", nameof(Order.Quantity)));
 			_headers.Add(new("等级", nameof(Order.Rank)));
-			_headers.Add(new("语言", "locale") { ValueExpression = (Func<Order, object?>)(o => GetLocale(o)) });
+			_headers.Add(new("语言", "locale") { Sortable = false });
 			_headers.Add(new("参考价", "ref") { Sortable = false });
 			_headers.Add(new("差价", "diff") { Sortable = false });
 		}
-		loading = true; searched = true; notFound = false; error = null;
-		user = null; orders = null;
-		_itemCache.Clear(); _prices.Clear();
-		_cts?.Cancel(); _cts = new();
+	}
 
-		try
+	protected async Task SearchAsync()
+	{
+		if (string.IsNullOrWhiteSpace(slug)) return;
+		Log.Information("UserSearch 查询: {Slug}", slug);
+
+		var names = slug.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+		foreach (var name in names)
 		{
-			// 查用户
-			var userResp = await Wfm.GetUserAsync(slug);
-			if (userResp?.Content?.Data == null)
+			if (!_activeUsers.Contains(name) && !_pinnedUsers.Contains(name))
 			{
-				notFound = true;
-				loading = false;
-				return;
+				_activeUsers.Add(name);
+				activeTabIndex = 1 + _pinnedUsers.Count + _activeUsers.Count - 1;
 			}
-			user = userResp.Content.Data;
-
-			// 查订单
-			var orderResp = await Wfm.GetOrdersFromUserAsync(slug);
-			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0)
-			{
-				searched = true;
-				loading = false;
-				StateHasChanged();
-				return;
-			}
-
-			orders = orderResp.Content.Data.ToList();
-			loading = false;
-			StateHasChanged();
-
-			// 异步加载物品信息和价格
-			loadingPrices = true;
-			_ = LoadItemInfoAsync(_cts.Token);
-		}
-		catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-		{
-			notFound = true;
-			loading = false;
-		}
-		catch (Exception ex)
-		{
-			error = ex.Message;
-			loading = false;
+			_ = SearchUserAsync(name, false);
 		}
 	}
 
-	private async Task LoadItemInfoAsync(CancellationToken ct)
+	private async Task SearchUserAsync(string name, bool isPinned)
 	{
+		if (_userResults.ContainsKey(name)) return;
+		_searchingUsers.Add(name);
+
+		var result = new UserSearchResult { Loading = true };
+		_userResults[name] = result;
+
 		try
 		{
-			// Phase 1: 快速加载所有物品信息（让子面板可展开）
-			foreach (var o in orders!)
+			var userResp = await Wfm.GetUserAsync(name);
+			if (userResp?.Content?.Data == null)
 			{
-				if (ct.IsCancellationRequested) break;
+				result.NotFound = true;
+				result.Loading = false;
+				return;
+			}
+			result.User = userResp.Content.Data;
+
+			var orderResp = await Wfm.GetOrdersFromUserAsync(name);
+			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0)
+			{
+				result.Loading = false;
+				return;
+			}
+			result.Orders = orderResp.Content.Data.ToList();
+			result.Loading = false;
+			StateHasChanged();
+
+			// 加载物品信息
+			foreach (var o in result.Orders)
+			{
 				var itemId = o.ItemId ?? "";
-				if (!_itemCache.ContainsKey(itemId))
+				if (!result.ItemCache.ContainsKey(itemId))
 				{
 					try
 					{
-						var resp = await Wfm.GetItemByIdAsync(itemId, ct);
+						var resp = await Wfm.GetItemByIdAsync(itemId);
 						if (resp?.Content?.Data != null)
-							_itemCache[itemId] = resp.Content.Data;
+							result.ItemCache[itemId] = resp.Content.Data;
 					}
 					catch { }
 				}
 			}
 			StateHasChanged();
 
-			// Phase 2: 逐条加载价格
-			foreach (var o in orders!)
+			// 加载价格
+			result.LoadingPrices = true;
+			foreach (var o in result.Orders)
 			{
-				if (ct.IsCancellationRequested) break;
-				var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
-				if (item != null)
+				var item = result.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+				if (item != null && !result.Prices.ContainsKey(item.Slug))
 				{
 					try
 					{
-						var stat = await ItemSvc.GetStatisticAsync(item.Slug, ct);
-						_prices[item.Slug] = stat;
+						var stat = await ItemSvc.GetStatisticAsync(item.Slug);
+						result.Prices[item.Slug] = stat;
 					}
 					catch { }
 				}
-				StateHasChanged();
-				await Task.Delay(100, ct);
+				await Task.Delay(100);
 			}
+			result.LoadingPrices = false;
+			StateHasChanged();
 		}
-		catch (OperationCanceledException) { }
+		catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+		{
+			result.NotFound = true;
+		}
 		catch (Exception ex)
 		{
-			error = ex.Message;
+			result.Error = ex.Message;
 		}
-		loadingPrices = false;
+		result.Loading = false;
+		_searchingUsers.Remove(name);
 		StateHasChanged();
 	}
 
 	// ─── 辅助方法 ───
-
-	protected string GetItemName(Order o)
+	protected string GetItemName(UserSearchResult r, Order o)
 	{
-		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
 		if (item == null) return "加载中...";
-
 		return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
 			 : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
 			 : item.Slug;
 	}
-
-	protected string GetEnName(Order o)
+	protected string GetEnName(UserSearchResult r, Order o)
 	{
-		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null) return "";
-		return item.I18n.TryGetValue(Language.En, out var en) ? en.Name : item.Slug;
+		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+		return item?.I18n.TryGetValue(Language.En, out var en) == true ? en.Name : "";
 	}
-
-	protected string GetLocale(Order o)
+	protected string GetLocale(UserSearchResult r, Order o)
 	{
 		return o.User?.Locale switch
 		{
-			"zh-hans" => "简体中文",
-			"zh-hant" => "繁体中文",
-			"en" => "英语",
-			"ko" => "韩语",
-			"ru" => "俄语",
-			"de" => "德语",
-			"fr" => "法语",
-			"pt" => "葡萄牙语",
-			"es" => "西班牙语",
-			"it" => "意大利语",
-			"pl" => "波兰语",
-			"uk" => "乌克兰语",
-			_ => o.User?.Locale ?? ""
+			"zh-hans" => "简体中文", "zh-hant" => "繁体中文", "en" => "英语",
+			"ko" => "韩语", "ru" => "俄语", "de" => "德语", "fr" => "法语",
+			"pt" => "葡萄牙语", "es" => "西班牙语", "it" => "意大利语",
+			"pl" => "波兰语", "uk" => "乌克兰语", _ => o.User?.Locale ?? ""
 		};
 	}
-
-	protected string GetRef(Order o)
+	protected string GetRef(UserSearchResult r, Order o)
 	{
-		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null) return "";
-
-		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null)
-			return loadingPrices ? "" : "-";
-
-		// 满级订单→满级价，否则→0级价
-		double? p;
-		if (o.Rank > 0)
-			p = ItemSvc.GetMaxReferencePrice(stat);
-		else
-			p = ItemSvc.GetReferencePrice(stat);
-
+		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "-";
+		var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
 		return p?.ToString("F0") ?? "-";
 	}
-
-	protected string GetDiff(Order o)
+	protected string GetDiff(UserSearchResult r, Order o)
 	{
-		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null) return "";
-
-		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
-		double? refP;
-		if (o.Rank > 0)
-			refP = ItemSvc.GetMaxReferencePrice(stat);
-		else
-			refP = ItemSvc.GetReferencePrice(stat);
-
+		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
+		var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
 		if (refP == null || refP <= 0) return "";
 		var diff = refP.Value - o.Platinum;
 		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
 	}
-
-	protected ItemShort? GetItemShort(Order o)
+	protected ItemShort? GetItemShort(UserSearchResult r, Order o)
 	{
-		return _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		return r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
 	}
 
-	public void Dispose()
+	protected void CloseUserTab(int idx)
 	{
-		_cts?.Cancel();
-		_cts?.Dispose();
+		if (idx < 0 || idx >= _activeUsers.Count) return;
+		var name = _activeUsers[idx];
+		_activeUsers.RemoveAt(idx);
+		_userResults.Remove(name);
+		_searchingUsers.Remove(name);
 	}
+
+	protected void PinUser(string name) { _pinnedUsers.Add(name); Storage.PinUser(name); }
+	protected void UnpinUser(string name) { _pinnedUsers.Remove(name); Storage.UnpinUser(name); }
 }
