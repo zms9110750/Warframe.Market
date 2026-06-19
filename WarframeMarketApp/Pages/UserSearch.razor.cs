@@ -144,9 +144,9 @@ public partial class UserSearch : ComponentBase, IDisposable
 		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
 		if (item == null) return o.ItemId?.Length > 16 ? $"{o.ItemId?[..16]}..." : o.ItemId ?? "-";
 
-		var zh = item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : null;
-		var en = item.I18n.TryGetValue(Language.En, out var e) ? e.Name : null;
-		return zh ?? en ?? item.Slug;
+		return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
+			 : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
+			 : item.Slug;
 	}
 
 	protected string GetRef(Order o)

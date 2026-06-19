@@ -1,19 +1,23 @@
 using Microsoft.AspNetCore.Components;
-using Masa.Blazor;
 using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
 using WarframeMarketApp.Services;
 
 namespace WarframeMarketApp.Pages;
 
-public partial class ItemSearch : ComponentBase, IDisposable
+public partial class ItemSearch : ComponentBase
 {
 	[Inject] private ItemsService ItemSvc { get; set; } = null!;
 
+	// 每个标签对应一个完整查询词（含 /）
 	protected List<string> activeTabs = new();
 	protected HashSet<string> searchingTabs = new();
 	protected int activeTabIndex;
-	protected Dictionary<string, List<ItemShort>> tabResults = new();
+
+	// 每个标签下，每个 / 段各自的结果
+	protected Dictionary<string, List<List<ItemShort>>> tabTermResults = new();
+	protected Dictionary<string, List<string>> tabTerms = new(); // "盲怒/wisp" → ["盲怒", "wisp"]
+
 	protected string? readme;
 	private static string? _readmeCache;
 
@@ -33,31 +37,40 @@ public partial class ItemSearch : ComponentBase, IDisposable
 		Log.Information("ItemSearch 搜索: {Query}", query);
 		if (string.IsNullOrWhiteSpace(query)) return;
 
-		var tabKey = query;
-		if (!activeTabs.Contains(tabKey))
+		if (!activeTabs.Contains(query))
 		{
-			activeTabs.Add(tabKey);
+			activeTabs.Add(query);
 			activeTabIndex = activeTabs.Count - 1;
 		}
 		else
-			activeTabIndex = activeTabs.IndexOf(tabKey);
+			activeTabIndex = activeTabs.IndexOf(query);
 
-		await DoSearchTab(tabKey);
+		await DoSearchTab(query);
 	}
 
 	protected async Task OnFavoriteClick(string query)
 	{
-		Log.Information("ItemSearch 收藏点击: {Query}", query);
 		await OnSearch(query);
 	}
 
 	private async Task DoSearchTab(string tab)
 	{
 		searchingTabs.Add(tab);
-		var results = await ItemSvc.SearchAsync(tab);
-		tabResults[tab] = results;
+
+		// 按 / 分隔为多个词
+		var terms = tab.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+		tabTerms[tab] = terms;
+
+		var allResults = new List<List<ItemShort>>();
+		foreach (var term in terms)
+		{
+			var results = await ItemSvc.SearchAsync(term);
+			allResults.Add(results);
+		}
+		tabTermResults[tab] = allResults;
+
 		searchingTabs.Remove(tab);
-		Log.Information("ItemSearch 标签 {Tab}: {Count} 结果", tab, results.Count);
+		Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词", tab, terms.Count);
 		StateHasChanged();
 	}
 
@@ -67,11 +80,10 @@ public partial class ItemSearch : ComponentBase, IDisposable
 		if (idx < 0 || idx >= activeTabs.Count) return;
 		var tab = activeTabs[idx];
 		activeTabs.RemoveAt(idx);
-		tabResults.Remove(tab);
+		tabTermResults.Remove(tab);
+		tabTerms.Remove(tab);
 		searchingTabs.Remove(tab);
 		if (activeTabIndex >= activeTabs.Count)
 			activeTabIndex = Math.Max(0, activeTabs.Count - 1);
 	}
-
-	public void Dispose() { }
 }
