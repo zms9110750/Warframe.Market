@@ -49,15 +49,21 @@ public partial class ItemSearch : ComponentBase
 		Log.Information("ItemSearch 搜索: {Query}", query);
 		if (string.IsNullOrWhiteSpace(query)) return;
 
+		// 如果是钉住的，只切换标签，不重复搜索
+		if (_pinnedSearches.Contains(query))
+		{
+			activeTabIndex = 1 + _pinnedSearches.IndexOf(query);
+			return;
+		}
+
 		if (!activeTabs.Contains(query))
 		{
 			activeTabs.Add(query);
-			activeTabIndex = 1 + _pinnedSearches.Count + activeTabs.Count - 1;
 		}
-		else
-			activeTabIndex = 1 + _pinnedSearches.Count + activeTabs.IndexOf(query);
+		activeTabIndex = 1 + _pinnedSearches.Count + activeTabs.IndexOf(query);
 
-		await DoSearchTab(query);
+		if (!tabTermResults.ContainsKey(query))
+			await DoSearchTab(query);
 	}
 
 	protected async Task OnFavoriteClick(string query)

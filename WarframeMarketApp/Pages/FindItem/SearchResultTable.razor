@@ -1,5 +1,5 @@
 @using Serilog
-@* 每个搜索词的结果表 *@
+@* 每个搜索词的结果表，可折叠 *@
 @using zms9110750.WarframeMarketApi.Models.Items
 @using zms9110750.WarframeMarketApi.Models.Statistics
 @inject ItemsService ItemSvc
@@ -48,7 +48,7 @@
 		}
 	</ItemColContent>
 	<ExpandedItemContent>
-		<td colspan="@_headers.Count" @key="context.Item.Id">
+		<td colspan="9999" @key="((ItemShort)context.Item2).Id">
 			<OrderTop TargetItem="@((ItemShort)context.Item2)" />
 		</td>
 	</ExpandedItemContent>
@@ -61,15 +61,7 @@
 	[CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
 
 	private bool _collapsed;
-
-	private List<DataTableHeader<ItemShort>> _headers = new()
-	{
-		new("中文名称", nameof(ItemShort.Id)),
-		new("英文名称", nameof(ItemShort.Id)),
-		new("价格", nameof(ItemShort.Id)) { Align = DataTableHeaderAlign.End },
-		new("满级价格", nameof(ItemShort.Id)) { Align = DataTableHeaderAlign.End },
-	};
-
+	private List<DataTableHeader<ItemShort>> _headers = new();
 	private Dictionary<string, Statistic?> _stats = new();
 	private Dictionary<string, double?> _prices = new();
 	private Dictionary<string, double?> _maxPrices = new();
@@ -78,6 +70,28 @@
 	{
 		await base.OnInitializedAsync();
 		Log.Information("SearchResultTable 初始化: {Tab}, {Count} 物品", Tab, results.Count);
+
+		_headers = new()
+		{
+			new("中文名称", nameof(ItemShort.Slug))
+			{
+				ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug)
+			},
+			new("英文名称", nameof(ItemShort.Slug))
+			{
+				ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
+			},
+			new("价格", nameof(ItemShort.Slug))
+			{
+				Align = DataTableHeaderAlign.End,
+				ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "")
+			},
+			new("满级价格", nameof(ItemShort.Slug))
+			{
+				Align = DataTableHeaderAlign.End,
+				ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "")
+			},
+		};
 
 		var geting = new HashSet<Task<Statistic?>>();
 		var slugToTask = new Dictionary<string, Task<Statistic?>>();
@@ -92,7 +106,6 @@
 
 		var allTasks = Task.WhenAll(geting);
 
-		// 渐进刷新：等 200ms → 检查已完成的任务 → 刷新 → 继续
 		do
 		{
 			foreach (var item in results)
@@ -111,7 +124,6 @@
 			await Task.Delay(200);
 		} while (!allTasks.IsCompleted);
 
-		// 最后补一轮
 		foreach (var item in results)
 		{
 			if (!_stats.ContainsKey(item.Slug))

@@ -79,7 +79,6 @@
 					<ItemColContent>
 						@if (context.Header.Text == "物品") { @GetItemName(result, context.Item) }
 						else if (context.Header.Text == "英文名称") { @GetEnName(result, context.Item) }
-						else if (context.Header.Text == "语言") { @GetLocale(result, context.Item) }
 						else if (context.Header.Text == "参考价") { @GetRef(result, context.Item) }
 						else if (context.Header.Text == "差价") { @GetDiff(result, context.Item) }
 						else { @context.Value?.ToString() }

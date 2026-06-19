@@ -44,7 +44,6 @@ public partial class UserSearch : ComponentBase
 			_headers.Add(new("铂金", nameof(Order.Platinum)));
 			_headers.Add(new("数量", nameof(Order.Quantity)));
 			_headers.Add(new("等级", nameof(Order.Rank)));
-			_headers.Add(new("语言", nameof(Order.Id)) { Sortable = false });
 			_headers.Add(new("参考价", nameof(Order.Id)) { Sortable = false });
 			_headers.Add(new("差价", nameof(Order.Id)) { Sortable = false });
 		}
@@ -58,11 +57,16 @@ public partial class UserSearch : ComponentBase
 		var names = slug.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 		foreach (var name in names)
 		{
-			if (!_activeUsers.Contains(name) && !_pinnedUsers.Contains(name))
+			if (_pinnedUsers.Contains(name))
+			{
+				activeTabIndex = 1 + _pinnedUsers.IndexOf(name);
+				continue;
+			}
+			if (!_activeUsers.Contains(name))
 			{
 				_activeUsers.Add(name);
-				activeTabIndex = 1 + _pinnedUsers.Count + _activeUsers.Count - 1;
 			}
+			activeTabIndex = 1 + _pinnedUsers.Count + _activeUsers.IndexOf(name);
 			_ = SearchUserAsync(name, false);
 		}
 		StateHasChanged();
@@ -118,6 +122,7 @@ public partial class UserSearch : ComponentBase
 
 			// 加载价格
 			result.LoadingPrices = true;
+			int priceCount = 0;
 			foreach (var o in result.Orders)
 			{
 				var item = result.ItemCache.GetValueOrDefault(o.ItemId ?? "");
@@ -127,11 +132,13 @@ public partial class UserSearch : ComponentBase
 					{
 						var stat = await ItemSvc.GetStatisticAsync(item.Slug);
 						result.Prices[item.Slug] = stat;
+						if (stat != null) priceCount++;
 					}
-					catch { }
+					catch (Exception ex2) { Log.Error(ex2, "价格加载失败 {Slug}", item.Slug); }
 				}
 				await Task.Delay(100);
 			}
+			Log.Information("UserSearch 价格加载完成: {Name}, {Count}/{Total}", name, priceCount, result.Orders.Count);
 			result.LoadingPrices = false;
 			StateHasChanged();
 		}
@@ -166,13 +173,7 @@ public partial class UserSearch : ComponentBase
 	}
 	protected string GetLocale(UserSearchResult r, Order o)
 	{
-		return o.User?.Locale switch
-		{
-			"zh-hans" => "简体中文", "zh-hant" => "繁体中文", "en" => "英语",
-			"ko" => "韩语", "ru" => "俄语", "de" => "德语", "fr" => "法语",
-			"pt" => "葡萄牙语", "es" => "西班牙语", "it" => "意大利语",
-			"pl" => "波兰语", "uk" => "乌克兰语", _ => o.User?.Locale ?? ""
-		};
+		return ""; // 不需要语言列
 	}
 	protected string GetRef(UserSearchResult r, Order o)
 	{
