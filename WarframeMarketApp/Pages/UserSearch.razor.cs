@@ -65,6 +65,7 @@ public partial class UserSearch : ComponentBase
 			}
 			_ = SearchUserAsync(name, false);
 		}
+		StateHasChanged();
 	}
 
 	private async Task SearchUserAsync(string name, bool isPinned)
@@ -82,6 +83,7 @@ public partial class UserSearch : ComponentBase
 			{
 				result.NotFound = true;
 				result.Loading = false;
+				StateHasChanged();
 				return;
 			}
 			result.User = userResp.Content.Data;
@@ -90,6 +92,7 @@ public partial class UserSearch : ComponentBase
 			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0)
 			{
 				result.Loading = false;
+				StateHasChanged();
 				return;
 			}
 			result.Orders = orderResp.Content.Data.ToList();
