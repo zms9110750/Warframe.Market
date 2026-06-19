@@ -1,11 +1,11 @@
 @* 用户搜索标签栏 *@
 
 <MTabs Value="@activeTabIndex">
-	<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(0))">搜索</MTab>
+	<MTab OnClick="@(() => TabClicked(0))">搜索</MTab>
 	@foreach (var (name, idx) in _pinnedUsers.Select((t, i) => (t, i)))
 	{
 		var realIdx = idx + 1;
-		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
+		<MTab OnClick="@(() => TabClicked(realIdx, name))">
 			@name
 			@if (canWrite)
 			{
@@ -17,7 +17,7 @@
 	{
 		if (_pinnedUsers.Contains(name)) continue;
 		var realIdx = idx + 1 + _pinnedUsers.Count;
-		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
+		<MTab OnClick="@(() => TabClicked(realIdx, name))">
 			@(name.Length > 20 ? $"{name[..20]}…" : name)
 			@if (canWrite)
 			{
@@ -40,4 +40,11 @@
 	[Parameter] public EventCallback<string> PinUser { get; set; }
 	[Parameter] public EventCallback<string> UnpinUser { get; set; }
 	[Parameter] public EventCallback<int> CloseTab { get; set; }
+
+	private void TabClicked(int idx, string? name = null)
+	{
+		System.Console.WriteLine($"[UserTabs] 标签点击 idx={idx} name={name}");
+		Serilog.Log.Information("UserTabs 标签点击: Idx={Idx}, Name={Name}", idx, name);
+		activeTabIndexChanged.InvokeAsync(idx);
+	}
 }
