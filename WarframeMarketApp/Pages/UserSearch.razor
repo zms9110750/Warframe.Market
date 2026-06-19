@@ -1,80 +1,177 @@
 @page "/user"
 @attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
+@implements IDisposable
 @inject zms9110750.WarframeMarketApi.WarframeMarketClient Wfm
+@inject ItemsCacheService ItemsCache
 
 <h3>用户订单查询</h3>
 
 <MTextField @bind-Value="slug"
-			Label="输入用户 slug（如 kyckyc）"
-			Clearable OnClear="@(() => { slug = ""; orders = null; })"
-			OnKeyDown="@(e => { if (e.Key == "Enter") Search(); })"
+			Label="输入 Warframe 用户名"
+			Clearable
+			OnKeyDown="@(e => { if (e.Key == "Enter") _ = SearchAsync(); })"
 			Dense Solo Class="mb-4" Style="max-width: 400px;" />
 
-<MButton OnClick="Search" Disabled="@loading" Loading="@loading" Color="primary">查询</MButton>
+<MButton OnClick="SearchAsync" Disabled="@loading" Loading="@loading" Color="primary">查询</MButton>
 
-@if (userInfo != null)
+@if (user != null)
 {
-	<MCard Class="mt-4 pa-4">
-		<p><strong>@userInfo.IngameName</strong> (@userInfo.Platform) — 声望 @userInfo.Reputation</p>
-		<p>最后在线: @userInfo.LastSeenLocal.ToString("g")</p>
+	<MCard Class="mt-4 pa-4" Outlined>
+		<div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+			<span><strong>@user.IngameName</strong></span>
+			<span>平台: @user.Platform</span>
+			<span>声望: @user.Reputation</span>
+			<span>状态: @user.Status</span>
+			<span class="text-caption">最后在线: @user.LastSeenLocal.ToString("g")</span>
+		</div>
 	</MCard>
 }
 
-@if (orders != null)
+@if (orders != null && orders.Count > 0)
 {
-	<MAlert Class="mt-4" Type="@AlertTypes.Success">共 @orders.Count 个订单</MAlert>
+	<p class="mt-4">共 @orders.Count 个订单 — 正在加载价格...</p>
 
-	<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 4px 12px; font-size: 14px;">
-		<strong>物品</strong>
-		<strong>类型</strong>
-		<strong>铂金</strong>
-		<strong>数量</strong>
-		<strong>等级</strong>
-
-		@foreach (var o in orders)
-		{
-			<span>@o.ItemId[..Math.Min(o.ItemId.Length, 24)]</span>
-			<span>@o.Type</span>
-			<span>@o.Platinum</span>
-			<span>@o.Quantity</span>
-			<span>@(o.Rank?.ToString() ?? "-")</span>
-		}
-	</div>
+	@foreach (var o in orders)
+	{
+		@* @key 固定行 *@
+		<MCard key="@o.Id" Class="mt-2 pa-3" Outlined>
+			<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+				<span style="min-width: 120px;"><strong>@GetItemName(o.ItemId)</strong></span>
+				<span style="min-width: 60px;">@(o.Type == "sell" ? "出售" : "收购")</span>
+				<span style="min-width: 60px; color: #e65100;">@o.Platinum 白金</span>
+				<span style="min-width: 40px;">x@o.Quantity</span>
+				<span style="min-width: 60px;">参考: @GetRefPrice(o.ItemId)</span>
+				<span style="min-width: 60px;">差价: @GetDiff(o.ItemId, o.Platinum)</span>
+				@if (o.Rank.HasValue) { <span class="text-caption">等级 @o.Rank</span> }
+			</div>
+		</MCard>
+	}
+}
+else if (searched && !loading)
+{
+	<p class="mt-2 text-caption">该用户无公开订单</p>
 }
 
-@if (notFound)
+@if (error != null)
 {
-	<MAlert Class="mt-4" Type="@AlertTypes.Error">用户未找到或无公开订单</MAlert>
+	<p class="mt-2" style="color: #c62828;">@error</p>
 }
 
 @code {
 	private string slug = "";
-	private User? userInfo;
+	private User? user;
 	private List<Order>? orders;
 	private bool loading;
-	private bool notFound;
+	private bool searched;
+	private string? error;
+	private CancellationTokenSource _cts = new();
+	private Dictionary<string, Task<Statistic?>> _statsTasks = new();
+	private Dictionary<string, string> _slugMap = new();
 
-	private async Task Search()
+	private async Task SearchAsync()
 	{
 		if (string.IsNullOrWhiteSpace(slug)) return;
 		loading = true;
-		notFound = false;
-		userInfo = null;
+		searched = true;
+		error = null;
+		user = null;
 		orders = null;
+		_statsTasks.Clear();
+		_cts.Cancel();
+		_cts = new();
+
 		try
 		{
-			// 查用户
+			// 构建 Id→Slug 映射
+			if (_slugMap.Count == 0)
+			{
+				var allItems = await ItemsCache.GetItemsAsync("zh-hans");
+				if (allItems != null)
+					_slugMap = allItems.ToDictionary(i => i.Id, i => i.Slug);
+			}
+
+			// 查用户信息
 			var userResp = await Wfm.GetUserAsync(slug);
-			if (userResp?.Content?.Data != null)
-				userInfo = userResp.Content.Data;
+			user = userResp?.Content?.Data;
 
 			// 查订单
 			var orderResp = await Wfm.GetOrdersFromUserAsync(slug);
-			if (orderResp?.Content?.Data != null)
-				orders = orderResp.Content.Data.ToList();
-			else
-				notFound = true;
+			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0)
+			{
+				if (user == null) error = "用户不存在";
+				return;
+			}
+
+			orders = orderResp.Content.Data.ToList();
+
+			// 异步发起所有统计请求
+			foreach (var o in orders)
+			{
+				if (o.ItemId == null) continue;
+				var tid = o.ItemId;
+
+				if (!_statsTasks.ContainsKey(tid))
+					_statsTasks[tid] = FetchStatsAsync(tid);
+			}
+
+			// 轮询 UI
+			while (_statsTasks.Values.Any(t => !t.IsCompleted))
+			{
+				await Task.Delay(200);
+				StateHasChanged();
+			}
+			StateHasChanged();
 		}
 		finally { loading = false; }
+	}
+
+	private async Task<Statistic?> FetchStatsAsync(string tid)
+	{
+		try
+		{
+			var slug = _slugMap.GetValueOrDefault(tid, tid);
+			var resp = await ItemsCache.GetStatisticsAsync(slug, _cts.Token);
+			return resp?.Data;
+		}
+		catch { return null; }
+	}
+
+	private string GetItemName(string? itemId)
+	{
+		if (itemId == null) return "-";
+		return itemId.Length > 16 ? itemId[..16] + "..." : itemId;
+	}
+
+	private string GetRefPrice(string? itemId)
+	{
+		if (itemId == null || !_statsTasks.TryGetValue(itemId, out var t) || !t.IsCompletedSuccessfully || t.Result == null)
+			return "加载中...";
+
+		var entries = t.Result.Payload?.StatisticsLive?.Day90;
+		if (entries == null || entries.Length == 0) return "-";
+
+		var avg = entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average();
+		return avg > 0 ? avg.ToString("F0") : "-";
+	}
+
+	private string GetDiff(string? itemId, int orderPrice)
+	{
+		if (itemId == null || !_statsTasks.TryGetValue(itemId, out var t) || !t.IsCompletedSuccessfully || t.Result == null)
+			return "加载中...";
+
+		var entries = t.Result.Payload?.StatisticsLive?.Day90;
+		if (entries == null || entries.Length == 0) return "-";
+
+		var avg = entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average();
+		if (avg <= 0) return "-";
+
+		var diff = orderPrice - avg;
+		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
+	}
+
+	public void Dispose()
+	{
+		_cts.Cancel();
+		_cts.Dispose();
 	}
 }

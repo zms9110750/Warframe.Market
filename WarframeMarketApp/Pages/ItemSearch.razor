@@ -1,61 +1,139 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
+@implements IDisposable
 @inject ItemsCacheService ItemsCache
 
 <h3>物品搜索</h3>
 
 <MTextField @bind-Value="query"
 			Label="输入物品名 / slug / 标签"
-			Clearable OnClear="@(() => { query = ""; results = null; })"
-			OnKeyDown="@(e => { if (e.Key == "Enter") Search(); })"
+			Clearable
+			OnKeyDown="@(e => { if (e.Key == "Enter") _ = SearchAsync(); })"
 			Dense Solo Class="mb-4" Style="max-width: 500px;" />
 
-<MButton OnClick="Search" Disabled="@loading" Loading="@loading" Color="primary">搜索</MButton>
+<MButton OnClick="SearchAsync" Disabled="@loading" Loading="@loading" Color="primary">搜索</MButton>
 
-@if (results != null)
+@if (results.Count > 0)
 {
-	<p class="mt-4">@(results.Count > 0 ? $"找到 {results.Count} 个匹配" : "无匹配")</p>
+	<p class="mt-2">共 @results.Count 个匹配 — 正在加载价格...</p>
 
-	@if (results.Count > 0)
+	@foreach (var item in results)
 	{
-		<div style="display: grid; grid-template-columns: 1fr 2fr 2fr auto; gap: 4px 12px; font-size: 14px;">
-			<strong>Slug</strong>
-			<strong>中文名</strong>
-			<strong>英文名</strong>
-			<strong>标签</strong>
-
-			@foreach (var item in results)
-			{
-				<span style="font-family: monospace;">@item.Slug</span>
-				<span>@(item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : "")</span>
-				<span>@(item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</span>
-				<span>@string.Join(" ", item.Tags.Take(4))</span>
-			}
-		</div>
+		@* @key 固定此行 *@
+		<MCard key="@item.Id" Class="mt-2 pa-3" Outlined>
+			<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+				<span style="min-width: 120px;">
+					<strong>@(item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : item.Slug)</strong>
+				</span>
+				<span style="min-width: 140px; color: #888;">@(item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</span>
+				<span class="text-caption" style="min-width: 80px;">@item.Slug</span>
+				<span style="min-width: 80px;">价格: @GetPrice(item.Id, false)</span>
+				<span style="min-width: 80px;">满级: @GetPrice(item.Id, true)</span>
+			</div>
+		</MCard>
 	}
+}
+else if (searched && !loading)
+{
+	<p class="mt-2 text-caption">无匹配</p>
+}
+else if (loading)
+{
+	<p class="mt-2 text-caption">搜索中...</p>
 }
 
 @code {
 	private string query = "";
-	private List<ItemShort>? results;
+	private List<ItemShort> results = new();
 	private bool loading;
+	private bool searched;
+	private CancellationTokenSource _cts = new();
+	private Dictionary<string, Task<Statistic?>> _tasks = new();
+	private bool _polling;
 
-	private async Task Search()
+	protected override void OnInitialized()
+	{
+		_ = ItemsCache.GetItemsAsync("zh-hans");
+	}
+
+	private async Task SearchAsync()
 	{
 		if (string.IsNullOrWhiteSpace(query)) return;
 		loading = true;
+		searched = true;
+		results.Clear();
+		_tasks.Clear();
+		_cts.Cancel();
+		_cts = new();
+
 		try
 		{
 			var items = await ItemsCache.GetItemsAsync("zh-hans");
 			if (items == null) return;
+
 			var q = query.ToLowerInvariant();
-			results = items.Where(i =>
+			var matched = items.Where(i =>
 				i.Slug.Contains(q) ||
 				i.Tags.Any(t => t.Contains(q)) ||
 				(i.I18n.TryGetValue(Language.ZhHans, out var zh) && zh.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
 				(i.I18n.TryGetValue(Language.En, out var en) && en.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
-			).Take(100).ToList();
+			).Take(50).ToList();
+
+			results = matched;
+
+			// 异步发统计请求
+			foreach (var item in matched)
+			{
+				_tasks[item.Id] = FetchStatsAsync(item.Slug);
+			}
+
+			// 轮询 UI 直到全部完成
+			_polling = true;
+			while (_tasks.Values.Any(t => !t.IsCompleted))
+			{
+				await Task.Delay(200);
+				StateHasChanged();
+			}
+			_polling = false;
+			StateHasChanged();
 		}
 		finally { loading = false; }
+	}
+
+	private async Task<Statistic?> FetchStatsAsync(string slug)
+	{
+		try
+		{
+			var resp = await ItemsCache.GetStatisticsAsync(slug, _cts.Token);
+			return resp?.Data;
+		}
+		catch { return null; }
+	}
+
+	private string GetPrice(string itemId, bool maxRank)
+	{
+		if (!_tasks.TryGetValue(itemId, out var task) || !task.IsCompletedSuccessfully || task.Result == null)
+			return _polling ? "加载中..." : "-";
+
+		var stat = task.Result;
+		var entries = stat.Payload?.StatisticsLive?.Day90;
+		if (entries == null || entries.Length == 0) return "-";
+
+		if (maxRank)
+		{
+			// 满级价格：优先找最高 MOD 等级的条目
+			var max = entries.Where(e => e.ModRank > 0).OrderByDescending(e => e.ModRank).FirstOrDefault();
+			return max?.AvgPrice.ToString("F0") ?? "-";
+		}
+
+		// 参考价格：90 天的加权平均
+		var avg = entries.Where(e => e.OrderType == "sell").Select(e => e.AvgPrice).DefaultIfEmpty(0).Average();
+		return avg > 0 ? avg.ToString("F0") : "-";
+	}
+
+	public void Dispose()
+	{
+		_cts.Cancel();
+		_cts.Dispose();
 	}
 }
