@@ -1,50 +1,12 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
-@* 标签栏：第0个永远是"搜索"标签 *@
-<MTabs Value="@activeTabIndex">
-	@* 搜索标签（常驻，不可关闭/钉住） *@
-	<MTab OnClick="@(() => { activeTabIndex = 0; StateHasChanged(); })">
-		搜索
-	</MTab>
-
-	@* 钉住的标签 *@
-	@foreach (var (tab, idx) in _pinnedSearches.Select((t, i) => (t, i)))
-	{
-		var realIdx = idx + 1;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
-			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
-			@if (canWrite)
-			{
-				<MButton Small Icon OnClick="@(() => UnpinTab(tab))">
-					<MIcon Small Style="color:orange;">mdi-pin-off</MIcon>
-				</MButton>
-			}
-		</MTab>
-	}
-
-	@* 临时搜索标签 *@
-	@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
-	{
-		if (_pinnedSearches.Contains(tab)) continue;
-		var realIdx = idx + 1 + _pinnedSearches.Count;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
-			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
-			@if (canWrite)
-			{
-				<MButton Small Icon OnClick="@(() => PinTab(tab))">
-					<MIcon Small>mdi-pin-outline</MIcon>
-				</MButton>
-			}
-			else
-			{
-				<MButton Small Icon OnClick="@(() => CloseTab(idx))">
-					<MIcon Small>mdi-close</MIcon>
-				</MButton>
-			}
-		</MTab>
-	}
-</MTabs>
+@* 标签栏 *@
+<SearchTabs activeTabIndex="@activeTabIndex" activeTabIndexChanged="@((v) => activeTabIndex = v)"
+			_pinnedSearches="@_pinnedSearches" _activeTabs="@activeTabs"
+			canWrite="@canWrite"
+			PinTab="@((string t) => PinTab(t))" UnpinTab="@((string t) => UnpinTab(t))"
+			CloseTab="@((int i) => CloseTab(i))" />
 
 @if (activeTabIndex == 0)
 {

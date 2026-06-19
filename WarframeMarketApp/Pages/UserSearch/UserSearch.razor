@@ -2,42 +2,11 @@
 @attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
 
 @* 标签栏 *@
-<MTabs Value="@activeTabIndex">
-	<MTab OnClick="@(() => { activeTabIndex = 0; StateHasChanged(); })">搜索</MTab>
-	@foreach (var (name, idx) in _pinnedUsers.Select((t, i) => (t, i)))
-	{
-		var realIdx = idx + 1;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
-			@name
-			@if (canWrite)
-			{
-				<MButton Small Icon OnClick="@(() => UnpinUser(name))">
-					<MIcon Small Style="color:orange;">mdi-pin-off</MIcon>
-				</MButton>
-			}
-		</MTab>
-	}
-	@foreach (var (name, idx) in _activeUsers.Select((t, i) => (t, i)))
-	{
-		if (_pinnedUsers.Contains(name)) continue;
-		var realIdx = idx + 1 + _pinnedUsers.Count;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
-			@(name.Length > 20 ? $"{name[..20]}…" : name)
-			@if (canWrite)
-			{
-				<MButton Small Icon OnClick="@(() => PinUser(name))">
-					<MIcon Small>mdi-pin-outline</MIcon>
-				</MButton>
-			}
-			else
-			{
-				<MButton Small Icon OnClick="@(() => CloseUserTab(idx))">
-					<MIcon Small>mdi-close</MIcon>
-				</MButton>
-			}
-		</MTab>
-	}
-</MTabs>
+<UserTabs activeTabIndex="@activeTabIndex" activeTabIndexChanged="@((v) => activeTabIndex = v)"
+		  _pinnedUsers="@_pinnedUsers" _activeUsers="@_activeUsers"
+		  canWrite="@canWrite"
+		  PinUser="@((string n) => PinUser(n))" UnpinUser="@((string n) => UnpinUser(n))"
+		  CloseTab="@((int i) => CloseUserTab(i))" />
 
 @if (activeTabIndex == 0)
 {
