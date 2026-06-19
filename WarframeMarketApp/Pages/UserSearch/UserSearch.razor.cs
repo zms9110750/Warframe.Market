@@ -105,62 +105,74 @@ public partial class UserSearch : ComponentBase
 			Log.Information("UserSearch 订单就绪: {Name}, {Count}条", name, result.Orders.Count);
 			StateHasChanged();
 
-			// 加载物品信息
+			// 加载物品信息（并行，最多5并发）
 			Log.Information("UserSearch 开始加载物品: {Name}, 共{Count}个", name, result.Orders.Count);
+			var itemTasks = new List<Task>();
 			int itemOk = 0, itemFail = 0;
 			foreach (var o in result.Orders)
 			{
 				var itemId = o.ItemId ?? "";
-				if (!result.ItemCache.ContainsKey(itemId))
+				if (result.ItemCache.ContainsKey(itemId)) continue;
+				itemTasks.Add(Task.Run(async () =>
 				{
 					try
 					{
 						var resp = await Wfm.GetItemByIdAsync(itemId);
 						if (resp?.Content?.Data != null)
 						{
-							result.ItemCache[itemId] = resp.Content.Data;
-							itemOk++;
+							lock (result.ItemCache) { result.ItemCache[itemId] = resp.Content.Data; }
+							Interlocked.Increment(ref itemOk);
 						}
-						else itemFail++;
+						else Interlocked.Increment(ref itemFail);
 					}
-					catch (Exception ex) { itemFail++; if (itemFail <= 3) Log.Error(ex, "GetItemByIdAsync失败 {Id}", itemId); }
+					catch { Interlocked.Increment(ref itemFail); }
+				}));
+				// 控制并发数：等一批完成再继续
+				if (itemTasks.Count >= 5)
+				{
+					await Task.WhenAll(itemTasks);
+					itemTasks.Clear();
 				}
 			}
+			await Task.WhenAll(itemTasks); // 剩余的任务
 			Log.Information("UserSearch 物品加载完成: {Name}, 成功={Ok}, 失败={Fail}", name, itemOk, itemFail);
 			StateHasChanged();
 
-			// 加载价格
+			// 加载价格（并行，最多5并发）
 			Log.Information("UserSearch 开始加载价格: {Name}", name);
 			result.LoadingPrices = true;
 			int priceCount = 0, priceFail = 0, priceSkip = 0;
-			DateTime lastLog = DateTime.MinValue;
+			var priceTasks = new List<Task>();
 			foreach (var o in result.Orders)
 			{
 				var item = result.ItemCache.GetValueOrDefault(o.ItemId ?? "");
 				if (item != null && !result.Prices.ContainsKey(item.Slug))
 				{
-					try
+					var slug = item.Slug;
+					priceTasks.Add(Task.Run(async () =>
 					{
-						var stat = await ItemSvc.GetStatisticAsync(item.Slug);
-						if (stat != null)
+						try
 						{
-							result.Prices[item.Slug] = stat;
-							priceCount++;
+							var stat = await ItemSvc.GetStatisticAsync(slug);
+							if (stat != null)
+							{
+								lock (result.Prices) { result.Prices[slug] = stat; }
+								Interlocked.Increment(ref priceCount);
+							}
+							else Interlocked.Increment(ref priceFail);
 						}
-						else { priceFail++; }
+						catch { Interlocked.Increment(ref priceFail); }
+					}));
+					if (priceTasks.Count >= 5)
+					{
+						await Task.WhenAll(priceTasks);
+						await Task.Delay(400); // 限流：每批等 400ms
+						priceTasks.Clear();
 					}
-					catch (Exception ex2) { Log.Error(ex2, "价格加载失败 {Slug}", item?.Slug); priceFail++; }
 				}
-				else if (item == null) { priceSkip++; }
-
-				// 每2秒打一次进度日志
-				if ((DateTime.Now - lastLog).TotalSeconds >= 2)
-				{
-					Log.Information("UserSearch 价格进度 {Name}: 成功={Ok}, 失败={Fail}, 跳过={Skip}/{Total}", name, priceCount, priceFail, priceSkip, result.Orders.Count);
-					lastLog = DateTime.Now;
-				}
-				await Task.Delay(200);
+				else if (item == null) Interlocked.Increment(ref priceSkip);
 			}
+			await Task.WhenAll(priceTasks);
 			Log.Information("UserSearch 价格加载完成 {Name}: 成功={Ok}, 失败={Fail}, 跳过={Skip}", name, priceCount, priceFail, priceSkip);
 			result.LoadingPrices = false;
 			StateHasChanged();
