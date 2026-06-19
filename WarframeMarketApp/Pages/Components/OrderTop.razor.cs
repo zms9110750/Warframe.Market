@@ -6,7 +6,7 @@ using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
 
-namespace WarframeMarketApp.Pages.OrderTop;
+namespace WarframeMarketApp.Pages.Components;
 
 public partial class OrderTop : ComponentBase, IDisposable
 {

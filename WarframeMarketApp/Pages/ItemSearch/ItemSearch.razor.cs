@@ -3,7 +3,7 @@ using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
 using WarframeMarketApp.Services;
 
-namespace WarframeMarketApp.Pages;
+namespace WarframeMarketApp.Pages.ItemSearch;
 
 public partial class ItemSearch : ComponentBase
 {
