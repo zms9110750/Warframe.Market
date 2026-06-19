@@ -13,33 +13,23 @@
 
 @if (user != null)
 {
-	<MCard Class="mt-4 pa-3" Outlined>
-		<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-			<span><strong>@user.IngameName</strong></span>
-			<span>平台: @user.Platform</span>
-			<span>声望: @user.Reputation</span>
-			<span>@user.LastSeenLocal.ToString("g")</span>
-		</div>
-	</MCard>
+	<p class="mt-2"><strong>@user.IngameName</strong> — @user.Platform — 声望 @user.Reputation — @user.LastSeenLocal.ToString("g")</p>
 }
 
 @if (orders != null && orders.Count > 0)
 {
 	<p class="mt-2">共 @orders.Count 个订单 @(loadingPrices ? " — 加载中..." : "")</p>
 
-	@foreach (var o in orders)
-	{
-		<MCard key="@o.Id" Class="mt-2 pa-3" Outlined>
-			<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-				<span style="min-width:100px;"><strong>@GetItemName(o)</strong></span>
-				<span style="min-width:40px;">@(o.Type == "sell" ? "售" : "购")</span>
-				<span style="min-width:50px;">@o.Platinum</span>
-				<span style="min-width:20px;">x@o.Quantity</span>
-				<span style="min-width:60px;">参考 @GetRef(o)</span>
-				<span style="min-width:60px;">@GetDiff(o)</span>
-			</div>
-		</MCard>
-	}
+	<MDataTable Items="orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="slug"
+				Loading="@loading">
+		<ItemColContent>
+			@if (context.Header.Text == "类型") { @(context.Item.Type == "sell" ? "售" : "购") }
+			else if (context.Header.Text == "物品") { @GetItemName(context.Item) }
+			else if (context.Header.Text == "参考价") { @GetRef(context.Item) }
+			else if (context.Header.Text == "差价") { @GetDiff(context.Item) }
+			else { @context.Value?.ToString() }
+		</ItemColContent>
+	</MDataTable>
 }
 else if (searched && !loading) { <p class="mt-2">无公开订单</p> }
 

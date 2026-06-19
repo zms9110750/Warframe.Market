@@ -1,137 +1,176 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
+using WarframeMarketApp.Data;
 
 namespace WarframeMarketApp.Services;
 
 /// <summary>
-/// 物品业务逻辑。包装 API 调用，提供搜索、价格计算。
+/// 物品业务逻辑：Trie 搜索 + 价格计算。
+/// Trie 数据源为 SQLite 缓存（slug + 所有 i18n Name）。
+/// 单例：Trie 在内存中长期驻留，DB 访问通过 IServiceScopeFactory。
 /// </summary>
 public class ItemsService
 {
 	private readonly WarframeMarketClient _wfm;
-	private List<ItemShort>? _cachedItems;
-	private TrieWrapper? _trie;
+	private readonly CacheService _cache;
+	private readonly IServiceScopeFactory _scopeFactory;
 
-	public ItemsService(WarframeMarketClient wfm) => _wfm = wfm;
+	private Trie? _trie;
+	private Dictionary<string, ItemShort>? _slugMap;
+	private bool _trieBuilt;
+	private readonly object _trieLock = new();
 
-	// ─── 物品缓存 ───
-
-	public async Task<List<ItemShort>> GetItemsAsync()
+	public ItemsService(WarframeMarketClient wfm, CacheService cache, IServiceScopeFactory scopeFactory)
 	{
-		if (_cachedItems != null) return _cachedItems;
-		var resp = await _wfm.GetItemsAsync();
-		_cachedItems = resp?.Content?.Data?.ToList() ?? new();
-		return _cachedItems;
+		_wfm = wfm;
+		_cache = cache;
+		_scopeFactory = scopeFactory;
 	}
 
-	// ─── Trie 搜索 ───
+	// ─── Trie 构建（从 SQLite 加载） ───
+
+	private async Task EnsureTrieAsync()
+	{
+		if (_trieBuilt) return;
+		lock (_trieLock)
+		{
+			if (_trieBuilt) return;
+		}
+
+		using var scope = _scopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+
+		var items = await db.Items.ToListAsync();
+		_slugMap = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
+
+		var trie = new Trie(['_', ' ', '·']);
+		foreach (var item in items)
+		{
+			trie.Add(item.Slug);
+			trie.Add(item.Id);
+		}
+
+		var translations = await db.ItemTranslations.ToListAsync();
+		foreach (var t in translations)
+		{
+			if (!string.IsNullOrEmpty(t.Name))
+				trie.Add(t.Name);
+		}
+
+		lock (_trieLock)
+		{
+			_trie = trie;
+			_trieBuilt = true;
+		}
+	}
+
+	// ─── 搜索 ───
 
 	public async Task<List<ItemShort>> SearchAsync(string query)
 	{
-		var items = await GetItemsAsync();
-		if (_trie == null)
+		if (string.IsNullOrWhiteSpace(query)) return new();
+		await EnsureTrieAsync();
+		if (_trie == null || _slugMap == null) return new();
+
+		var terms = query.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+		if (terms.Length == 0) return new();
+
+		var resultSet = new HashSet<string>();
+		var results = new List<ItemShort>();
+
+		foreach (var term in terms)
 		{
-			_trie = new TrieWrapper();
-			foreach (var item in items)
+			if (term.All(c => "_ ·".Contains(c)))
+				continue;
+
+			var matched = _trie.Search(term);
+			foreach (var m in matched)
 			{
-				_trie.Add(item.Slug);
-				_trie.Add(item.Id);
-				foreach (var (_, p) in item.I18n)
-					if (!string.IsNullOrEmpty(p.Name))
-						_trie.Add(p.Name);
+				if (_slugMap.TryGetValue(m, out var item) && resultSet.Add(item.Id))
+					results.Add(item);
 			}
 		}
 
-		var matched = _trie.Search(query);
-		if (matched.Count == 0) return new();
-
-		var slugMap = items.ToDictionary(i => i.Slug, StringComparer.OrdinalIgnoreCase);
-		var idMap = items.ToDictionary(i => i.Id, StringComparer.OrdinalIgnoreCase);
-		var nameMap = new Dictionary<string, ItemShort>(StringComparer.OrdinalIgnoreCase);
-		foreach (var item in items)
-			foreach (var (_, p) in item.I18n)
-				if (!string.IsNullOrEmpty(p.Name))
-					nameMap.TryAdd(p.Name, item);
-
-		var seen = new HashSet<string>();
-		var result = new List<ItemShort>();
-		foreach (var m in matched)
-		{
-			ItemShort? found = null;
-			if (slugMap.TryGetValue(m, out var bySlug) && seen.Add(bySlug.Id)) found = bySlug;
-			else if (idMap.TryGetValue(m, out var byId) && seen.Add(byId.Id)) found = byId;
-			else if (nameMap.TryGetValue(m, out var byName) && seen.Add(byName.Id)) found = byName;
-			if (found != null) result.Add(found);
-		}
-		return result;
+		return results;
 	}
 
-	// ─── 统计数据 + 价格计算 ───
+	// ─── 统计数据 ───
 
-	private Dictionary<string, Statistic?> _statsCache = new();
+	private readonly Dictionary<string, Statistic?> _statsCache = new();
 
-	public async Task<Statistic?> GetStatisticAsync(string slug)
+	public async Task<Statistic?> GetStatisticAsync(string itemId, CancellationToken ct = default)
 	{
-		if (_statsCache.TryGetValue(slug, out var cached)) return cached;
+		if (_statsCache.TryGetValue(itemId, out var cached))
+			return cached;
 		try
 		{
-			var resp = await _wfm.GetStatisticsAsync(slug);
-			var stat = resp?.Data;
-			_statsCache[slug] = stat;
+			var stat = await _cache.GetStatisticsAsync(itemId, ct);
+			_statsCache[itemId] = stat;
 			return stat;
 		}
 		catch { return null; }
 	}
 
-	/// <summary>参考价：已结算90天，无等级，加权中位数</summary>
+	// ─── 参考价计算 ───
+
+	public static IReadOnlyList<int> SyntheticConsumption { get; } = [1, 3, 6, 10, 15, 21];
+	private static readonly double[] DefaultWeight = [40, 25, 15, 5, 5, 5, 5];
+
 	public double? GetReferencePrice(Statistic? stat)
 	{
 		if (stat?.Payload?.StatisticsClosed?.Day90 == null) return null;
-		var entries = stat.Payload.StatisticsClosed.Day90
-			.Where(e => e.ModRank is null or 0)
-			.OrderByDescending(e => e.Datetime)
-			.Take(7).ToArray();
-		if (entries.Length == 0) return null;
-		double[] ws = [40, 25, 15, 5, 5, 5, 5];
-		double tw = 0, ws_ = 0;
-		for (int i = 0; i < entries.Length; i++)
-		{
-			var w = ws[i] * entries[i].Volume;
-			tw += w;
-			ws_ += w * entries[i].Median;
-		}
-		return ws_ / tw;
+		return CalcWeightedMedian(stat.Payload.StatisticsClosed.Day90,
+			e => e.ModRank is null or 0);
 	}
 
-	/// <summary>满级价：已结算90天，最⾼等级的中位数</summary>
-	public double? GetMaxPrice(Statistic? stat)
+	public double? GetMaxReferencePrice(Statistic? stat)
 	{
 		if (stat?.Payload?.StatisticsClosed?.Day90 == null) return null;
-		var max = stat.Payload.StatisticsClosed.Day90
-			.Where(e => e.ModRank > 0)
-			.OrderByDescending(e => e.ModRank)
-			.FirstOrDefault();
-		return max?.Median;
-	}
-}
-
-/// <summary>
-/// 简单的 Trie 包装，避免依赖 zms9110750.TreeCollection
-/// </summary>
-internal class TrieWrapper
-{
-	private readonly HashSet<string> _words = new(StringComparer.OrdinalIgnoreCase);
-
-	public void Add(string word)
-	{
-		_words.Add(word);
+		return CalcWeightedMedian(stat.Payload.StatisticsClosed.Day90,
+			e => e.ModRank is > 0 &&
+				 (e.Subtype is "crafted" or "radiant" or "magnificent" or "large"));
 	}
 
-	public List<string> Search(string prefix)
+	public double? GetReferencePriceFiltered(Statistic? stat, Func<Entry, bool> filter)
 	{
-		if (string.IsNullOrEmpty(prefix)) return new();
-		return _words.Where(w => w.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).Take(100).ToList();
+		if (stat?.Payload?.StatisticsClosed?.Day90 == null) return null;
+		return CalcWeightedMedian(stat.Payload.StatisticsClosed.Day90, filter);
+	}
+
+	public double? GetMaterialBasedReferencePrice(Statistic? stat)
+	{
+		var max = GetMaxReferencePrice(stat);
+		if (max == null) return null;
+
+		var firstRanked = stat?.Payload?.StatisticsClosed?.Day90
+			?.FirstOrDefault(e => e.ModRank > 0);
+		var rank = firstRanked?.ModRank;
+		if (rank is > 0 and <= 5)
+			return max / SyntheticConsumption[rank.Value];
+		return max;
+	}
+
+	static double? CalcWeightedMedian(Entry[] day90, Func<Entry, bool> filter)
+	{
+		var entries = day90
+			.Where(filter)
+			.OrderByDescending(e => e.Datetime)
+			.Take(7)
+			.ToArray();
+
+		if (entries.Length == 0) return null;
+
+		double totalWeight = 0, weightedSum = 0;
+		for (int i = 0; i < entries.Length; i++)
+		{
+			var w = DefaultWeight[i] * entries[i].Volume;
+			totalWeight += w;
+			weightedSum += w * entries[i].Median;
+		}
+		return totalWeight > 0 ? weightedSum / totalWeight : null;
 	}
 }

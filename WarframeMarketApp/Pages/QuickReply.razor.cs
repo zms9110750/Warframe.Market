@@ -7,24 +7,35 @@ public partial class QuickReply : ComponentBase
 {
 	[Inject] private IJSRuntime Js { get; set; } = null!;
 
-	protected string? copied;
+	[CascadingParameter(Name = "CanWrite")]
+	public bool canWrite { get; set; }
 
-	protected readonly (string, string)[] templates = new[]
+	protected string newItem = "";
+	protected bool copied;
+	protected List<string> Tags = new();
+
+	private const string CacheKey = "QuickReply";
+
+	protected override async Task OnInitializedAsync()
 	{
-		("询价", "/w {user} Hi! I want to buy your {item} for {plat} platinum. (Warframe Market)"),
-		("卖单", "/w {user} Hi! I want to sell my {item} for {plat} platinum. (Warframe Market)"),
-		("求购", "/w {user} Hi! I want to buy your {item} platinum. (Warframe Market)"),
-		("交易完成", "/w {user} Thank you for the trade! Good luck!"),
-		("邀请", "/w {user} Hi! Do you still have {item} for {plat} platinum?"),
-	};
+		await Task.CompletedTask;
+		// TODO: 从 EF Core SQLite 加载 Tags
+	}
 
 	protected async Task Copy(string text)
 	{
 		try
 		{
 			await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
-			copied = text.Length > 40 ? text[..40] + "..." : text;
+			copied = true;
 		}
 		catch { }
+	}
+
+	protected void Add()
+	{
+		if (string.IsNullOrWhiteSpace(newItem)) return;
+		Tags.Add(newItem.Trim());
+		newItem = "";
 	}
 }

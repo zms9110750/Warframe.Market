@@ -1,74 +1,109 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using zms9110750.WarframeMarketApi;
-using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.WarframeMarketApi.Models.Versions;
 using WarframeMarketApp.Data;
 
 namespace WarframeMarketApp.Services;
 
 /// <summary>
-/// 缓存服务。管理版本缓存和统计数据查询。
+/// 缓存管理：启动延迟清理 + 版本按钮完整语义。
+/// 单例，DB 访问通过 IServiceScopeFactory。
 /// </summary>
 public class CacheService
 {
 	private readonly WarframeMarketClient _wfm;
-	private readonly WfmDbContext _db;
+	private readonly IServiceScopeFactory _scopeFactory;
+	private static readonly Random _rng = new();
 
-	public CacheService(WarframeMarketClient wfm, WfmDbContext db)
+	public CacheService(WarframeMarketClient wfm, IServiceScopeFactory scopeFactory)
 	{
 		_wfm = wfm;
-		_db = db;
+		_scopeFactory = scopeFactory;
 	}
 
-	// ─── 版本缓存 ───
+	// ─── 启动后延迟清理 ───
 
-	/// <summary>
-	/// 从 API 获取最新版本，同时写入本地缓存
-	/// </summary>
-	public async Task<ServerVersion> RefreshVersionAsync(CancellationToken ct = default)
+	public async Task StartupCleanupAsync(CancellationToken ct = default)
+	{
+		var delaySec = _rng.Next(3, 11);
+		try { await Task.Delay(TimeSpan.FromSeconds(delaySec), ct); }
+		catch (OperationCanceledException) { return; }
+
+		try
+		{
+			using var scope = _scopeFactory.CreateScope();
+			var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+			var cutoff = DateTime.UtcNow.Date.AddDays(-2);
+			await db.Database.ExecuteSqlRawAsync(
+				"DELETE FROM Cache WHERE CachedAt < @p0", cutoff);
+		}
+		catch { }
+	}
+
+	// ─── 版本与数据刷新 ───
+
+	public record VersionStatus(string? VersionId, string? UpdatedAt, bool HasLocalData);
+
+	public async Task<VersionStatus> GetLocalStatusAsync(CancellationToken ct = default)
+	{
+		using var scope = _scopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+		var cached = await db.VersionInfos.FirstOrDefaultAsync(ct);
+		if (cached == null)
+			return new(null, null, false);
+		return new(cached.Id, cached.UpdatedAt, true);
+	}
+
+	public async Task<ServerVersion?> GetServerVersionAsync(CancellationToken ct = default)
 	{
 		var resp = await _wfm.GetVersionsAsync(ct);
-		var version = resp?.Content?.Data
-			?? throw new InvalidOperationException($"版本查询失败: {resp?.StatusCode}");
-
-		// 缓存到本地（覆盖写入）
-		var existing = await _db.VersionInfos.FindAsync(new object[] { version.Id }, ct);
-		if (existing != null)
-			_db.VersionInfos.Remove(existing);
-		_db.VersionInfos.Add(version);
-		await _db.SaveChangesAsync(ct);
-
-		return version;
+		return resp?.Content?.Data;
 	}
 
-	/// <summary>
-	/// 获取缓存的版本。没有则调用 <see cref="RefreshVersionAsync"/>
-	/// </summary>
-	public async Task<ServerVersion> GetCachedVersionAsync(CancellationToken ct = default)
+	/// <summary>删表 → 拉取 → 写入 SQLite → 写版本</summary>
+	public async Task RefreshAllAsync(CancellationToken ct = default)
 	{
-		var cached = await _db.VersionInfos.FirstOrDefaultAsync(ct);
-		if (cached != null)
-			return cached;
+		using var scope = _scopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 
-		return await RefreshVersionAsync(ct);
+		await db.Database.ExecuteSqlRawAsync("DELETE FROM ItemTranslations");
+		await db.Database.ExecuteSqlRawAsync("DELETE FROM Items");
+		await db.Database.ExecuteSqlRawAsync("DELETE FROM VersionInfos");
+		await db.Database.ExecuteSqlRawAsync("DELETE FROM Cache");
+
+		var resp = await _wfm.GetItemsAsync(ct);
+		var items = resp?.Content?.Data;
+		if (items == null || items.Length == 0)
+			throw new InvalidOperationException("从 API 获取物品列表失败");
+
+		db.Items.AddRange(items);
+		foreach (var item in items)
+		{
+			foreach (var (lang, pake) in item.I18n)
+			{
+				db.ItemTranslations.Add(new ItemTranslation(
+					 item.Id, lang.ToString(),
+					 pake.Name, pake.Description, pake.WikiLink,
+					 pake.Icon, pake.Thumb, pake.SubIcon));
+			}
+		}
+		await db.SaveChangesAsync(ct);
+
+		var serverVersion = await GetServerVersionAsync(ct);
+		if (serverVersion != null)
+		{
+			db.VersionInfos.Add(serverVersion);
+			await db.SaveChangesAsync(ct);
+		}
 	}
 
 	// ─── 统计数据 ───
 
-	public record StatisticWithVersion(
-		Statistic Statistic,
-		ServerVersion Version
-	);
-
-	/// <summary>
-	/// 获取统计数据，附带缓存版本
-	/// </summary>
-	public async Task<StatisticWithVersion> GetStatisticsAsync(string slug, CancellationToken ct = default)
+	public async Task<zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> GetStatisticsAsync(
+		string itemId, CancellationToken ct = default)
 	{
-		var version = await GetCachedVersionAsync(ct);
-		var statsResp = await _wfm.GetStatisticsAsync(slug, ct);
-		// statsResp 是 Response<Statistic>，取 Data
-		var stats = statsResp.Data ?? throw new InvalidOperationException($"统计数据为空");
-		return new StatisticWithVersion(stats, version);
+		var resp = await _wfm.GetStatisticsAsync(itemId, ct);
+		return resp?.Data;
 	}
 }

@@ -1,17 +1,36 @@
 @page "/reply"
-@attribute [NavItem("快捷回复", "mdi-reply-all", Order = 3)]
+@attribute [NavItem("快捷回复", "mdi-chat-processing-outline", Order = 3)]
 
 <h3>快捷回复</h3>
-<p class="text-caption mb-4">点击复制到剪贴板</p>
 
-<div style="display:flex;flex-direction:column;gap:8px;max-width:400px;">
-	@foreach (var (label, template) in templates)
-	{
-		<MButton Outlined Block OnClick="@(() => Copy(template))">@label</MButton>
-	}
-</div>
-
-@if (copied != null)
+@foreach (var (item, idx) in Tags.Select((t, i) => (t, i)))
 {
-	<MAlert Dense Class="mt-4" Type="@AlertTypes.Success">已复制: @copied</MAlert>
+	<div style="display:flex;gap:6px;align-items:center;max-width:600px;margin-bottom:4px;">
+		<MTextField @bind-Value="Tags[idx]" Readonly="!canWrite" Dense HideDetails="true" Style="flex:1;" />
+		@if (canWrite)
+		{
+			<MIcon OnClick="@(() => Tags.RemoveAt(idx))" Style="cursor:pointer;color:#c62828;">mdi-minus</MIcon>
+		}
+		else
+		{
+			<MButton Small Outlined Color="primary" OnClick="@(() => Copy(Tags[idx]))">复制</MButton>
+		}
+	</div>
+}
+
+@if (canWrite)
+{
+	<div class="mt-2" style="display:flex;gap:8px;max-width:600px;">
+		<MTextField @bind-Value="newItem" Label="添加新回复" Dense Solo Style="flex:1;" />
+		<MButton OnClick="Add" Color="primary" Disabled="@string.IsNullOrWhiteSpace(newItem)">添加</MButton>
+	</div>
+}
+else if (Tags.Count == 0)
+{
+	<p class="text-caption mt-4">打开导航栏的"可编辑"开关来添加条目</p>
+}
+
+@if (copied)
+{
+	<MAlert Dense Class="mt-2" Type="@AlertTypes.Success" Style="max-width:600px;">已复制</MAlert>
 }

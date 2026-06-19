@@ -15,9 +15,12 @@
 	<ItemColContent>
 		@if (context.Header.Text == "联系")
 		{
-			var name = Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug;
+			var locale = context.Item.User?.Locale;
+			var itemName = locale == "zh-hans" || locale == "zh-hant"
+				? (Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : Item.Slug)
+				: (Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug);
 			var type = context.Item.Type == "buy" ? "sell" : "buy";
-			var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: {name}{(context.Item.Rank.HasValue ? $" rank {context.Item.Rank}" : "")} for {context.Item.Platinum} platinum.";
+			var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: {itemName}{(context.Item.Rank.HasValue ? $" rank {context.Item.Rank}" : "")} for {context.Item.Platinum} platinum.";
 			<MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
 		}
 		else if (context.Header.Text == "卖家")

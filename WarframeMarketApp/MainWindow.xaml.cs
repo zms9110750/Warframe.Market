@@ -23,7 +23,13 @@ public partial class MainWindow : Window
                 "WarframeMarket", "wfm.db");
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dbPath)!);
 
-            var wfm = new WarframeMarketClient();
+            var wfm = new WarframeMarketClient
+            {
+                Crossplay = true,
+                Language = zms9110750.WarframeMarketApi.Models.Items.Language.ZhHans,
+                Platform = zms9110750.WarframeMarketApi.Models.Users.Platform.PC,
+            };
+
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddWpfBlazorWebView();
             serviceCollection.AddMasaBlazor();
@@ -31,8 +37,7 @@ public partial class MainWindow : Window
             serviceCollection.AddDbContext<WfmDbContext>(o =>
                 o.UseSqlite($"Data Source={dbPath}"));
             serviceCollection.AddSingleton<AppState>();
-            serviceCollection.AddTransient<CacheService>();
-            serviceCollection.AddTransient<LocalCacheService>();
+            serviceCollection.AddSingleton<CacheService>();
             serviceCollection.AddSingleton<ItemsService>();
             serviceCollection.AddTransient<ConfigService>();
 
@@ -42,13 +47,16 @@ public partial class MainWindow : Window
 
             Resources.Add("services", serviceCollection.BuildServiceProvider());
 
-            // 初始化数据库
-            using (var initScope = ((IServiceProvider)Resources["services"]).CreateScope())
+            // 初始化数据库 + 启动清理
+            using (var scope = ((IServiceProvider)Resources["services"]).CreateScope())
             {
-                var db = initScope.ServiceProvider.GetRequiredService<WfmDbContext>();
+                var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
                 db.Database.EnsureCreated();
-                new LocalCacheService(db).CleanupAsync().GetAwaiter().GetResult();
             }
+
+            // 延迟清理（不阻塞 UI）
+            var cacheService = ((IServiceProvider)Resources["services"]).GetRequiredService<CacheService>();
+            _ = cacheService.StartupCleanupAsync();
         }
         catch (Exception ex)
         {

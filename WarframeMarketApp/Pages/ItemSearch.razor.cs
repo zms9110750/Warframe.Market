@@ -47,7 +47,7 @@ public partial class ItemSearch : ComponentBase, IDisposable
 			var stat = await ItemSvc.GetStatisticAsync(item.Slug);
 			_stats[item.Slug] = stat;
 			_prices[item.Slug] = ItemSvc.GetReferencePrice(stat);
-			_maxPrices[item.Slug] = ItemSvc.GetMaxPrice(stat);
+			_maxPrices[item.Slug] = ItemSvc.GetMaxReferencePrice(stat);
 			StateHasChanged();
 			await Task.Delay(250);
 		}

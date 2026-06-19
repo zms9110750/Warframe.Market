@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Masa.Blazor;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
@@ -22,6 +23,16 @@ public partial class UserSearch : ComponentBase, IDisposable
 	protected string? error;
 	private CancellationTokenSource _cts = new();
 	private Dictionary<string, Statistic?> _prices = new();
+	protected List<DataTableHeader<Order>> _headers = new()
+	{
+		new("物品", "item"),
+		new("类型", "Type"),
+		new("铂金", nameof(Order.Platinum)),
+		new("数量", nameof(Order.Quantity)),
+		new("等级", nameof(Order.Rank)),
+		new("参考价", "ref"),
+		new("差价", "diff"),
+	};
 
 	protected async Task SearchAsync()
 	{

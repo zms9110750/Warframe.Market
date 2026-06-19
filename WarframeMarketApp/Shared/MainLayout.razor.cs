@@ -10,12 +10,16 @@ namespace WarframeMarketApp.Shared;
 public partial class MainLayout : LayoutComponentBase
 {
 	[Inject] private AppState State { get; set; } = null!;
-	[Inject] private zms9110750.WarframeMarketApi.WarframeMarketClient Wfm { get; set; } = null!;
+	[Inject] private CacheService Cache { get; set; } = null!;
 
 	private string currentTitle = "";
+	protected bool canWrite;
+	/// <summary>是否显示为链接模式</summary>
+	protected bool clickLink;
 	private List<NavItemInfo> navItems = new();
 
-	// 下拉列表数据
+	// ─── 语言/平台下拉 ───
+
 	private List<string> langItems => Enum.GetValues<Language>()
 		.Where(l => l != Language.Node)
 		.Select(l => AppState.LangToStr(l))
@@ -36,34 +40,64 @@ public partial class MainLayout : LayoutComponentBase
 		set => State.Platform = AppState.StrToPlat(value);
 	}
 
+	// ─── 初始化 ───
+
 	protected override async Task OnInitializedAsync()
 	{
 		navItems = GetNavItemsFromAssembly();
 		currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
 
-		State.VersionText = "正在检查版本";
-		try
+		// 检查本地数据状态
+		var local = await Cache.GetLocalStatusAsync();
+		if (!local.HasLocalData)
 		{
-			var v = await State.Client.GetVersionsAsync();
-			if (v?.Content?.Data != null)
+			// 无数据：触发全量拉取
+			State.VersionText = "正在初始化...";
+			State.IsUpdating = true;
+			try
 			{
-				var date = v.Content.Data.UpdatedAtLocal;
-				State.VersionText = $"数据日期 {date:yyyy-MM-dd}";
-				State.VersionUpdatedAt = v.Content.Data.UpdatedAt;
-				State.StatusMessage = null;
+				await Cache.RefreshAllAsync();
+				local = await Cache.GetLocalStatusAsync();
+				State.VersionText = $"数据日期 {local.UpdatedAt?[..10]}";
 			}
-			else
+			catch (Exception ex)
 			{
-				State.VersionText = "连接失败";
-				State.StatusMessage = $"HTTP {(int?)v?.StatusCode} {v?.StatusCode}";
+				State.VersionText = "初始化失败";
+				State.StatusMessage = ex.Message;
 			}
+			State.IsUpdating = false;
 		}
-		catch (Exception ex)
+		else
 		{
-			State.VersionText = "连接失败";
-			State.StatusMessage = ex.Message;
+			// 有本地数据：显示日期，后台查版本
+			State.VersionText = $"数据日期 {local.UpdatedAt?[..10]}";
+			_ = CheckVersionAsync(local.VersionId);
 		}
 	}
+
+	// ─── 后台版本检查 ───
+
+	private async Task CheckVersionAsync(string? localVersionId)
+	{
+		try
+		{
+			var server = await Cache.GetServerVersionAsync();
+			if (server == null) return;
+
+			if (server.Id != localVersionId)
+			{
+				// 版本不一致：后台更新
+				State.StatusMessage = "检测到新数据，正在后台更新...";
+				await Cache.RefreshAllAsync();
+				State.StatusMessage = null;
+				var updated = await Cache.GetLocalStatusAsync();
+				State.VersionText = $"数据日期 {updated.UpdatedAt?[..10]}";
+			}
+		}
+		catch { /* 静默失败，下次再看 */ }
+	}
+
+	// ─── 版本按钮 4 态 ───
 
 	private async Task OnVersionClick()
 	{
@@ -71,46 +105,57 @@ public partial class MainLayout : LayoutComponentBase
 
 		if (State.ShowRefreshPrompt)
 		{
-			// 强制刷新模式：清除本地数据（这里简化，仅重新获取版本）
+			// 状态 4：再次点击 → 强制刷新
 			State.IsUpdating = true;
-			State.VersionText = "刷新中...";
-
+			State.VersionText = "正在刷新...";
 			try
 			{
-				var v = await State.Client.GetVersionsAsync();
-				if (v?.Content?.Data != null)
-				{
-					State.VersionText = $"数据日期 {v.Content.Data.UpdatedAtLocal:yyyy-MM-dd}";
-					State.VersionUpdatedAt = v.Content.Data.UpdatedAt;
-				}
-				else
-				{
-					State.VersionText = "刷新失败";
-				}
+				await Cache.RefreshAllAsync();
+				var local = await Cache.GetLocalStatusAsync();
+				State.VersionText = $"数据日期 {local.UpdatedAt?[..10]}";
 			}
 			catch
 			{
 				State.VersionText = "刷新失败";
 			}
-
 			State.IsUpdating = false;
 			State.ShowRefreshPrompt = false;
 		}
 		else
 		{
-			State.VersionText = "再次点击，强制刷新";
+			// 状态 3：点击 → 提示强制刷新
+			State.VersionText = "再次点击强制刷新";
 			State.ShowRefreshPrompt = true;
 		}
 	}
 
 	private void OnVersionLeave()
 	{
-		if (State.ShowRefreshPrompt && !State.IsUpdating && State.VersionUpdatedAt != null)
+		if (State.ShowRefreshPrompt && !State.IsUpdating)
 		{
-			State.VersionText = $"数据日期 {State.VersionUpdatedAt[..10]}";
+			// 失焦还原
+			_ = RestoreVersionTextAsync();
 			State.ShowRefreshPrompt = false;
 		}
 	}
+
+	private async Task RestoreVersionTextAsync()
+	{
+		try
+		{
+			var local = await Cache.GetLocalStatusAsync();
+			if (local.HasLocalData)
+				State.VersionText = $"数据日期 {local.UpdatedAt?[..10]}";
+			else
+				State.VersionText = "无数据";
+		}
+		catch
+		{
+			State.VersionText = "无数据";
+		}
+	}
+
+	// ─── 导航 ───
 
 	private List<NavItemInfo> GetNavItemsFromAssembly()
 	{
