@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Masa.Blazor;
+using System.Net.Http;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
@@ -19,10 +20,11 @@ public partial class UserSearch : ComponentBase, IDisposable
 	protected List<Order>? orders;
 	protected bool loading;
 	protected bool searched;
+	protected bool notFound;
 	protected bool loadingPrices;
 	protected string? error;
 	private CancellationTokenSource _cts = new();
-	private Dictionary<string, Statistic?> _prices = new();
+
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
 		new("物品", "item"),
@@ -34,62 +36,141 @@ public partial class UserSearch : ComponentBase, IDisposable
 		new("差价", "diff"),
 	};
 
+	// ItemId → ItemShort 缓存（用 API 查）
+	private Dictionary<string, ItemShort?> _itemCache = new();
+	// ItemId → Statistic 缓存
+	private Dictionary<string, Statistic?> _prices = new();
+
 	protected async Task SearchAsync()
 	{
 		if (string.IsNullOrWhiteSpace(slug)) return;
-		loading = true; searched = true; error = null;
-		user = null; orders = null; _prices.Clear();
+		loading = true; searched = true; notFound = false; error = null;
+		user = null; orders = null;
+		_itemCache.Clear(); _prices.Clear();
 		_cts?.Cancel(); _cts = new();
 
 		try
 		{
+			// 查用户
 			var userResp = await Wfm.GetUserAsync(slug);
-			user = userResp?.Content?.Data;
+			if (userResp?.Content?.Data == null)
+			{
+				notFound = true;
+				loading = false;
+				return;
+			}
+			user = userResp.Content.Data;
 
+			// 查订单
 			var orderResp = await Wfm.GetOrdersFromUserAsync(slug);
-			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0) { searched = true; return; }
+			if (orderResp?.Content?.Data == null || orderResp.Content.Data.Length == 0)
+			{
+				searched = true;
+				loading = false;
+				return;
+			}
 
 			orders = orderResp.Content.Data.ToList();
 			loading = false;
+
+			// 异步加载物品信息和价格
 			loadingPrices = true;
-			_ = LoadPricesAsync();
+			_ = LoadItemInfoAsync(_cts.Token);
 		}
-		catch (Exception ex) { error = ex.Message; loading = false; }
+		catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+		{
+			notFound = true;
+			loading = false;
+		}
+		catch (Exception ex)
+		{
+			error = ex.Message;
+			loading = false;
+		}
 	}
 
-	private async Task LoadPricesAsync()
+	private async Task LoadItemInfoAsync(CancellationToken ct)
 	{
 		foreach (var o in orders!)
 		{
-			if (_cts.IsCancellationRequested) break;
-			var itemSlug = o.ItemId ?? "";
-			var stat = await ItemSvc.GetStatisticAsync(itemSlug);
-			_prices[itemSlug] = stat;
+			if (ct.IsCancellationRequested) break;
+
+			var itemId = o.ItemId ?? "";
+			if (!_itemCache.ContainsKey(itemId))
+			{
+				try
+				{
+					var resp = await Wfm.GetItemByIdAsync(itemId, ct);
+					_itemCache[itemId] = resp?.Content?.Data;
+				}
+				catch { _itemCache[itemId] = null; }
+			}
+
+			var item = _itemCache.GetValueOrDefault(itemId);
+			if (item != null)
+			{
+				var stat = await ItemSvc.GetStatisticAsync(item.Slug, ct);
+				_prices[item.Slug] = stat;
+			}
+
 			StateHasChanged();
-			await Task.Delay(200);
+			await Task.Delay(100, ct);
 		}
-		loadingPrices = false; StateHasChanged();
+		loadingPrices = false;
+		StateHasChanged();
 	}
 
-	protected string GetItemName(Order o) => o.ItemId?.Length > 16 ? o.ItemId[..16] + "..." : o.ItemId ?? "-";
-	protected string GetRef(Order o) => GetPriceStr(o.ItemId);
-	protected string GetDiff(Order o) => GetDiffStr(o.ItemId, o.Platinum);
+	// ─── 辅助方法 ───
 
-	private string GetPriceStr(string? slug)
+	protected string GetItemName(Order o)
 	{
-		if (slug == null || !_prices.TryGetValue(slug, out var stat) || stat == null) return loadingPrices ? "" : "-";
-		var p = ItemSvc.GetReferencePrice(stat);
+		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null) return o.ItemId?.Length > 16 ? $"{o.ItemId?[..16]}..." : o.ItemId ?? "-";
+
+		var zh = item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : null;
+		var en = item.I18n.TryGetValue(Language.En, out var e) ? e.Name : null;
+		return zh ?? en ?? item.Slug;
+	}
+
+	protected string GetRef(Order o)
+	{
+		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null) return "";
+
+		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null)
+			return loadingPrices ? "" : "-";
+
+		// 按订单的 Rank/Subtype/AmberStars 过滤
+		var p = ItemSvc.GetReferencePriceFiltered(stat, e =>
+			(e.ModRank == o.Rank || (o.Rank == null && (e.ModRank is null or 0))) &&
+			(e.Subtype == o.Subtype || (o.Subtype == null && e.Subtype == null)) &&
+			(e.AmberStars == o.AmberStars || (o.AmberStars == null && (e.AmberStars is null or 0)))
+		);
+		if (p == null) p = ItemSvc.GetReferencePrice(stat);
 		return p?.ToString("F0") ?? "-";
 	}
 
-	private string GetDiffStr(string? slug, int orderPrice)
+	protected string GetDiff(Order o)
 	{
-		if (slug == null || !_prices.TryGetValue(slug, out var stat) || stat == null) return "";
+		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null) return "";
+
+		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
+		// 差价 = 参考价 - 订单价（正=比市场便宜）
 		var refP = ItemSvc.GetReferencePrice(stat);
 		if (refP == null || refP <= 0) return "";
-		var diff = orderPrice - refP.Value;
+		var diff = refP.Value - o.Platinum;
 		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
 	}
 
-	public void Dispose() { _cts?.Cancel(); _cts?.Dispose(); }
+	protected ItemShort? GetItemShort(Order o)
+	{
+		return _itemCache.GetValueOrDefault(o.ItemId ?? "");
+	}
+
+	public void Dispose()
+	{
+		_cts?.Cancel();
+		_cts?.Dispose();
+	}
 }
