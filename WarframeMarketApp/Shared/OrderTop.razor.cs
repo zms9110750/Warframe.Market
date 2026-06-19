@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Masa.Blazor;
+using Serilog;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
@@ -30,7 +31,8 @@ public partial class OrderTop : ComponentBase, IDisposable
 
 	protected override async Task OnInitializedAsync()
 	{
-		if (Item == null) return;
+		if (Item == null) { Log.Warning("OrderTop Item 为 null"); loading = false; return; }
+		Log.Information("OrderTop 初始化: {Slug}", Item.Slug);
 		loading = true;
 		try
 		{

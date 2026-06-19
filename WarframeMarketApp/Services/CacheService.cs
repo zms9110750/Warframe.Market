@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
+using System.Collections.Concurrent;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Versions;
 using WarframeMarketApp.Data;
@@ -18,6 +19,8 @@ public class CacheService
 	private readonly IServiceScopeFactory _scopeFactory;
 	private readonly IMemoryCache _memCache;
 	private static readonly Random _rng = new();
+	// 请求去重：同一 key 只发一次 API，并发调用等同一个 Task
+	private static readonly ConcurrentDictionary<string, Task<zms9110750.WarframeMarketApi.Models.Statistics.Statistic?>> _pendingStats = new();
 
 	public CacheService(WarframeMarketClient wfm, IServiceScopeFactory scopeFactory, IMemoryCache memCache)
 	{
@@ -117,7 +120,11 @@ public class CacheService
 
 		// 1. IMemoryCache 热缓存
 		if (_memCache.TryGetValue(cacheKey, out zms9110750.WarframeMarketApi.Models.Statistics.Statistic? cached))
+		{
+			Log.Information("Cache IMEM 命中: {Key}", cacheKey);
 			return cached;
+		}
+		Log.Information("Cache IMEM 未命中: {Key}", cacheKey);
 
 		// 2. SQLite 持久缓存（不超过 2 天）
 		try
@@ -125,30 +132,59 @@ public class CacheService
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 			var row = await db.Cache.FindAsync(new object[] { cacheKey }, ct);
-			if (row != null && row.DaysOld < 2)
+			if (row != null)
 			{
-				var stat = System.Text.Json.JsonSerializer.Deserialize<zms9110750.WarframeMarketApi.Models.Statistics.Statistic>(
-					row.Value, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
-				if (stat != null)
+				Log.Information("Cache SQLite 找到: {Key}, DaysOld={Days}", cacheKey, row.DaysOld);
+				if (row.DaysOld < 2)
 				{
-					_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
-					return stat;
+					var stat = System.Text.Json.JsonSerializer.Deserialize<zms9110750.WarframeMarketApi.Models.Statistics.Statistic>(
+						row.Value, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+					if (stat != null)
+					{
+						Log.Information("Cache SQLite 反序列化成功: {Key}", cacheKey);
+						_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
+						return stat;
+					}
+					else Log.Warning("Cache SQLite 反序列化失败: {Key}", cacheKey);
 				}
+				else Log.Information("Cache SQLite 过期: {Key}, DaysOld={Days}", cacheKey, row.DaysOld);
 			}
+			else Log.Information("Cache SQLite 未找到: {Key}", cacheKey);
 		}
-		catch { /* 读缓存失败就请求 API */ }
+		catch (Exception ex) { Log.Error(ex, "Cache SQLite 读取异常: {Key}", cacheKey); }
 
-		// 3. 从 API 获取
+		// 3. 从 API 获取（请求去重：同 key 同时只发一次）
+		if (_pendingStats.TryGetValue(cacheKey, out var pending))
+		{
+			Log.Information("Cache 等待已有请求: {Key}", cacheKey);
+			return await pending;
+		}
+
+		Log.Information("Cache API 请求: {Key}", cacheKey);
+		var task = FetchAndCacheAsync(cacheKey, itemId, ct);
+		_pendingStats[cacheKey] = task;
+
+		try
+		{
+			var result = await task;
+			return result;
+		}
+		finally
+		{
+			_pendingStats.TryRemove(cacheKey, out _);
+		}
+	}
+
+	private async Task<zms9110750.WarframeMarketApi.Models.Statistics.Statistic?> FetchAndCacheAsync(
+		string cacheKey, string itemId, CancellationToken ct)
+	{
 		try
 		{
 			var resp = await _wfm.GetStatisticsAsync(itemId, ct);
 			var stat = resp?.Data;
 			if (stat != null)
 			{
-				// 写入 IMemoryCache
 				_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
-
-				// 写入 SQLite
 				try
 				{
 					using var scope = _scopeFactory.CreateScope();
@@ -156,24 +192,15 @@ public class CacheService
 					var json = System.Text.Json.JsonSerializer.Serialize(stat,
 						new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
 					var existing = await db.Cache.FindAsync(new object[] { cacheKey }, ct);
-					if (existing != null)
-					{
-						existing.Value = json;
-						existing.CachedAt = DateTime.UtcNow;
-					}
-					else
-					{
-						db.Cache.Add(new CacheEntry { Key = cacheKey, Value = json });
-					}
+					if (existing != null) { existing.Value = json; existing.CachedAt = DateTime.UtcNow; }
+					else { db.Cache.Add(new CacheEntry { Key = cacheKey, Value = json }); }
 					await db.SaveChangesAsync(ct);
 				}
-				catch { /* 写缓存失败不影响返回 */ }
-
+				catch { }
 				return stat;
 			}
 		}
-		catch { }
-
+		catch (Exception ex) { Log.Error(ex, "FetchAndCacheAsync 失败: {Key}", cacheKey); }
 		return null;
 	}
 }

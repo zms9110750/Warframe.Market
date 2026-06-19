@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Masa.Blazor;
+using Serilog;
 using WarframeMarketApp.Data;
 using WarframeMarketApp.Services;
 
@@ -19,6 +20,7 @@ public partial class ArcanePacks : ComponentBase, IDisposable
 
 	protected override async Task OnInitializedAsync()
 	{
+		Log.Information("ArcanePacks 初始化");
 		Pack = Config.LoadArcaneConfig();
 
 		_headers.Add(new("赋能包", nameof(ArcanePackConfig.Name)));

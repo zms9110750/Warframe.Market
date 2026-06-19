@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Masa.Blazor;
+using Serilog;
 using System.Net.Http;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
@@ -25,16 +26,7 @@ public partial class UserSearch : ComponentBase, IDisposable
 	protected string? error;
 	private CancellationTokenSource _cts = new();
 
-	protected List<DataTableHeader<Order>> _headers = new()
-	{
-		new("物品", "item"),
-		new("类型", "Type"),
-		new("铂金", nameof(Order.Platinum)),
-		new("数量", nameof(Order.Quantity)),
-		new("等级", nameof(Order.Rank)),
-		new("参考价", "ref"),
-		new("差价", "diff"),
-	};
+	protected List<DataTableHeader<Order>> _headers = new();
 
 	// ItemId → ItemShort 缓存（用 API 查）
 	private Dictionary<string, ItemShort?> _itemCache = new();
@@ -43,7 +35,18 @@ public partial class UserSearch : ComponentBase, IDisposable
 
 	protected async Task SearchAsync()
 	{
+		Log.Information("UserSearch 查询: {User}", slug);
 		if (string.IsNullOrWhiteSpace(slug)) return;
+		if (_headers.Count == 0)
+		{
+			_headers.Add(new("物品", "item") { ValueExpression = (Func<Order, object?>)(o => GetItemName(o)) });
+			_headers.Add(new("类型", "Type") { Sortable = false });
+			_headers.Add(new("铂金", nameof(Order.Platinum)));
+			_headers.Add(new("数量", nameof(Order.Quantity)));
+			_headers.Add(new("等级", nameof(Order.Rank)));
+			_headers.Add(new("参考价", "ref") { Sortable = false });
+			_headers.Add(new("差价", "diff") { Sortable = false });
+		}
 		loading = true; searched = true; notFound = false; error = null;
 		user = null; orders = null;
 		_itemCache.Clear(); _prices.Clear();
@@ -67,11 +70,13 @@ public partial class UserSearch : ComponentBase, IDisposable
 			{
 				searched = true;
 				loading = false;
+				StateHasChanged();
 				return;
 			}
 
 			orders = orderResp.Content.Data.ToList();
 			loading = false;
+			StateHasChanged();
 
 			// 异步加载物品信息和价格
 			loadingPrices = true;

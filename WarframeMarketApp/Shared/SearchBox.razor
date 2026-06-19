@@ -1,4 +1,5 @@
 @namespace WarframeMarketApp.Shared
+@using Serilog
 
 <MTextField @bind-Value="query"
             @bind-Value:event="oninput"
@@ -38,6 +39,7 @@
 
 	private async Task DoSearch()
 	{
+		Log.Information("SearchBox 搜索: {Query}", query);
 		var q = query?.Trim();
 		if (!string.IsNullOrWhiteSpace(q))
 			await OnSearch.InvokeAsync(q);
@@ -45,12 +47,14 @@
 
 	private async Task OpenTab(string q)
 	{
+		Log.Information("SearchBox 打开收藏: {Query}", q);
 		query = q;
 		await OnFavoriteClick.InvokeAsync(q);
 	}
 
 	private async Task SaveQuery()
 	{
+		Log.Information("SearchBox 保存收藏: {Query}", query);
 		if (!string.IsNullOrWhiteSpace(query) && !SavedQueries.Contains(query))
 		{
 			SavedQueries.Add(query);

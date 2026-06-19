@@ -1,4 +1,5 @@
 @* 赋能包展开明细：出货率（静态） + 价格（异步加载） *@
+@using Serilog
 @using WarframeMarketApp.Data
 @inject ItemsService ItemSvc
 @inject CacheService Cache
@@ -32,6 +33,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		Log.Information("ArcaneTable 初始化: {Pack}", Pack.Name);
 		_headersItem.Add(new("名称", "名称") { ValueExpression = (Func<string, object?>)(t => t) });
 		_headersItem.Add(new("出货率%", "rate") { Align = DataTableHeaderAlign.End,
 			ValueExpression = (Func<string, object?>)(t => Pack.GetProbability(t) * 100) });

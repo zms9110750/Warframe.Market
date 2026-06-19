@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
+using Serilog;
 using WarframeMarketApp.Data;
 
 namespace WarframeMarketApp.Pages;
@@ -20,6 +21,7 @@ public partial class QuickReply : ComponentBase
 
 	protected override async Task OnInitializedAsync()
 	{
+		Log.Information("QuickReply 初始化");
 		using var scope = ScopeFactory.CreateScope();
 		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
 		Tags = await db.QuickReplies.OrderBy(q => q.SortOrder).ToListAsync();
@@ -27,6 +29,7 @@ public partial class QuickReply : ComponentBase
 
 	protected async Task Copy(string text)
 	{
+		Log.Information("QuickReply 复制: {Text}", text.Length > 30 ? text[..30] + "..." : text);
 		try
 		{
 			await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
