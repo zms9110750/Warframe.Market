@@ -34,12 +34,13 @@ public partial class QuickReply : ComponentBase
 		catch { }
 	}
 
-	protected void AddNew()
+	protected async Task AddNew()
 	{
 		if (string.IsNullOrWhiteSpace(newItem)) return;
 		Tags.Add(newItem.Trim());
 		Storage.AddQuickReply(newItem.Trim());
 		newItem = "";
+		await InvokeAsync(StateHasChanged);
 	}
 
 	protected void Remove(string text)

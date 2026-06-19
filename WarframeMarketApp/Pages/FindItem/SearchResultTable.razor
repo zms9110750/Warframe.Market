@@ -10,7 +10,7 @@
 
 <MDataTable Items="results" Headers="_headers" Dense MultiSort ShowExpand
 			HideDefaultFooter ItemsPerPage="-1" @key="Tab"
-			Class="elevation-1">
+			Class="elevation-1" ItemKey="r => r.Id">
 	<ItemColContent>
 		@if (context.Header.Text == "中文名称")
 		{
@@ -45,7 +45,7 @@
 	</ItemColContent>
 	<ExpandedItemContent>
 		<td colspan="@_headers.Count" @key="context.Item.Id">
-			<OrderTop TargetItem="@((ItemShort)context.Item)" />
+			<OrderTop TargetItem="@((ItemShort)context.Item2)" />
 		</td>
 	</ExpandedItemContent>
 </MDataTable>

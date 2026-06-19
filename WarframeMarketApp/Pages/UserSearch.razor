@@ -22,28 +22,30 @@ else if (user != null)
 {
 	<p class="mt-2">共 @orders.Count 个订单 @(loadingPrices ? " — 加载中..." : "")</p>
 
-	@foreach (var group in orders.GroupBy(o => o.Type is "buy" or "Buy" ? "购" : "售"))
-	{
-		<h4 class="mt-3">@group.Key</h4>
-		<MDataTable Items="@group.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="@(slug + group.Key)"
-					Loading="@loading" ShowExpand ItemKey="r => r.Id" Context="ctx">
-			<ItemColContent>
-				@if (ctx.Header.Text == "物品")
-				{
-					@GetItemName(ctx.Item)
-				}
-				else if (ctx.Header.Text == "类型") { @(ctx.Item.Type is "buy" or "Buy" ? "购" : "售") }
-				else if (ctx.Header.Text == "参考价") { @GetRef(ctx.Item) }
-				else if (ctx.Header.Text == "差价") { @GetDiff(ctx.Item) }
-				else { @ctx.Value?.ToString() }
-			</ItemColContent>
-			<ExpandedItemContent>
-				<td colspan="9999" @key="ctx.Item.Id">
-					<OrderTop TargetItem="@GetItemShort(ctx.Item)" />
-				</td>
-			</ExpandedItemContent>
-		</MDataTable>
-	}
+	<MDataTable Items="orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="@slug"
+				Loading="@loading" ShowExpand ItemKey="r => r.Id"
+				GroupBy="nameof(Order.Type)" GroupDesc="[true]">
+		<GroupHeaderContent>
+			<td colspan="@_headers.Count">
+				@if (context.Group is "buy" or "Buy") { @("购") }
+				else { @("售") }
+			</td>
+		</GroupHeaderContent>
+		<ItemColContent>
+			@if (context.Header.Text == "物品")
+			{
+				@GetItemName(context.Item)
+			}
+			else if (context.Header.Text == "参考价") { @GetRef(context.Item) }
+			else if (context.Header.Text == "差价") { @GetDiff(context.Item) }
+			else { @context.Value?.ToString() }
+		</ItemColContent>
+		<ExpandedItemContent>
+			<td colspan="9999" @key="context.Item2.Id">
+				<OrderTop TargetItem="@GetItemShort(context.Item2)" />
+			</td>
+		</ExpandedItemContent>
+	</MDataTable>
 }
 else if (searched && !loading) { <p class="mt-2">无公开订单</p> }
 
