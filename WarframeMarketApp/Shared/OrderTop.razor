@@ -17,7 +17,7 @@
 		{
 			var locale = context.Item.User?.Locale;
 			var enName = Item.I18n.TryGetValue(Language.En, out var en) ? en.Name : Item.Slug;
-			var zhName = context.Item.User?.Locale == "zh-hans" && Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
+			var zhName = locale == "zh-hans" && Item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
 			var hasSubtype = context.Item.Subtype != null ? $" of {context.Item.Subtype}" : null;
 			var rank = context.Item.Rank != null ? $" rank {context.Item.Rank}" : null;
 			var type = context.Item.Type is "buy" or "Buy" ? "sell" : "buy";

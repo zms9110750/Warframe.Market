@@ -1,10 +1,9 @@
 @namespace WarframeMarketApp.Shared
 
-<!-- 搜索输入框独立子组件，标签内不包含输入框 -->
+<!-- 搜索输入框独立子组件 -->
 <MTextField @bind-Value="query"
 			AppendIcon="mdi-magnify"
 			Label="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
-			@oninput="@OnInput"
 			@onkeydown="@(e => { if (e.Key == "Enter") _ = SubmitSearch(); })"
 			Clearable
 			Dense Solo Class="mb-2"
@@ -28,7 +27,7 @@
 }
 
 @code {
-	private string query = "";
+	public string query { get; set; } = "";
 
 	[Parameter] public EventCallback<string> OnSearch { get; set; }
 	[Parameter] public EventCallback<string> OnFavoriteClick { get; set; }
@@ -39,14 +38,6 @@
 	protected override void OnInitialized()
 	{
 		// TODO: 从 EF Core 加载收藏列表
-	}
-
-	private async Task OnInput(ChangeEventArgs e)
-	{
-		query = e.Value?.ToString() ?? "";
-		// 响应式：每次输入都触发搜索结果（无节流）
-		if (!string.IsNullOrWhiteSpace(query))
-			await OnSearch.InvokeAsync(query);
 	}
 
 	private async Task SubmitSearch()
