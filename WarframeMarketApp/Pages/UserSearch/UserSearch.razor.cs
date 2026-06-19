@@ -105,43 +105,25 @@ public partial class UserSearch : ComponentBase
 			Log.Information("UserSearch 订单就绪: {Name}, {Count}条", name, result.Orders.Count);
 			StateHasChanged();
 
-			// 加载物品信息（并行，最多5并发）
+			// 加载物品信息 + 价格
+			// 注意：物品名称/I18n 从本地 SQLite 获取，不需要 API
 			Log.Information("UserSearch 开始加载物品: {Name}, 共{Count}个", name, result.Orders.Count);
-			var itemTasks = new List<Task>();
-			int itemOk = 0, itemFail = 0;
+			result.LoadingPrices = true;
+
+			// 从本地 Trie/SQLite 查找物品
 			foreach (var o in result.Orders)
 			{
 				var itemId = o.ItemId ?? "";
 				if (result.ItemCache.ContainsKey(itemId)) continue;
-				itemTasks.Add(Task.Run(async () =>
-				{
-					try
-					{
-						var resp = await Wfm.GetItemByIdAsync(itemId);
-						if (resp?.Content?.Data != null)
-						{
-							lock (result.ItemCache) { result.ItemCache[itemId] = resp.Content.Data; }
-							Interlocked.Increment(ref itemOk);
-						}
-						else Interlocked.Increment(ref itemFail);
-					}
-					catch { Interlocked.Increment(ref itemFail); }
-				}));
-				// 控制并发数：等一批完成再继续
-				if (itemTasks.Count >= 5)
-				{
-					await Task.WhenAll(itemTasks);
-					itemTasks.Clear();
-				}
+				var found = await ItemSvc.SearchAsync(itemId);
+				var item = found.FirstOrDefault();
+				if (item != null) result.ItemCache[itemId] = item;
 			}
-			await Task.WhenAll(itemTasks); // 剩余的任务
-			Log.Information("UserSearch 物品加载完成: {Name}, 成功={Ok}, 失败={Fail}", name, itemOk, itemFail);
+			Log.Information("UserSearch 物品加载完成: {Name}, 共{Count}个", name, result.ItemCache.Count);
 			StateHasChanged();
 
-			// 加载价格（并行，最多5并发）
+			// 加载价格（用 ItemSvc 走缓存）
 			Log.Information("UserSearch 开始加载价格: {Name}", name);
-			result.LoadingPrices = true;
-			int priceCount = 0, priceFail = 0, priceSkip = 0;
 			var priceTasks = new List<Task>();
 			foreach (var o in result.Orders)
 			{
@@ -149,31 +131,17 @@ public partial class UserSearch : ComponentBase
 				if (item != null && !result.Prices.ContainsKey(item.Slug))
 				{
 					var slug = item.Slug;
-					priceTasks.Add(Task.Run(async () =>
-					{
-						try
-						{
-							var stat = await ItemSvc.GetStatisticAsync(slug);
-							if (stat != null)
-							{
-								lock (result.Prices) { result.Prices[slug] = stat; }
-								Interlocked.Increment(ref priceCount);
-							}
-							else Interlocked.Increment(ref priceFail);
-						}
-						catch { Interlocked.Increment(ref priceFail); }
-					}));
-					if (priceTasks.Count >= 5)
+					priceTasks.Add(LoadPriceAsync(result, slug));
+					if (priceTasks.Count >= 3)
 					{
 						await Task.WhenAll(priceTasks);
-						await Task.Delay(400); // 限流：每批等 400ms
+						StateHasChanged();
 						priceTasks.Clear();
 					}
 				}
-				else if (item == null) Interlocked.Increment(ref priceSkip);
 			}
 			await Task.WhenAll(priceTasks);
-			Log.Information("UserSearch 价格加载完成 {Name}: 成功={Ok}, 失败={Fail}, 跳过={Skip}", name, priceCount, priceFail, priceSkip);
+			StateHasChanged();
 			result.LoadingPrices = false;
 			StateHasChanged();
 		}
@@ -191,6 +159,26 @@ public partial class UserSearch : ComponentBase
 		_searchingUsers.Remove(name);
 		StateHasChanged();
 		Log.Information("UserSearch 搜索完全结束: {Name}", name);
+	}
+
+	private async Task<ItemShort?> LoadItemAsync(string itemId)
+	{
+		try
+		{
+			var resp = await Wfm.GetItemByIdAsync(itemId);
+			return resp?.Content?.Data;
+		}
+		catch { return null; }
+	}
+
+	private async Task LoadPriceAsync(UserSearchResult result, string slug)
+	{
+		try
+		{
+			var stat = await ItemSvc.GetStatisticAsync(slug);
+			if (stat != null) result.Prices[slug] = stat;
+		}
+		catch { }
 	}
 
 	protected void CloseUserTab(int idx)
