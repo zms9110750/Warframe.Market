@@ -1,4 +1,4 @@
-namespace WarframeMarketApp.Pages;
+namespace WarframeMarketApp.Pages.UserSearch;
 
 /// <summary>
 /// 用户搜索结果包装

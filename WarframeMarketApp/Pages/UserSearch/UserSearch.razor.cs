@@ -9,7 +9,7 @@ using zms9110750.WarframeMarketApi.Models.Users;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using WarframeMarketApp.Services;
 
-namespace WarframeMarketApp.Pages;
+namespace WarframeMarketApp.Pages.UserSearch;
 
 public partial class UserSearch : ComponentBase
 {
