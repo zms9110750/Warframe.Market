@@ -33,6 +33,7 @@ public partial class MainWindow : Window
             serviceCollection.AddSingleton<AppState>();
             serviceCollection.AddTransient<CacheService>();
             serviceCollection.AddTransient<LocalCacheService>();
+            serviceCollection.AddTransient<SearchService>();
             serviceCollection.AddTransient<ConfigService>();
             serviceCollection.AddTransient<ItemsCacheService>();
 
