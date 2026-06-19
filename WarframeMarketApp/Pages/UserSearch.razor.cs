@@ -38,15 +38,15 @@ public partial class UserSearch : ComponentBase
 
 		if (_headers.Count == 0)
 		{
-			_headers.Add(new("物品", "item") { Sortable = false });
-			_headers.Add(new("英文名称", "en") { Sortable = false });
-			_headers.Add(new("类型", "Type") { Sortable = false });
+			_headers.Add(new("物品", "") { Sortable = false });
+			_headers.Add(new("英文名称", "") { Sortable = false });
+			_headers.Add(new("类型", "") { Sortable = false });
 			_headers.Add(new("铂金", nameof(Order.Platinum)));
 			_headers.Add(new("数量", nameof(Order.Quantity)));
 			_headers.Add(new("等级", nameof(Order.Rank)));
-			_headers.Add(new("语言", "locale") { Sortable = false });
-			_headers.Add(new("参考价", "ref") { Sortable = false });
-			_headers.Add(new("差价", "diff") { Sortable = false });
+			_headers.Add(new("语言", "") { Sortable = false });
+			_headers.Add(new("参考价", "") { Sortable = false });
+			_headers.Add(new("差价", "") { Sortable = false });
 		}
 	}
 
@@ -137,10 +137,12 @@ public partial class UserSearch : ComponentBase
 		}
 		catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
 		{
+			Log.Information("UserSearch 用户不存在: {Name}", name);
 			result.NotFound = true;
 		}
 		catch (Exception ex)
 		{
+			Log.Error(ex, "UserSearch 查询失败: {Name}", name);
 			result.Error = ex.Message;
 		}
 		result.Loading = false;
