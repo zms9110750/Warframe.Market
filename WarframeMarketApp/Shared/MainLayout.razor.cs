@@ -16,8 +16,13 @@ public partial class MainLayout : LayoutComponentBase
 	private List<NavItemInfo> navItems = new();
 
 	// 下拉列表数据
-	private List<string> langItems = new() { "en", "ko", "ru", "de", "fr", "pt", "zh-hans", "zh-hant", "es", "it", "pl", "uk", "tr", "ja" };
-	private List<string> platItems = new() { "pc", "ps4", "xbox", "switch", "mobile" };
+	private List<string> langItems => Enum.GetValues<Language>()
+		.Where(l => l != Language.Node)
+		.Select(l => AppState.LangToStr(l))
+		.ToList();
+	private List<string> platItems => Enum.GetValues<Platform>()
+		.Select(p => AppState.PlatToStr(p))
+		.ToList();
 
 	private string selectedLang
 	{

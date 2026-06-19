@@ -17,6 +17,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.71" />
 		<PackageReference Include="Humanizer.Core.zh-Hans" Version="3.0.10" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+		<PackageReference Include="YamlDotNet" Version="18.0.0" />
 		<ProjectReference Include="..\WarframeMarketApi\WarframeMarketApi.csproj" />
 	</ItemGroup>
 
