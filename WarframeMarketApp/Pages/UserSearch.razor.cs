@@ -40,10 +40,12 @@ public partial class UserSearch : ComponentBase, IDisposable
 		if (_headers.Count == 0)
 		{
 			_headers.Add(new("物品", "item") { ValueExpression = (Func<Order, object?>)(o => GetItemName(o)) });
+			_headers.Add(new("英文名称", "en") { ValueExpression = (Func<Order, object?>)(o => GetEnName(o)) });
 			_headers.Add(new("类型", "Type") { Sortable = false });
 			_headers.Add(new("铂金", nameof(Order.Platinum)));
 			_headers.Add(new("数量", nameof(Order.Quantity)));
 			_headers.Add(new("等级", nameof(Order.Rank)));
+			_headers.Add(new("语言", "locale") { ValueExpression = (Func<Order, object?>)(o => GetLocale(o)) });
 			_headers.Add(new("参考价", "ref") { Sortable = false });
 			_headers.Add(new("差价", "diff") { Sortable = false });
 		}
@@ -155,6 +157,33 @@ public partial class UserSearch : ComponentBase, IDisposable
 			 : item.Slug;
 	}
 
+	protected string GetEnName(Order o)
+	{
+		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
+		if (item == null) return "";
+		return item.I18n.TryGetValue(Language.En, out var en) ? en.Name : item.Slug;
+	}
+
+	protected string GetLocale(Order o)
+	{
+		return o.User?.Locale switch
+		{
+			"zh-hans" => "简体中文",
+			"zh-hant" => "繁体中文",
+			"en" => "英语",
+			"ko" => "韩语",
+			"ru" => "俄语",
+			"de" => "德语",
+			"fr" => "法语",
+			"pt" => "葡萄牙语",
+			"es" => "西班牙语",
+			"it" => "意大利语",
+			"pl" => "波兰语",
+			"uk" => "乌克兰语",
+			_ => o.User?.Locale ?? ""
+		};
+	}
+
 	protected string GetRef(Order o)
 	{
 		var item = _itemCache.GetValueOrDefault(o.ItemId ?? "");
@@ -163,13 +192,13 @@ public partial class UserSearch : ComponentBase, IDisposable
 		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null)
 			return loadingPrices ? "" : "-";
 
-		// 按订单的 Rank/Subtype/AmberStars 过滤
-		var p = ItemSvc.GetReferencePriceFiltered(stat, e =>
-			(e.ModRank == o.Rank || (o.Rank == null && (e.ModRank is null or 0))) &&
-			(e.Subtype == o.Subtype || (o.Subtype == null && e.Subtype == null)) &&
-			(e.AmberStars == o.AmberStars || (o.AmberStars == null && (e.AmberStars is null or 0)))
-		);
-		if (p == null) p = ItemSvc.GetReferencePrice(stat);
+		// 满级订单→满级价，否则→0级价
+		double? p;
+		if (o.Rank > 0)
+			p = ItemSvc.GetMaxReferencePrice(stat);
+		else
+			p = ItemSvc.GetReferencePrice(stat);
+
 		return p?.ToString("F0") ?? "-";
 	}
 
@@ -179,8 +208,12 @@ public partial class UserSearch : ComponentBase, IDisposable
 		if (item == null) return "";
 
 		if (!_prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
-		// 差价 = 参考价 - 订单价（正=比市场便宜）
-		var refP = ItemSvc.GetReferencePrice(stat);
+		double? refP;
+		if (o.Rank > 0)
+			refP = ItemSvc.GetMaxReferencePrice(stat);
+		else
+			refP = ItemSvc.GetReferencePrice(stat);
+
 		if (refP == null || refP <= 0) return "";
 		var diff = refP.Value - o.Platinum;
 		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";

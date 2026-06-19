@@ -8,6 +8,10 @@ namespace WarframeMarketApp.Pages;
 public partial class ItemSearch : ComponentBase
 {
 	[Inject] private ItemsService ItemSvc { get; set; } = null!;
+	[Inject] private PersistentStorage Storage { get; set; } = null!;
+	[CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
+
+	// 钉住搜索词
 
 	// 每个标签对应一个完整查询词（含 /）
 	protected List<string> activeTabs = new();
@@ -21,6 +25,9 @@ public partial class ItemSearch : ComponentBase
 	protected string? readme;
 	private static string? _readmeCache;
 
+	// 钉住的搜索
+	protected HashSet<string> _pinnedSearches = new();
+
 	protected override async Task OnInitializedAsync()
 	{
 		Log.Information("ItemSearch 初始化");
@@ -30,6 +37,11 @@ public partial class ItemSearch : ComponentBase
 				System.IO.Path.Combine(AppContext.BaseDirectory, "README.md"));
 		}
 		catch { }
+
+		// 加载钉住的搜索
+		_pinnedSearches = new(Storage.Load().PinnedSearches);
+		foreach (var q in _pinnedSearches)
+			await OnSearch(q);
 	}
 
 	protected async Task OnSearch(string query)
@@ -79,11 +91,24 @@ public partial class ItemSearch : ComponentBase
 		Log.Information("ItemSearch 关闭标签 {Idx}", idx);
 		if (idx < 0 || idx >= activeTabs.Count) return;
 		var tab = activeTabs[idx];
+		if (_pinnedSearches.Contains(tab)) return; // 钉住的不让关
 		activeTabs.RemoveAt(idx);
 		tabTermResults.Remove(tab);
 		tabTerms.Remove(tab);
 		searchingTabs.Remove(tab);
 		if (activeTabIndex >= activeTabs.Count)
 			activeTabIndex = Math.Max(0, activeTabs.Count - 1);
+	}
+
+	protected void PinTab(string tab)
+	{
+		_pinnedSearches.Add(tab);
+		Storage.PinSearch(tab);
+	}
+
+	protected void UnpinTab(string tab)
+	{
+		_pinnedSearches.Remove(tab);
+		Storage.UnpinSearch(tab);
 	}
 }

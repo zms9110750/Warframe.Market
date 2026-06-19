@@ -1,56 +1,58 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
-<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
+@* 标签栏始终在最上面 *@
+<MTabs Value="@activeTabIndex" @key="canWrite">
+	@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
+	{
+		var isPinned = _pinnedSearches.Contains(tab);
+		<MTab OnClick="@(() => { activeTabIndex = idx; StateHasChanged(); })">
+			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
+			@if (canWrite)
+			{
+				@if (isPinned)
+				{
+					<MButton Small Icon OnClick="@(() => UnpinTab(tab))"><MIcon Small Style="color:orange;">mdi-pin-off</MIcon></MButton>
+				}
+				else
+				{
+					<MButton Small Icon OnClick="@(() => PinTab(tab))"><MIcon Small>mdi-pin-outline</MIcon></MButton>
+				}
+			}
+			else if (!isPinned)
+			{
+				<MButton Small Icon OnClick="@(() => CloseTab(idx))"><MIcon Small>mdi-close</MIcon></MButton>
+			}
+		</MTab>
+	}
+</MTabs>
 
+@* 搜索框在标签下方，钉住的标签不显示搜索框 *@
+@if (activeTabIndex >= 0 && activeTabIndex < activeTabs.Count && !_pinnedSearches.Contains(activeTabs[activeTabIndex]))
+{
+	<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
+}
+else if (activeTabs.Count == 0)
+{
+	<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
+}
+
+@* 内容区 *@
 @if (activeTabs.Count == 0)
 {
-	@if (readme != null)
-	{
-		@((MarkupString)readme)
-	}
-	else
-	{
-		<MAlert Dense Type="@AlertTypes.Info" Class="mt-4">在上方输入框搜索物品。支持中文、英文、物品 ID。用 / 分隔多词。</MAlert>
-	}
+	@if (readme != null) { @((MarkupString)readme) }
 }
-else
+else if (activeTabIndex >= 0 && activeTabIndex < activeTabs.Count)
 {
-	<MTabs Value="@activeTabIndex">
-		@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
+	var tab = activeTabs[activeTabIndex];
+	if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
+	{
+		@for (int ti = 0; ti < termResults.Count; ti++)
 		{
-			<MTab OnClick="@(() => { activeTabIndex = idx; StateHasChanged(); })">
-				@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
-				<MButton Small Icon OnClick="@(() => CloseTab(idx))" Class="ml-1">
-					<MIcon Small>mdi-close</MIcon>
-				</MButton>
-			</MTab>
+			var results = termResults[ti];
+			<p class="text-caption"><strong>@tabTerms[tab][ti]</strong> — @results.Count 个结果</p>
+			@if (results.Count > 0) { <SearchResultTable Tab="@tabTerms[tab][ti]" results="@results" @key="@($"{tab}_{ti}")" /> }
 		}
-
-		<MTabsItems>
-			@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
-			{
-				<MTabItem Value="@idx">
-					@if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
-					{
-						@for (int ti = 0; ti < termResults.Count; ti++)
-						{
-							var results = termResults[ti];
-							var term = tabTerms[tab][ti];
-							<MDivider Class="my-2" />
-							<p class="text-caption"><strong>@term</strong> — 共 @results.Count 个结果</p>
-							@if (results.Count > 0)
-							{
-								<SearchResultTable Tab="@term" results="@results" @key="@($"{tab}_{ti}")" />
-							}
-						}
-					}
-					else if (searchingTabs.Contains(tab))
-					{
-						<MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" />
-					}
-				</MTabItem>
-			}
-		</MTabsItems>
-	</MTabs>
+	}
+	else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
 }

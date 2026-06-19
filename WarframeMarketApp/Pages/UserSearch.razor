@@ -32,10 +32,9 @@ else if (user != null)
 			</td>
 		</GroupHeaderContent>
 		<ItemColContent>
-			@if (context.Header.Text == "物品")
-			{
-				@GetItemName(context.Item)
-			}
+			@if (context.Header.Text == "物品") { @GetItemName(context.Item) }
+			else if (context.Header.Text == "英文名称") { @GetEnName(context.Item) }
+			else if (context.Header.Text == "语言") { @GetLocale(context.Item) }
 			else if (context.Header.Text == "参考价") { @GetRef(context.Item) }
 			else if (context.Header.Text == "差价") { @GetDiff(context.Item) }
 			else { @context.Value?.ToString() }
