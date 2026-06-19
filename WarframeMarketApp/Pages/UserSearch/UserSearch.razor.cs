@@ -90,6 +90,7 @@ public partial class UserSearch : ComponentBase
 			StateHasChanged();
 
 			// 加载物品信息
+			int itemOk = 0, itemFail = 0;
 			foreach (var o in result.Orders)
 			{
 				var itemId = o.ItemId ?? "";
@@ -99,11 +100,16 @@ public partial class UserSearch : ComponentBase
 					{
 						var resp = await Wfm.GetItemByIdAsync(itemId);
 						if (resp?.Content?.Data != null)
+						{
 							result.ItemCache[itemId] = resp.Content.Data;
+							itemOk++;
+						}
+						else itemFail++;
 					}
-					catch { }
+					catch (Exception ex) { itemFail++; if (itemFail <= 3) Log.Error(ex, "GetItemByIdAsync失败 {Id}", itemId); }
 				}
 			}
+			Log.Information("UserSearch 物品加载: {Name}, 成功={Ok}, 失败={Fail}", name, itemOk, itemFail);
 			StateHasChanged();
 
 			// 加载价格
