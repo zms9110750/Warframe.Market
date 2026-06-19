@@ -1,121 +1,67 @@
-# TODO - 未修复问题清单（按优先级排序）
+# TODO
+
+## P0
+
+### 1. 商品搜索结果没有展开子面板
+
+搜索结果表（SearchResultTable）的 `ShowExpand` 没有正确渲染 `ExpandedItemContent` 中的 `OrderTop`。
+
+**原因**：可能是 `ItemColContent` 的 `colspan` 与 `ExpandedItemContent` 的 `colspan` 不匹配，或 `ItemKey` 设置不正确导致展开状态丢失。
+
+**要求**：
+- 点击行展开图标，能正常展开并看到 OrderTop
+- 展开/收起不丢失数据
 
 ---
 
-## P0 — 核心功能不可用
+### 2. 打开链接开关无用
 
-### 1. 用户搜索页面不刷新
-
-**问题**：`/user` 点查询后界面不刷新，结果不显示。
-
-**原因**：`UserSearch.SearchAsync` 完成后没有触发 UI 刷新。`LoadItemInfoAsync` fire-and-forget 异常被吞。
+`MainLayout` 传递了 `ClickLink` 级联值，但 `SearchResultTable`、`OrderTop`、`UserSearch` 等组件虽然接收了 `[CascadingParameter]`，实际没有在所有需要的地方用上。
 
 **要求**：
-- 搜索完成后立即显示已有数据（用户信息、订单列表）
-- 价格异步加载，逐条刷新
+- `SearchResultTable`：中文名 → wfm 物品链接，价格 → wfm 统计链接
+- `OrderTop`：卖家名 → wfm 个人主页链接（已有）
+- 用户订单页面：物品名 → wfm 物品链接
 
 ---
 
-### 2. OrderTop 显示"没有必需参数" 或 死加载
+### 3. 赋能包主表没有排序
 
-**问题**：在用户搜索结果中展开行，OrderTop 要么显示"没有必需参数"，要么无限 loading。
-
-**原因**：`OrderTop.Item` 为 null 时直接 return，`loading` 没设为 false，UI 保持 loading 状态。
-
-**修复**：已加 `loading = false;`，但 `GetItemShort(context.Item)` 仍然可能返回 null（物品信息异步加载中）。
+赋能包页面的 `ArcanePacks` 表头 `_headers` 的 `ValueExpression` 返回的是 `pack.Name`（占位符），实际值在 `ItemColContent` 里渲染。MDataTable 无法按这些列排序。
 
 **要求**：
-- Item 必须有值才渲染 OrderTop
-- 物品信息没加载完时提前阻止渲染，不展开
+- 列头点击可排序
+- `ValueExpression` 返回正确的值（计划数值或 null）
 
 ---
 
-### 3. 用户订单表格排序报错
+### 4. 子面板应该放在所属 Page 的文件夹下
 
-**问题**：点击列头排序时报错。
-
-**原因**："参考价"、"差价"列用方法渲染，没有 `ValueExpression`，MDataTable 找不到属性。
+当前 `OrderTop`、`SearchResultTable`、`ArcaneTable`、`SearchBox` 都挤在 `Shared/` 文件夹下。
 
 **要求**：
-- 所有可排序列加 `ValueExpression`
-- 或 `Sortable=false`
+- `SearchBox` → `Pages/FindItem/`
+- `SearchResultTable` → `Pages/FindItem/`
+- `OrderTop` → `Pages/` 下（被多个页面引用，可放 `Pages/Shared/` 或 `Pages/OrderTop/`）
+- `ArcaneTable` → `Pages/FindArcane/`
 
 ---
 
-### 4. 搜索结果 + 赋能包子面板（展开明细）不工作
+## P1
 
-**问题**：
-- 搜索结果表展开 OrderTop：类型分支没做全
-- 赋能包展开 ArcaneTable：出货率% 应该静态，价格异步，要渐进刷新
+### 5. 子面板 colspan 不足
 
-**要求**：
-- 展开/收起不丢数据
-- 渐进刷新 `do { StateHasChanged(); await 200ms; } while (!allTasks.IsCompleted)`
-- 出货率% 从 YAML 直接读，不依赖 API
-
-### 10. 统计数据并发请求去重（同 key 同时请求多次）
-
-**问题**：同一个物品的统计数据在同一时刻被多次请求（5 个购买量并发）。第一次请求还没写入缓存，后续请求又去调 API。
-
-**日志证据**：
-```
-14:14:40.332 API magus_destruct
-14:14:40.341 API magus_destruct
-14:14:40.345 API magus_destruct  ← 21ms 内 5 次请求
-```
+通过 `@oninit` 添加动态列（如 "等级"、"琥珀星"、"类型"）时，`ExpandedItemContent` 的 `colspan` 写死了数字，不匹配实际列数。
 
 **要求**：
-- 同一时间对同一个 key 的 `GetStatisticsAsync` 只发一次 API 请求
-- 后续并发请求等待第一个完成后的结果
-- 用 `ConcurrentDictionary<string, Task<Statistic?>>` 或 `AsyncLazy` 去重
+- 所有 `ExpandedItemContent` 的 `colspan` 改为 `9999`（溢出不会有事）
 
 ---
 
-## P1 — 显示/逻辑错乱
+### 6. 版本按钮"再次点击强制刷新"没有业务逻辑
 
-### 5. 类型列语义错误
-
-**问题**：OrderTop 的"买/卖"列是冗余的（已经 GroupBy 分组了）。
+当前点击版本按钮 → 显示"再次点击强制刷新"→ 再点击 → 只调了 `GetVersionsAsync`，没有执行全量数据刷新（删表 → 拉取 → 写入）。
 
 **要求**：
-- 去掉"买/卖"列（靠分组区分）
-- 动态子类型列（蓝图/成品/完整/光辉）仅在需要时显示
-
----
-
-### 6. 价格不进 SQLite 缓存
-
-**问题**：统计数据已经走 SQLite 了，但赋能包期望值等其他价格没有。
-
-**要求**：
-- 所有价格计算结果写入 `CacheEntry` 表
-- 赋能包名称+购买量 → 期望值 要缓存（过期 2 天）
-
----
-
-## P2 — 健壮性/可调试
-
-### 7. 全局错误捕获 + 日志
-
-**要求**：
-- Blazor 组件所有 `OnInitializedAsync` 和事件处理器 try/catch
-- 异常写入 Serilog
-- UI 显示友好错误提示
-
----
-
-### 8. 每个组件初始化 + 事件打日志
-
-**要求**：
-- 每个组件的 `OnInitializedAsync` 开头写 `Log.Information`
-- 每个事件处理器开头写日志
-
----
-
-### 9. 快捷回复：失焦保存
-
-**要求**：
-- `@onblur` 触发保存，不是点击按钮
-- 空文本不保存（并从列表移除）
-- 编辑模式可修改，只读模式显示复制按钮
-- 关闭"可编辑"开关时触发的失焦也要保存
+- 再次点击时，调用 `CacheService.RefreshAllAsync()`，和启动时的全量刷新逻辑一致
+- 刷新期间显示进度，完成后更新日期

@@ -37,9 +37,12 @@
 		_headersItem.Add(new("名称", "名称") { ValueExpression = (Func<string, object?>)(t => t) });
 		_headersItem.Add(new("出货率%", "rate") { Align = DataTableHeaderAlign.End,
 			ValueExpression = (Func<string, object?>)(t => Pack.GetProbability(t) * 100) });
-		_headersItem.Add(new("参考价", "price") { Align = DataTableHeaderAlign.End });
-		_headersItem.Add(new("出货率×价", "expected") { Align = DataTableHeaderAlign.End });
-		_headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End });
+		_headersItem.Add(new("参考价", "price") { Align = DataTableHeaderAlign.End,
+			ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Price : null) });
+		_headersItem.Add(new("出货率×价", "expected") { Align = DataTableHeaderAlign.End,
+			ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Expected : null) });
+		_headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End,
+			ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.DailyVol : null) });
 
 		// 逐条异步加载，收集任务用于渐进刷新
 		var geting = new HashSet<Task>();
