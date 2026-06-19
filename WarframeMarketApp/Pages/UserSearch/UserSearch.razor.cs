@@ -25,8 +25,6 @@ public partial class UserSearch : ComponentBase
 	protected List<string> _activeUsers = new();
 	protected HashSet<string> _searchingUsers = new();
 	protected Dictionary<string, UserSearchResult> _userResults = new();
-
-	protected List<DataTableHeader<Order>> _headers = new();
 	private CancellationTokenSource _cts = new();
 
 	protected override void OnInitialized()
@@ -35,18 +33,6 @@ public partial class UserSearch : ComponentBase
 		_pinnedUsers = Storage.Load().PinnedUsers.ToList();
 		foreach (var name in _pinnedUsers)
 			_ = SearchUserAsync(name, true);
-
-		if (_headers.Count == 0)
-		{
-			_headers.Add(new("物品", nameof(Order.Id)) { Sortable = false });
-			_headers.Add(new("英文名称", nameof(Order.Id)) { Sortable = false });
-			_headers.Add(new("类型", nameof(Order.Type)) { Sortable = false });
-			_headers.Add(new("铂金", nameof(Order.Platinum)));
-			_headers.Add(new("数量", nameof(Order.Quantity)));
-			_headers.Add(new("等级", nameof(Order.Rank)));
-			_headers.Add(new("参考价", nameof(Order.Id)) { Sortable = false });
-			_headers.Add(new("差价", nameof(Order.Id)) { Sortable = false });
-		}
 	}
 
 	protected async Task SearchAsync()
@@ -155,45 +141,6 @@ public partial class UserSearch : ComponentBase
 		result.Loading = false;
 		_searchingUsers.Remove(name);
 		StateHasChanged();
-	}
-
-	// ─── 辅助方法 ───
-	protected string GetItemName(UserSearchResult r, Order o)
-	{
-		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null) return "加载中...";
-		return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
-			 : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
-			 : item.Slug;
-	}
-	protected string GetEnName(UserSearchResult r, Order o)
-	{
-		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-		return item?.I18n.TryGetValue(Language.En, out var en) == true ? en.Name : "";
-	}
-	protected string GetLocale(UserSearchResult r, Order o)
-	{
-		return ""; // 不需要语言列
-	}
-	protected string GetRef(UserSearchResult r, Order o)
-	{
-		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "-";
-		var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
-		return p?.ToString("F0") ?? "-";
-	}
-	protected string GetDiff(UserSearchResult r, Order o)
-	{
-		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-		if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
-		var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
-		if (refP == null || refP <= 0) return "";
-		var diff = refP.Value - o.Platinum;
-		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
-	}
-	protected ItemShort? GetItemShort(UserSearchResult r, Order o)
-	{
-		return r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
 	}
 
 	protected void CloseUserTab(int idx)

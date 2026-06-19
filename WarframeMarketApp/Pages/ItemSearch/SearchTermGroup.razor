@@ -1,0 +1,25 @@
+@* 搜索词分割组件：按 / 分割查询词，foreach 显示可折叠列表 *@
+@using zms9110750.WarframeMarketApi.Models.Items
+
+@if (string.IsNullOrWhiteSpace(Query) || TermResults == null || TermTerms == null) { return; }
+
+@if (!TermResults.TryGetValue(Query, out var termResults) || termResults.Count == 0)
+{
+	<p class="text-caption">无匹配结果</p>
+	return;
+}
+
+@if (!TermTerms.TryGetValue(Query, out var terms)) { return; }
+
+@for (int ti = 0; ti < termResults.Count; ti++)
+{
+	var results = termResults[ti];
+	<p class="text-caption"><strong>@terms[ti]</strong> — @results.Count 个结果</p>
+	@if (results.Count > 0) { <SearchResultTable Tab="@terms[ti]" results="@results" @key="@($"{Query}_{ti}")" /> }
+}
+
+@code {
+	[Parameter] public string Query { get; set; } = "";
+	[Parameter] public Dictionary<string, List<List<ItemShort>>>? TermResults { get; set; }
+	[Parameter] public Dictionary<string, List<string>>? TermTerms { get; set; }
+}

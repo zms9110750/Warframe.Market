@@ -67,12 +67,7 @@ else
 		var tab = allTabs[idx2];
 		if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
 		{
-			@for (int ti = 0; ti < termResults.Count; ti++)
-			{
-				var results = termResults[ti];
-				<p class="text-caption"><strong>@tabTerms[tab][ti]</strong> — @results.Count 个结果</p>
-				@if (results.Count > 0) { <SearchResultTable Tab="@tabTerms[tab][ti]" results="@results" @key="@($"{tab}_{ti}")" /> }
-			}
+			<SearchTermGroup Query="@tab" TermResults="@tabTermResults" TermTerms="@tabTerms" />
 		}
 		else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
 	}
