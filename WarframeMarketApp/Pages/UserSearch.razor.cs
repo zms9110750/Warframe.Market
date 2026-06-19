@@ -38,15 +38,15 @@ public partial class UserSearch : ComponentBase
 
 		if (_headers.Count == 0)
 		{
-			_headers.Add(new("物品", "") { Sortable = false });
-			_headers.Add(new("英文名称", "") { Sortable = false });
-			_headers.Add(new("类型", "") { Sortable = false });
+			_headers.Add(new("物品", nameof(Order.Id)) { Sortable = false });
+			_headers.Add(new("英文名称", nameof(Order.Id)) { Sortable = false });
+			_headers.Add(new("类型", nameof(Order.Type)) { Sortable = false });
 			_headers.Add(new("铂金", nameof(Order.Platinum)));
 			_headers.Add(new("数量", nameof(Order.Quantity)));
 			_headers.Add(new("等级", nameof(Order.Rank)));
-			_headers.Add(new("语言", "") { Sortable = false });
-			_headers.Add(new("参考价", "") { Sortable = false });
-			_headers.Add(new("差价", "") { Sortable = false });
+			_headers.Add(new("语言", nameof(Order.Id)) { Sortable = false });
+			_headers.Add(new("参考价", nameof(Order.Id)) { Sortable = false });
+			_headers.Add(new("差价", nameof(Order.Id)) { Sortable = false });
 		}
 	}
 

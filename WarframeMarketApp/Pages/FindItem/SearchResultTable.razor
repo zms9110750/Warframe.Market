@@ -64,10 +64,10 @@
 
 	private List<DataTableHeader<ItemShort>> _headers = new()
 	{
-		new("中文名称", ""),
-		new("英文名称", ""),
-		new("价格", "") { Align = DataTableHeaderAlign.End },
-		new("满级价格", "") { Align = DataTableHeaderAlign.End },
+		new("中文名称", nameof(ItemShort.Id)),
+		new("英文名称", nameof(ItemShort.Id)),
+		new("价格", nameof(ItemShort.Id)) { Align = DataTableHeaderAlign.End },
+		new("满级价格", nameof(ItemShort.Id)) { Align = DataTableHeaderAlign.End },
 	};
 
 	private Dictionary<string, Statistic?> _stats = new();
