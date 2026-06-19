@@ -1,0 +1,80 @@
+@page "/user"
+@attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
+@inject zms9110750.WarframeMarketApi.WarframeMarketClient Wfm
+
+<h3>用户订单查询</h3>
+
+<MTextField @bind-Value="slug"
+			Label="输入用户 slug（如 kyckyc）"
+			Clearable OnClear="@(() => { slug = ""; orders = null; })"
+			OnKeyDown="@(e => { if (e.Key == "Enter") Search(); })"
+			Dense Solo Class="mb-4" Style="max-width: 400px;" />
+
+<MButton OnClick="Search" Disabled="@loading" Loading="@loading" Color="primary">查询</MButton>
+
+@if (userInfo != null)
+{
+	<MCard Class="mt-4 pa-4">
+		<p><strong>@userInfo.IngameName</strong> (@userInfo.Platform) — 声望 @userInfo.Reputation</p>
+		<p>最后在线: @userInfo.LastSeenLocal.ToString("g")</p>
+	</MCard>
+}
+
+@if (orders != null)
+{
+	<MAlert Class="mt-4" Type="@AlertTypes.Success">共 @orders.Count 个订单</MAlert>
+
+	<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 4px 12px; font-size: 14px;">
+		<strong>物品</strong>
+		<strong>类型</strong>
+		<strong>铂金</strong>
+		<strong>数量</strong>
+		<strong>等级</strong>
+
+		@foreach (var o in orders)
+		{
+			<span>@o.ItemId[..Math.Min(o.ItemId.Length, 24)]</span>
+			<span>@o.Type</span>
+			<span>@o.Platinum</span>
+			<span>@o.Quantity</span>
+			<span>@(o.Rank?.ToString() ?? "-")</span>
+		}
+	</div>
+}
+
+@if (notFound)
+{
+	<MAlert Class="mt-4" Type="@AlertTypes.Error">用户未找到或无公开订单</MAlert>
+}
+
+@code {
+	private string slug = "";
+	private User? userInfo;
+	private List<Order>? orders;
+	private bool loading;
+	private bool notFound;
+
+	private async Task Search()
+	{
+		if (string.IsNullOrWhiteSpace(slug)) return;
+		loading = true;
+		notFound = false;
+		userInfo = null;
+		orders = null;
+		try
+		{
+			// 查用户
+			var userResp = await Wfm.GetUserAsync(slug);
+			if (userResp?.Content?.Data != null)
+				userInfo = userResp.Content.Data;
+
+			// 查订单
+			var orderResp = await Wfm.GetOrdersFromUserAsync(slug);
+			if (orderResp?.Content?.Data != null)
+				orders = orderResp.Content.Data.ToList();
+			else
+				notFound = true;
+		}
+		finally { loading = false; }
+	}
+}

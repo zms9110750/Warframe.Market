@@ -1,0 +1,61 @@
+@page "/"
+@attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
+@inject ItemsCacheService ItemsCache
+
+<h3>物品搜索</h3>
+
+<MTextField @bind-Value="query"
+			Label="输入物品名 / slug / 标签"
+			Clearable OnClear="@(() => { query = ""; results = null; })"
+			OnKeyDown="@(e => { if (e.Key == "Enter") Search(); })"
+			Dense Solo Class="mb-4" Style="max-width: 500px;" />
+
+<MButton OnClick="Search" Disabled="@loading" Loading="@loading" Color="primary">搜索</MButton>
+
+@if (results != null)
+{
+	<p class="mt-4">@(results.Count > 0 ? $"找到 {results.Count} 个匹配" : "无匹配")</p>
+
+	@if (results.Count > 0)
+	{
+		<div style="display: grid; grid-template-columns: 1fr 2fr 2fr auto; gap: 4px 12px; font-size: 14px;">
+			<strong>Slug</strong>
+			<strong>中文名</strong>
+			<strong>英文名</strong>
+			<strong>标签</strong>
+
+			@foreach (var item in results)
+			{
+				<span style="font-family: monospace;">@item.Slug</span>
+				<span>@(item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : "")</span>
+				<span>@(item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</span>
+				<span>@string.Join(" ", item.Tags.Take(4))</span>
+			}
+		</div>
+	}
+}
+
+@code {
+	private string query = "";
+	private List<ItemShort>? results;
+	private bool loading;
+
+	private async Task Search()
+	{
+		if (string.IsNullOrWhiteSpace(query)) return;
+		loading = true;
+		try
+		{
+			var items = await ItemsCache.GetItemsAsync("zh-hans");
+			if (items == null) return;
+			var q = query.ToLowerInvariant();
+			results = items.Where(i =>
+				i.Slug.Contains(q) ||
+				i.Tags.Any(t => t.Contains(q)) ||
+				(i.I18n.TryGetValue(Language.ZhHans, out var zh) && zh.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+				(i.I18n.TryGetValue(Language.En, out var en) && en.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+			).Take(100).ToList();
+		}
+		finally { loading = false; }
+	}
+}

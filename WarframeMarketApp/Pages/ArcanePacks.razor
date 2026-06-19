@@ -1,0 +1,41 @@
+@page "/arcane"
+@attribute [NavItem("赋能包", "mdi-package-variant", Order = 2)]
+@inject ConfigService Config
+
+<h3>赋能包配置</h3>
+
+@if (packs != null)
+{
+	<p>共 @packs.Length 个赋能包</p>
+
+	@foreach (var pack in packs)
+	{
+		<MCard Class="mt-4">
+			<MCardTitle>@pack.Name</MCardTitle>
+			<MCardText>
+				@foreach (var q in pack.Items)
+				{
+					<div style="margin-bottom: 8px;">
+						<strong>@q.Subtypes</strong> (出货率: @(q.Quality * 100)%, 每件: @(q.Quality / q.Items.Length * 100):F2%)
+						<ul>
+							@foreach (var item in q.Items)
+							{
+								<li>@item</li>
+							}
+						</ul>
+					</div>
+				}
+			</MCardText>
+		</MCard>
+	}
+}
+
+@code {
+	private ArcanePackConfig[]? packs;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.CompletedTask;
+		packs = Config.LoadArcaneConfig();
+	}
+}
