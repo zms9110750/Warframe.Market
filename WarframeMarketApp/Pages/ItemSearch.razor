@@ -1,34 +1,57 @@
 @page "/"
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
-<h3>物品搜索</h3>
+<SearchBox OnSearch="@OnSearch" OnFavoriteClick="@OnFavoriteClick" />
 
-<MTextField @bind-Value="query"
-			Label="输入物品名搜索"
-			Clearable
-			OnKeyDown="@(e => { if (e.Key == "Enter") _ = DoSearch(); })"
-			Dense Solo Class="mb-4" Style="max-width: 500px;" />
-
-<MButton OnClick="DoSearch" Color="primary">搜索</MButton>
-
-@if (ItemsList.Count > 0)
+@if (activeTabs.Count == 0)
 {
-	<MDataTable Items="ItemsList" Headers="_headers" Dense MultiSort ShowExpand
-				HideDefaultFooter ItemsPerPage="-1" @key="query"
-				Class="elevation-1 mt-4">
-		<ItemColContent>
-			@if (context.Header.Text == "中文名称") { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
-			else if (context.Header.Text == "英文名称") { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
-			else if (context.Header.Text == "价格") { @GetPrice(context.Item.Slug) }
-			else if (context.Header.Text == "满级价格") { @GetMaxPrice(context.Item.Slug) }
-			else { @context.Value?.ToString() }
-		</ItemColContent>
-		<ExpandedItemContent>
-			<td colspan="4" @key="context.Item.Id">
-				<OrderTop Item="@((ItemShort)context.Item)" />
-			</td>
-		</ExpandedItemContent>
-	</MDataTable>
-	<p class="mt-2 text-caption">共 @ItemsList.Count 个结果</p>
+	@if (readme != null)
+	{
+		@((MarkupString)readme)
+	}
+	else
+	{
+		<MAlert Dense Type="@AlertTypes.Info" Class="mt-4">在上方输入框搜索物品。支持中文、英文、物品 ID。用 / 分隔多词。</MAlert>
+	}
 }
-else if (searched) { <p class="mt-2">无匹配</p> }
+else
+{
+	@* 手动标签头 *@
+	<div class="d-flex flex-wrap align-center mb-2" style="gap:2px;">
+		@foreach (var (tab, idx) in activeTabs.Select((t, i) => (t, i)))
+		{
+			<MChip @key="tab"
+				   Class="@(idx == activeTabIndex ? "primary" : "")"
+				   Close OnCloseClick="@(() => CloseTab(idx))"
+				   OnClick="@(() => activeTabIndex = idx)">
+				@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
+			</MChip>
+		}
+	</div>
+
+	@* 当前标签内容 *@
+	@if (activeTabIndex >= 0 && activeTabIndex < activeTabs.Count)
+	{
+		var tab = activeTabs[activeTabIndex];
+		if (tabResults.TryGetValue(tab, out var results) && results.Count > 0)
+		{
+			<p class="text-caption">@tab — 共 @results.Count 个结果</p>
+			@foreach (var item in results)
+			{
+				<QueryResult Item="item"
+							 Price="@(Prices.GetValueOrDefault(item.Slug))"
+							 MaxPrice="@(MaxPrices.GetValueOrDefault(item.Slug))"
+							 IsHide="@(hiddenResults.Contains((tab, item.Id)))"
+							 HideChanged="@(key => ToggleHide(tab, key))" @key="item.Id" />
+			}
+		}
+		else if (searchingTabs.Contains(tab))
+		{
+			<MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" />
+		}
+		else
+		{
+			<p class="text-caption mt-2">无匹配结果</p>
+		}
+	}
+}

@@ -1,0 +1,73 @@
+@namespace WarframeMarketApp.Shared
+
+<!-- 搜索输入框独立子组件，标签内不包含输入框 -->
+<MTextField @bind-Value="query"
+			AppendIcon="mdi-magnify"
+			Label="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
+			@oninput="@OnInput"
+			@onkeydown="@(e => { if (e.Key == "Enter") _ = SubmitSearch(); })"
+			Clearable
+			Dense Solo Class="mb-2"
+			Style="max-width: 600px;" />
+
+@if (SavedQueries.Count > 0)
+{
+	<div class="d-flex flex-wrap align-center mb-2" style="gap:4px;">
+		<span class="text-caption mr-1">收藏：</span>
+		@foreach (var q in SavedQueries)
+		{
+			<MChip Small OnClick="@(() => OpenTab(q))" Class="mr-1">@q</MChip>
+		}
+		@if (canWrite && !string.IsNullOrWhiteSpace(query) && !SavedQueries.Contains(query))
+		{
+			<MButton Small Icon OnClick="SaveQuery">
+				<MIcon Small>mdi-bookmark-outline</MIcon>
+			</MButton>
+		}
+	</div>
+}
+
+@code {
+	private string query = "";
+
+	[Parameter] public EventCallback<string> OnSearch { get; set; }
+	[Parameter] public EventCallback<string> OnFavoriteClick { get; set; }
+	[CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
+
+	public List<string> SavedQueries { get; set; } = new();
+
+	protected override void OnInitialized()
+	{
+		// TODO: 从 EF Core 加载收藏列表
+	}
+
+	private async Task OnInput(ChangeEventArgs e)
+	{
+		query = e.Value?.ToString() ?? "";
+		// 响应式：每次输入都触发搜索结果（无节流）
+		if (!string.IsNullOrWhiteSpace(query))
+			await OnSearch.InvokeAsync(query);
+	}
+
+	private async Task SubmitSearch()
+	{
+		if (!string.IsNullOrWhiteSpace(query))
+			await OnSearch.InvokeAsync(query);
+	}
+
+	private async Task OpenTab(string q)
+	{
+		query = q;
+		await OnFavoriteClick.InvokeAsync(q);
+	}
+
+	private async Task SaveQuery()
+	{
+		if (!string.IsNullOrWhiteSpace(query) && !SavedQueries.Contains(query))
+		{
+			SavedQueries.Add(query);
+			// TODO: 持久化到 EF Core
+			StateHasChanged();
+		}
+	}
+}
