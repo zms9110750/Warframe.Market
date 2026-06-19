@@ -109,6 +109,7 @@ public partial class UserSearch : ComponentBase
 			// 加载价格
 			result.LoadingPrices = true;
 			int priceCount = 0;
+			int failCount = 0;
 			foreach (var o in result.Orders)
 			{
 				var item = result.ItemCache.GetValueOrDefault(o.ItemId ?? "");
@@ -117,14 +118,23 @@ public partial class UserSearch : ComponentBase
 					try
 					{
 						var stat = await ItemSvc.GetStatisticAsync(item.Slug);
-						result.Prices[item.Slug] = stat;
-						if (stat != null) priceCount++;
+						if (stat != null)
+						{
+							result.Prices[item.Slug] = stat;
+							priceCount++;
+						}
+						else
+						{
+							failCount++;
+							if (failCount <= 3) // 只记前3个失败的
+								Log.Warning("统计返回null: {Slug}", item.Slug);
+						}
 					}
-					catch (Exception ex2) { Log.Error(ex2, "价格加载失败 {Slug}", item.Slug); }
+					catch (Exception ex2) { Log.Error(ex2, "价格加载失败 {Slug}", item.Slug); failCount++; }
 				}
-				await Task.Delay(100);
+				await Task.Delay(200); // 每秒约5个请求
 			}
-			Log.Information("UserSearch 价格加载完成: {Name}, {Count}/{Total}", name, priceCount, result.Orders.Count);
+			Log.Information("UserSearch 价格加载完成: {Name}, 成功={Count}, 失败={Fail}/{Total}", name, priceCount, failCount, result.Orders.Count);
 			result.LoadingPrices = false;
 			StateHasChanged();
 		}

@@ -182,6 +182,7 @@ public class CacheService
 		{
 			var resp = await _wfm.GetStatisticsAsync(itemId, ct);
 			var stat = resp?.Data;
+			Log.Information("API统计返回: {Key}, Data={HasData}", cacheKey, stat != null);
 			if (stat != null)
 			{
 				_memCache.Set(cacheKey, stat, TimeSpan.FromMinutes(10));
