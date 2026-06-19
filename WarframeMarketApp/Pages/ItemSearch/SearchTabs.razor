@@ -3,11 +3,11 @@
 @using WarframeMarketApp.Services
 
 <MTabs Value="@activeTabIndex">
-	<MTab OnClick="@(() => { activeTabIndex = 0; StateHasChanged(); })">搜索</MTab>
+	<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(0))">搜索</MTab>
 	@foreach (var (tab, idx) in _pinnedSearches.Select((t, i) => (t, i)))
 	{
 		var realIdx = idx + 1;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
+		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
 			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
 			@if (canWrite)
 			{
@@ -19,7 +19,7 @@
 	{
 		if (_pinnedSearches.Contains(tab)) continue;
 		var realIdx = idx + 1 + _pinnedSearches.Count;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
+		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
 			@(tab.Length > 20 ? $"{tab[..20]}…" : tab)
 			@if (canWrite)
 			{

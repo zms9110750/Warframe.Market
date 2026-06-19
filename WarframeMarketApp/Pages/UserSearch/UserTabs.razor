@@ -1,11 +1,11 @@
 @* 用户搜索标签栏 *@
 
 <MTabs Value="@activeTabIndex">
-	<MTab OnClick="@(() => { activeTabIndex = 0; StateHasChanged(); })">搜索</MTab>
+	<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(0))">搜索</MTab>
 	@foreach (var (name, idx) in _pinnedUsers.Select((t, i) => (t, i)))
 	{
 		var realIdx = idx + 1;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
+		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
 			@name
 			@if (canWrite)
 			{
@@ -17,7 +17,7 @@
 	{
 		if (_pinnedUsers.Contains(name)) continue;
 		var realIdx = idx + 1 + _pinnedUsers.Count;
-		<MTab OnClick="@(() => { activeTabIndex = realIdx; StateHasChanged(); })">
+		<MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(realIdx))">
 			@(name.Length > 20 ? $"{name[..20]}…" : name)
 			@if (canWrite)
 			{
