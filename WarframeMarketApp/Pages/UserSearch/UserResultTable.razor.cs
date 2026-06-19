@@ -14,6 +14,8 @@ public partial class UserResultTable : ComponentBase
 	[Parameter] public string UserName { get; set; } = "";
 	[Parameter] public UserSearchResult? result { get; set; }
 
+	private bool _collapsed;
+
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
 		new("物品", nameof(Order.Id)) { Sortable = false },
