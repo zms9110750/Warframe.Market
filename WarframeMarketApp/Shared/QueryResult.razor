@@ -16,7 +16,14 @@
 		<ItemColContent>
 			@if (context.Header.Text == "中文名称")
 			{
-				@(Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : Item.Slug)
+				if (ClickLink)
+				{
+					<a href="@($"https://warframe.market/zh-hans/items/{Item.Slug}")">@(Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : Item.Slug)</a>
+				}
+				else
+				{
+					@(Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : Item.Slug)
+				}
 			}
 			else if (context.Header.Text == "英文名称")
 			{
@@ -24,11 +31,25 @@
 			}
 			else if (context.Header.Text == "价格")
 			{
-				@(Price?.ToString("F1") ?? "")
+				if (ClickLink && Price.HasValue)
+				{
+					<a href="@($"https://warframe.market/zh-hans/items/{Item.Slug}/statistics")">@Price?.ToString("F1")</a>
+				}
+				else
+				{
+					@(Price?.ToString("F1") ?? "")
+				}
 			}
 			else if (context.Header.Text == "满级价格")
 			{
-				@(MaxPrice?.ToString("F1") ?? "")
+				if (ClickLink && MaxPrice.HasValue)
+				{
+					<a href="@($"https://warframe.market/zh-hans/items/{Item.Slug}/statistics")">@MaxPrice?.ToString("F1")</a>
+				}
+				else
+				{
+					@(MaxPrice?.ToString("F1") ?? "")
+				}
 			}
 			else { @context.Value?.ToString() }
 		</ItemColContent>

@@ -3,17 +3,18 @@
 
 <h3>快捷回复</h3>
 
-@foreach (var (item, idx) in Tags.Select((t, i) => (t, i)))
+@foreach (var item in Tags)
 {
 	<div style="display:flex;gap:6px;align-items:center;max-width:600px;margin-bottom:4px;">
-		<MTextField @bind-Value="Tags[idx]" Readonly="!canWrite" Dense HideDetails="true" Style="flex:1;" />
+		<MTextField @bind-Value="item.Text" Readonly="!canWrite" Dense HideDetails="true" Style="flex:1;"
+					@onblur="@(() => _ = SaveOnBlur(item))" @key="item.Id" />
 		@if (canWrite)
 		{
-			<MIcon OnClick="@(() => Tags.RemoveAt(idx))" Style="cursor:pointer;color:#c62828;">mdi-minus</MIcon>
+			<MIcon OnClick="@(() => Remove(item))" Style="cursor:pointer;color:#c62828;">mdi-minus</MIcon>
 		}
 		else
 		{
-			<MButton Small Outlined Color="primary" OnClick="@(() => Copy(Tags[idx]))">复制</MButton>
+			<MButton Small Outlined Color="primary" OnClick="@(() => Copy(item.Text))">复制</MButton>
 		}
 	</div>
 }
@@ -30,7 +31,7 @@ else if (Tags.Count == 0)
 	<p class="text-caption mt-4">打开导航栏的"可编辑"开关来添加条目</p>
 }
 
-@if (copied)
+@if (copied != null)
 {
-	<MAlert Dense Class="mt-2" Type="@AlertTypes.Success" Style="max-width:600px;">已复制</MAlert>
+	<MAlert Dense Class="mt-2" Type="@AlertTypes.Success" Style="max-width:600px;">已复制: @copied</MAlert>
 }

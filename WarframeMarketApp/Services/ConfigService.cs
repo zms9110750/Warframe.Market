@@ -13,6 +13,7 @@ public class ConfigService
 	private readonly string _appDir;
 	private readonly string _appConfigPath;
 	private readonly string _arcaneConfigPath;
+	private readonly string _uiConfigPath;
 
 	private static readonly IDeserializer YamlDeser = new DeserializerBuilder()
 		.IgnoreUnmatchedProperties()
@@ -31,6 +32,7 @@ public class ConfigService
 		Directory.CreateDirectory(_appDir);
 		_appConfigPath = Path.Combine(_appDir, "config.yaml");
 		_arcaneConfigPath = Path.Combine(_appDir, "赋能包配置.yaml");
+		_uiConfigPath = Path.Combine(AppContext.BaseDirectory, "ui-config.yaml");
 	}
 
 	/// <summary>读取应用配置</summary>
@@ -81,5 +83,14 @@ public class ConfigService
 	private class ArcaneConfigRoot
 	{
 		public ArcanePackConfig[] 赋能包配置 { get; set; } = Array.Empty<ArcanePackConfig>();
+	}
+
+	/// <summary>读取 UI 配置</summary>
+	public UIConfig LoadUIConfig()
+	{
+		if (!File.Exists(_uiConfigPath))
+			return new UIConfig();
+		var yaml = File.ReadAllText(_uiConfigPath);
+		return YamlDeser.Deserialize<UIConfig>(yaml) ?? new UIConfig();
 	}
 }

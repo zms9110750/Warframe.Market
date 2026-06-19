@@ -16,6 +16,7 @@ public class WfmDbContext : DbContext
 	public DbSet<Entry> StatEntries => Set<Entry>();
 	public DbSet<ItemTranslation> ItemTranslations => Set<ItemTranslation>();
 	public DbSet<CacheEntry> Cache => Set<CacheEntry>();
+	public DbSet<QuickReplyItem> QuickReplies => Set<QuickReplyItem>();
 
 	public WfmDbContext(DbContextOptions<WfmDbContext> options) : base(options) { }
 
@@ -103,6 +104,12 @@ public class WfmDbContext : DbContext
 			e.HasKey(c => c.Key);
 			e.Property(c => c.Key).HasMaxLength(128);
 			e.Property(c => c.CachedAt).HasDefaultValueSql("datetime('now')");
+		});
+
+		modelBuilder.Entity<QuickReplyItem>(e =>
+		{
+			e.HasKey(q => q.Id);
+			e.Property(q => q.Text).HasMaxLength(1024);
 		});
 	}
 }

@@ -1,25 +1,28 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
+using WarframeMarketApp.Data;
 
 namespace WarframeMarketApp.Pages;
 
 public partial class QuickReply : ComponentBase
 {
 	[Inject] private IJSRuntime Js { get; set; } = null!;
+	[Inject] private IServiceScopeFactory ScopeFactory { get; set; } = null!;
 
 	[CascadingParameter(Name = "CanWrite")]
 	public bool canWrite { get; set; }
 
 	protected string newItem = "";
-	protected bool copied;
-	protected List<string> Tags = new();
-
-	private const string CacheKey = "QuickReply";
+	protected string? copied;
+	protected List<QuickReplyItem> Tags = new();
 
 	protected override async Task OnInitializedAsync()
 	{
-		await Task.CompletedTask;
-		// TODO: 从 EF Core SQLite 加载 Tags
+		using var scope = ScopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+		Tags = await db.QuickReplies.OrderBy(q => q.SortOrder).ToListAsync();
 	}
 
 	protected async Task Copy(string text)
@@ -27,15 +30,45 @@ public partial class QuickReply : ComponentBase
 		try
 		{
 			await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
-			copied = true;
+			copied = text.Length > 40 ? text[..40] + "..." : text;
 		}
 		catch { }
 	}
 
-	protected void Add()
+	protected async Task Add()
 	{
 		if (string.IsNullOrWhiteSpace(newItem)) return;
-		Tags.Add(newItem.Trim());
+
+		using var scope = ScopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+		var maxOrder = Tags.Count > 0 ? Tags.Max(t => t.SortOrder) : 0;
+		var item = new QuickReplyItem { Text = newItem.Trim(), SortOrder = maxOrder + 1 };
+		db.QuickReplies.Add(item);
+		await db.SaveChangesAsync();
+		Tags.Add(item);
 		newItem = "";
+	}
+
+	protected async Task Remove(QuickReplyItem item)
+	{
+		using var scope = ScopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+		db.QuickReplies.Remove(item);
+		await db.SaveChangesAsync();
+		Tags.Remove(item);
+	}
+
+	protected async Task SaveOnBlur(QuickReplyItem item)
+	{
+		if (string.IsNullOrWhiteSpace(item.Text))
+		{
+			await Remove(item);
+			return;
+		}
+
+		using var scope = ScopeFactory.CreateScope();
+		var db = scope.ServiceProvider.GetRequiredService<WfmDbContext>();
+		db.QuickReplies.Update(item);
+		await db.SaveChangesAsync();
 	}
 }
