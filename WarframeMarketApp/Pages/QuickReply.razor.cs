@@ -38,6 +38,11 @@ public partial class QuickReply : ComponentBase
 		catch { }
 	}
 
+	protected async Task AddNew()
+	{
+		await Add();
+	}
+
 	protected async Task Add()
 	{
 		if (string.IsNullOrWhiteSpace(newItem)) return;

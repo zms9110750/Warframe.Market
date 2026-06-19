@@ -32,26 +32,18 @@
 			}
 			else
 			{
-				@context.Item.User?.IngameName
+				<text>@context.Item.User?.IngameName</text>
 			}
-		}
-		else if (context.Header.Text == "买/卖")
-		{
-			@(context.Item.Type is "buy" or "Buy" ? "购" : "售")
 		}
 		else
 		{
 			@(context.Value switch
 			{
 				null => "",
-				"blueprint" => "蓝图",
-				"crafted" => "成品",
-				"intact" => "完整",
-				"radiant" => "光辉",
-				"revealed" => "已揭示",
-				"unrevealed" => "未揭示",
-				"exceptional" => "优良",
-				"flawless" => "无暇",
+				"blueprint" => "蓝图", "crafted" => "成品",
+				"intact" => "完整", "radiant" => "光辉",
+				"revealed" => "已揭示", "unrevealed" => "未揭示",
+				"exceptional" => "优良", "flawless" => "无暇",
 				string s when s.StartsWith("zh-") => s == "zh-hans" ? "简体中文" : "繁体中文",
 				"en" => "英语", "ko" => "韩语", "ru" => "俄语", "de" => "德语",
 				"fr" => "法语", "pt" => "葡萄牙语", "es" => "西班牙语",

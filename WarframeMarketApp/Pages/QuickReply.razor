@@ -22,8 +22,8 @@
 @if (canWrite)
 {
 	<div class="mt-2" style="display:flex;gap:8px;max-width:600px;">
-		<MTextField @bind-Value="newItem" Label="添加新回复" Dense Solo Style="flex:1;" />
-		<MButton OnClick="Add" Color="primary" Disabled="@string.IsNullOrWhiteSpace(newItem)">添加</MButton>
+		<MTextField @bind-Value="newItem" Label="添加新回复（失焦保存）" Dense Solo Style="flex:1;"
+					@onblur="@(() => _ = AddNew())" />
 	</div>
 }
 else if (Tags.Count == 0)
