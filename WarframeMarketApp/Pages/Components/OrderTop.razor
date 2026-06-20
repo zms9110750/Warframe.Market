@@ -8,8 +8,10 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
-	<MSlider @bind-Value="_selectedRank" Min="0" Max="@(_maxRankValue)" Class="mx-4" Style="max-width:200px;"
-			 @onchange="@(() => _ = RefreshWithRankAsync())" />
+	<input type="range" min="0" max="@_maxRankValue" 
+		   @bind-Value="_selectedRank" @bind-Value:event="oninput"
+		   @onchange="@(() => _ = RefreshWithRankAsync())"
+		   style="max-width:150px;margin:0 12px;" />
 	<span>等级 @_selectedRank</span>
 </div>
 
