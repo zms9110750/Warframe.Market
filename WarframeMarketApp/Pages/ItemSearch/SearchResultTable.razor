@@ -3,6 +3,7 @@
 @using zms9110750.WarframeMarketApi.Models.Items
 @using zms9110750.WarframeMarketApi.Models.Statistics
 @inject ItemsService ItemSvc
+@inject IJSRuntime Js
 
 @if (results.Count == 0) { return; }
 
@@ -18,6 +19,7 @@
 	<ItemColContent>
 		@if (context.Header.Text == "中文名称")
 		{
+			<MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
 			if (ClickLink)
 			{
 				<a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
@@ -26,14 +28,12 @@
 		}
 		else if (context.Header.Text == "英文名称")
 		{
+			<MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
 			if (ClickLink)
 			{
 				<a href="@($"https://warframe.market/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
 			}
-			else
-			{
-				@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
-			}
+			else { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
 		}
 		else if (context.Header.Text == "价格")
 		{
@@ -128,5 +128,19 @@
 			}
 		}
 		StateHasChanged();
+	}
+
+	private string TrimSuffix(ItemShort item)
+	{
+		var name = item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name
+				: item.I18n.TryGetValue(Language.En, out var e) ? e.Name
+				: item.Slug;
+		return new string(name.TrimEnd(" Set").TrimEnd(" 一套"));
+	}
+
+	private async Task CopyText(string text)
+	{
+		try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", text); }
+		catch { }
 	}
 }

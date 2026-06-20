@@ -17,8 +17,8 @@ public partial class OrderTop : ComponentBase, IDisposable
 	[Parameter] public ItemShort? TargetItem { get; set; }
 
 	protected bool loading = true;
-	protected bool _showBuy = true;
-	protected bool _showMaxRank;
+	protected bool _showBuy = false; // 默认售
+	protected bool _showMaxRank; // 默认关
 	protected string _maxRankLabel = "满级";
 
 	protected Order[] TopOrder = Array.Empty<Order>();

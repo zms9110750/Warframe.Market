@@ -76,7 +76,7 @@ public partial class UserResultTable : ComponentBase
 		var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
 		if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "-";
 		var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
-		return p?.ToString("F0") ?? "-";
+		return p?.ToString("F1") ?? "-";
 	}
 	protected string GetDiff(UserSearchResult r, Order o)
 	{
@@ -85,7 +85,7 @@ public partial class UserResultTable : ComponentBase
 		var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
 		if (refP == null || refP <= 0) return "";
 		var diff = refP.Value - o.Platinum;
-		return diff >= 0 ? $"+{diff:F0}" : $"{diff:F0}";
+		return diff >= 0 ? $"+{diff:F1}" : $"{diff:F1}";
 	}
 	protected ItemShort? GetItemShort(UserSearchResult r, Order o)
 	{
