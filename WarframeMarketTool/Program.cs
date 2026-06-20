@@ -1,58 +1,54 @@
-﻿// ═══════════════════════════════════════════
-// WarframeMarketTool — 测试沙盒
-// 先验证算法再搬进 App，最终不留。
-// ═══════════════════════════════════════════
-
+﻿// 检查 Refit 实际发送了啥
+using zms9110750.WarframeMarketApi;
+using zms9110750.WarframeMarketApi.Models.Orders;
+using System.Net.Http;
 using System.Text.Json;
-using zms9110750.WarframeMarketApi.Models.Statistics;
 
-var raw = await new HttpClient { BaseAddress = new Uri("https://api.warframe.market") }
-	.GetStringAsync("/v1/items/blind_rage/statistics");
+// 自己发 HTTP 请求看清 URL
+var raw = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
+raw.DefaultRequestHeaders.Add("Language", "zh-hans");
+raw.DefaultRequestHeaders.Add("Platform", "pc");
 
-var opts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
-var stat = JsonSerializer.Deserialize<Statistic>(raw, opts);
+Console.WriteLine("=== 直接 HTTP 请求 ===");
 
-if (stat?.Payload?.StatisticsClosed?.Day90 == null) { Console.Error.WriteLine("无数据"); return; }
+// 无参数
+var url0 = "/v2/orders/item/blind_rage/top";
+var resp0 = await raw.GetStringAsync(url0);
+var j0 = JsonDocument.Parse(resp0);
+var buy0 = j0.RootElement.GetProperty("data").GetProperty("buy").GetArrayLength();
+var sell0 = j0.RootElement.GetProperty("data").GetProperty("sell").GetArrayLength();
+Console.WriteLine($"无参数: Buy={buy0}, Sell={sell0}");
 
-var day90 = stat.Payload.StatisticsClosed.Day90;
-Console.Error.WriteLine($"Day90 共 {day90.Length} 条, 日期: {day90.Min(e => e.Datetime):yyyy-MM-dd} ~ {day90.Max(e => e.Datetime):yyyy-MM-dd}");
+// 带 Rank=0
+var url1 = "/v2/orders/item/blind_rage/top?Rank=0";
+var resp1 = await raw.GetStringAsync(url1);
+var j1 = JsonDocument.Parse(resp1);
+var buy1 = j1.RootElement.GetProperty("data").GetProperty("buy").GetArrayLength();
+var sell1 = j1.RootElement.GetProperty("data").GetProperty("sell").GetArrayLength();
+Console.WriteLine($"Rank=0:  Buy={buy1}, Sell={sell1}");
 
-// 0 级价
-static double? Calc(double[] ws, Entry[] entries) {
-	var tw = 0.0; var ws_ = 0.0;
-	for (int i = 0; i < entries.Length; i++) {
-		var w = ws[i] * entries[i].Volume;
-		tw += w; ws_ += w * entries[i].Median;
-	}
-	return tw > 0 ? ws_ / tw : null;
-}
-double[] ws = [40, 25, 15, 5, 5, 5, 5];
+// 带 RankLt=0
+var url2 = "/v2/orders/item/blind_rage/top?RankLt=0";
+var resp2 = await raw.GetStringAsync(url2);
+var j2 = JsonDocument.Parse(resp2);
+var buy2 = j2.RootElement.GetProperty("data").GetProperty("buy").GetArrayLength();
+var sell2 = j2.RootElement.GetProperty("data").GetProperty("sell").GetArrayLength();
+Console.WriteLine($"RankLt=0: Buy={buy2}, Sell={sell2}");
 
-var r0 = day90.Where(e => e.ModRank is null or 0).OrderByDescending(e => e.Datetime).Take(7).ToArray();
-Console.Error.WriteLine($"\n0 级价 ({r0.Length} 天): {Calc(ws, r0)?.ToString("F1")}");
-
-var maxRanked = day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.ModRank).FirstOrDefault();
-if (maxRanked != null) Console.Error.WriteLine($"\n最高 ModRank={maxRanked.ModRank}");
-
-// 满级价：ModRank > 0, subtype in (null, crafted, radiant, magnificent, large)
-var max = day90.Where(e => e.ModRank > 0 && (e.Subtype is null or "crafted" or "radiant" or "magnificent" or "large"))
-	.OrderByDescending(e => e.Datetime).Take(7).ToArray();
-if (max.Length > 0) {
-	Console.Error.WriteLine($"满级价 ({max.Length} 天, subtype 分布: {string.Join(", ", max.Select(m => m.Subtype ?? "null").Distinct())}): {Calc(ws, max)?.ToString("F1")}");
-} else {
-	// fallback: 直接按最高等级
-	var fallback = day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.Datetime).Take(7).ToArray();
-	if (fallback.Length > 0) Console.Error.WriteLine($"满级价(fallback) ({fallback.Length} 天): {Calc(ws, fallback)?.ToString("F1")}");
-}
-
-// 混合价
-static int SynCons(int? rank) => rank switch { 1 => 3, 2 => 6, 3 => 10, 4 => 15, 5 => 21, _ => 1 };
-var firstRanked = day90.FirstOrDefault(e => e.ModRank > 0);
-if (firstRanked != null)
+// 验证返回的数据中的 rank 分布
+Console.WriteLine("\n=== RankLt=0 的数据 ===");
+var entries = j2.RootElement.GetProperty("data");
+foreach (var b in entries.GetProperty("buy").EnumerateArray().Take(5))
 {
-	var syn = SynCons(firstRanked.ModRank);
-	var maxP = Calc(ws, max.Length > 0 ? max : day90.Where(e => e.ModRank > 0).OrderByDescending(e => e.Datetime).Take(7).ToArray());
-	Console.Error.WriteLine($"\n混合价 (ModRank={firstRanked.ModRank}, 消耗={syn}): 满级价/{syn} = {maxP / syn:F1}");
+	var r = b.GetProperty("rank").GetRawText();
+	var p = b.GetProperty("platinum").GetInt32();
+	Console.WriteLine($"  买 rank={r} price={p}");
+}
+foreach (var s in entries.GetProperty("sell").EnumerateArray().Take(5))
+{
+	var r = s.GetProperty("rank").GetRawText();
+	var p = s.GetProperty("platinum").GetInt32();
+	Console.WriteLine($"  卖 rank={r} price={p}");
 }
 
-Console.Error.WriteLine("\n=== 完成 ===");
+Console.WriteLine("\n=== 完成 ===");

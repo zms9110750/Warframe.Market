@@ -11,7 +11,6 @@
 	@if (_maxRankValue > 0)
 	{
 		<MSlider @bind-Value="_selectedRank" Min="0" Max="@_maxRankValue"
-				 OnEnd="@((int v) => _ = RefreshWithRankAsync())"
 				 Dense HideDetails="true" Style="max-width:150px;" />
 		<span>等级 @_selectedRank</span>
 	}
@@ -19,7 +18,7 @@
 
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
-			Loading="@loading" @key="@_refreshKey">
+			Loading="@loading">
 	<GroupHeaderContent>
 		<td colspan="@_headers.Count">
 			@if (context.Group is "buy" or "Buy") { @("购") }
