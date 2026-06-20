@@ -30,8 +30,6 @@ public partial class OrderTop : ComponentBase, IDisposable
         {
             var q = TopOrder.AsEnumerable();
             q = q.Where(o => _showBuy ? (o.Type is "buy" or "Buy") : (o.Type is "sell" or "Sell"));
-            if (_maxRankValue > 0)
-                q = q.Where(o => o.Rank == _selectedRank);
             return q;
         }
     }
