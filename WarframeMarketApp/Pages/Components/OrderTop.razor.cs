@@ -174,9 +174,13 @@ public partial class OrderTop : ComponentBase, IDisposable
         try
         {
             var slug = TargetItem.Slug;
+            var hasRank = _selectedRank > 0;
             var resp = await Wfm.GetOrdersItemTopAsync(slug,
-                new OrderTopQueryParameter(Rank: _selectedRank, RankLt: null, Charges: null, ChargesLt: null,
-                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+                hasRank
+                    ? new OrderTopQueryParameter(Rank: null, RankLt: _selectedRank, Charges: null, ChargesLt: null,
+                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
+                    : new OrderTopQueryParameter(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
+                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
             if (resp?.Content?.Data != null)
                 TopOrder = resp.Content.Data.Buy.Concat(resp.Content.Data.Sell).Distinct().ToArray();
             _refreshKey++;
