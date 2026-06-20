@@ -164,18 +164,13 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 		{
 			ContentSerializer = new SystemTextJsonContentSerializer(V2Options),
 			UrlParameterKeyFormatter = new SnakeCaseKeyFormatter()
-		});
+		}); 
 	}
 
 	private class SnakeCaseKeyFormatter : IUrlParameterKeyFormatter
 	{
-		public string Format(string key)
-		{
-			return string.Concat(key.Select((c, i) =>
-				i > 0 && char.IsUpper(c)
-					? "_" + char.ToLowerInvariant(c)
-					: char.ToLowerInvariant(c).ToString()));
-		}
+		public string Format(string key) =>
+			JsonNamingPolicy.SnakeCaseLower.ConvertName(key);
 	}
 
 	/// <summary>
