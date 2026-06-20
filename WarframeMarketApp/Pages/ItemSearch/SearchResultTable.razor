@@ -26,7 +26,14 @@
 		}
 		else if (context.Header.Text == "英文名称")
 		{
-			@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
+			if (ClickLink)
+			{
+				<a href="@($"https://warframe.market/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
+			}
+			else
+			{
+				@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
+			}
 		}
 		else if (context.Header.Text == "价格")
 		{
