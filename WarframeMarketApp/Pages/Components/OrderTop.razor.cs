@@ -170,84 +170,15 @@ public partial class OrderTop : ComponentBase, IDisposable
     private async Task RefreshWithRankAsync()
     {
         Log.Information("OrderTop 刷新: rank={Rank}", _selectedRank);
-        if (TargetItem == null)
-        {
-            return;
-        }
-
+        if (TargetItem == null) return;
         try
         {
-            loading = true;
-            StateHasChanged();
-
-            var orders = new List<Order>();
             var slug = TargetItem.Slug;
-            var rank = _selectedRank;
-            var maxRank = TargetItem.MaxRank;
-            var maxAmber = TargetItem.MaxAmberStars;
-            var maxCyan = TargetItem.MaxCyanStars;
-            var isMax = rank >= (maxRank ?? int.MaxValue);
-
-            var s2 = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
-            switch (s2)
-            {
-                case { IsMod: true } or { IsArcane: true }:
-                {
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, isMax
-                        ? new OrderTopQueryParameter(Rank: maxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
-                        : new OrderTopQueryParameter(Rank: rank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
-                    if (a?.Content?.Data != null)
-                    {
-                        orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-                    }
-
-                    break;
-                }
-                case { IsRelic: true }:
-                {
-                    var subtype = isMax ? "radiant" : rank switch { 0 => "intact", 1 => "exceptional", 2 => "flawless", 3 => "radiant", _ => "intact" };
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: subtype, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
-                    if (a?.Content?.Data != null)
-                    {
-                        orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-                    }
-
-                    break;
-                }
-                case { IsComponent: true }:
-                {
-                    var subtype = isMax ? "crafted" : "blueprint";
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, new(Subtype: subtype, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
-                    if (a?.Content?.Data != null)
-                    {
-                        orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-                    }
-
-                    break;
-                }
-                case { IsAyatan: true }:
-                {
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, new(Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: rank, AmberStarsLt: null, CyanStars: rank, CyanStarsLt: null, Subtype: null));
-                    if (a?.Content?.Data != null)
-                    {
-                        orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-                    }
-
-                    break;
-                }
-                default:
-                {
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, null);
-                    if (a?.Content?.Data != null)
-                    {
-                        orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
-                    }
-
-                    break;
-                }
-            }
-
-            TopOrder = orders.Distinct().ToArray();
+            var resp = await Wfm.GetOrdersItemTopAsync(slug,
+                new OrderTopQueryParameter(Rank: _selectedRank, RankLt: null, Charges: null, ChargesLt: null,
+                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+            if (resp?.Content?.Data != null)
+                TopOrder = resp.Content.Data.Buy.Concat(resp.Content.Data.Sell).Distinct().ToArray();
             _refreshKey++;
             Log.Information("OrderTop 刷新完成: rank={Rank}, count={Count}", _selectedRank, TopOrder.Length);
         }

@@ -8,6 +8,13 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
+	@if (_maxRankValue > 0)
+	{
+		<MSlider @bind-Value="_selectedRank" Min="0" Max="@_maxRankValue"
+				 OnEnd="@((int v) => _ = RefreshWithRankAsync())"
+				 Dense HideDetails="true" Style="max-width:150px;" />
+		<span>等级 @_selectedRank</span>
+	}
 </div>
 
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"

@@ -1,30 +1,39 @@
-﻿// 测试客户端过滤盲怒 Top 订单
-// API 返回 5买(全rank=10)+5卖(全rank=0)
-// 客户端按 rank 过滤会怎样？
+﻿// 测试 AliasAs 修复后的 Refit 请求
+using zms9110750.WarframeMarketApi;
+using zms9110750.WarframeMarketApi.Models.Orders;
 
-using var raw = new HttpClient { BaseAddress = new Uri("https://api.warframe.market") };
-raw.DefaultRequestHeaders.Add("Language", "zh-hans");
-raw.DefaultRequestHeaders.Add("Platform", "pc");
-
-var resp = await raw.GetStringAsync("/v2/orders/item/blind_rage/top");
-var j = System.Text.Json.JsonDocument.Parse(resp);
-var data = j.RootElement.GetProperty("data");
-
-var buys = data.GetProperty("buy").EnumerateArray().ToList();
-var sells = data.GetProperty("sell").EnumerateArray().ToList();
-
-Console.WriteLine($"全部: 买={buys.Count} 卖={sells.Count}");
-Console.WriteLine($"买 rank 分布: {string.Join(", ", buys.Select(b => b.GetProperty("rank").GetRawText()))}");
-Console.WriteLine($"卖 rank 分布: {string.Join(", ", sells.Select(b => b.GetProperty("rank").GetRawText()))}");
-
-Console.WriteLine("\n--- 客户端过滤效果 ---");
-for (int r = 0; r <= 10; r++)
+var wfm = new WarframeMarketClient
 {
-	var fb = buys.Where(b => b.GetProperty("rank").GetInt32() == r).Count();
-	var fs = sells.Where(b => b.GetProperty("rank").GetInt32() == r).Count();
-	var display = fb > 0 || fs > 0 ? "" : " ← 空";
-	Console.WriteLine($"rank={r,2}: 买={fb} 卖={fs}{display}");
-}
+	Crossplay = true,
+	Language = zms9110750.WarframeMarketApi.Models.Items.Language.ZhHans,
+	Platform = zms9110750.WarframeMarketApi.Models.Users.Platform.PC
+};
 
-Console.WriteLine("\n结论: 盲怒的 Top 只覆盖 rank=0(卖) 和 rank=10(买)");
-Console.WriteLine("中间等级过滤出来是 0 条，用户看到空表");
+Console.WriteLine("=== 修复后验证 ===");
+
+// 无参数
+var r0 = await wfm.GetOrdersItemTopAsync("blind_rage", null);
+Console.WriteLine($"无参数: Buy={r0?.Content?.Data?.Buy?.Length} Sell={r0?.Content?.Data?.Sell?.Length}");
+
+// Rank=0
+var r1 = await wfm.GetOrdersItemTopAsync("blind_rage",
+	new(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
+		AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+var b1 = r1?.Content?.Data?.Buy;
+Console.WriteLine($"Rank=0:  Buy={b1?.Length} 首买rank={b1?.FirstOrDefault()?.Rank}");
+
+// Rank=10
+var r2 = await wfm.GetOrdersItemTopAsync("blind_rage",
+	new(Rank: 10, RankLt: null, Charges: null, ChargesLt: null,
+		AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+var b2 = r2?.Content?.Data?.Buy;
+Console.WriteLine($"Rank=10: Buy={b2?.Length} 首买rank={b2?.FirstOrDefault()?.Rank}");
+
+// RankLt=1
+var r3 = await wfm.GetOrdersItemTopAsync("blind_rage",
+	new(Rank: null, RankLt: 1, Charges: null, ChargesLt: null,
+		AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+var b3 = r3?.Content?.Data?.Buy;
+Console.WriteLine($"RankLt=1: Buy={b3?.Length} 首买rank={b3?.FirstOrDefault()?.Rank}");
+
+Console.WriteLine("\n=== 完成 ===");
