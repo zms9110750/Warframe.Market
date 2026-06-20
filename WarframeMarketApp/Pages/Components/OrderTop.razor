@@ -5,15 +5,12 @@
 
 @* 筛选开关 *@
 <div class="d-flex align-center mb-2" style="gap:12px;">
-	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
-		<LabelContent>购</LabelContent>
-	</MSwitch>
-	<MSwitch @bind-Value="_showSell" Dense Inset HideDetails="true">
-		<LabelContent>售</LabelContent>
-	</MSwitch>
-	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true">
-		<LabelContent>@_maxRankLabel</LabelContent>
-	</MSwitch>
+	<MSelect @bind-Value="_filterType" Items="@(new[] { "all", "buy", "sell" })" 
+			 ItemText="@(t => t == "all" ? "全部" : t == "buy" ? "购" : "售")"
+			 ItemValue="@(t => t)" Dense Solo HideDetails="true" Style="max-width:100px;" />
+	<MSelect @bind-Value="_showMaxRankStr" Items="@(new[] { "false", "true" })"
+			 ItemText="@(t => t == "true" ? _maxRankLabel : "全部等级")"
+			 ItemValue="@(t => t)" Dense Solo HideDetails="true" Style="max-width:120px;" />
 </div>
 
 <MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
@@ -39,9 +36,15 @@
 		}
 		else if (context.Header.Text == "卖家")
 		{
-			@(ClickLink
-				? (MarkupString)$"<a href='https://warframe.market/zh-hans/profile/{context.Item.User?.IngameName}'>{context.Item.User?.IngameName}</a>"
-				: (MarkupString)$"{context.Item.User?.IngameName}")
+			var nameStr = context.Item.User?.IngameName ?? "";
+			if (ClickLink)
+			{
+				<a href="@($"https://warframe.market/zh-hans/profile/{nameStr}")">@nameStr</a>
+			}
+			else
+			{
+				<text>@nameStr</text>
+			}
 		}
 		else
 		{

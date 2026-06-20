@@ -17,9 +17,8 @@ public partial class OrderTop : ComponentBase, IDisposable
 	[Parameter] public ItemShort? TargetItem { get; set; }
 
 	protected bool loading = true;
-	protected bool _showBuy = true;
-	protected bool _showSell = true;
-	protected bool _showMaxRank;
+	protected string _filterType = "all";
+	protected string _showMaxRankStr = "false";
 	protected string _maxRankLabel = "满级";
 
 	protected Order[] TopOrder = Array.Empty<Order>();
@@ -29,9 +28,9 @@ public partial class OrderTop : ComponentBase, IDisposable
 		get
 		{
 			var q = TopOrder.AsEnumerable();
-			if (!_showBuy) q = q.Where(o => o.Type is not "buy" and not "Buy");
-			if (!_showSell) q = q.Where(o => o.Type is not "sell" and not "Sell");
-			if (_showMaxRank && TargetItem != null)
+			if (_filterType == "buy") q = q.Where(o => o.Type is "buy" or "Buy");
+			else if (_filterType == "sell") q = q.Where(o => o.Type is "sell" or "Sell");
+			if (_showMaxRankStr == "true" && TargetItem != null)
 			{
 				var maxRank = TargetItem.MaxRank ?? 0;
 				if (maxRank > 0)
@@ -62,22 +61,22 @@ public partial class OrderTop : ComponentBase, IDisposable
 			var tags = TargetItem.Tags ?? new();
 			if (tags.Contains("mod") || tags.Contains("arcane_enhancement"))
 			{
-				_showMaxRank = true;
+				_showMaxRankStr = "true";
 				_maxRankLabel = "满级";
 			}
 			else if (tags.Contains("relic"))
 			{
-				_showMaxRank = true;
+				_showMaxRankStr = "true";
 				_maxRankLabel = "光辉";
 			}
 			else if (tags.Contains("component"))
 			{
-				_showMaxRank = true;
+				_showMaxRankStr = "true";
 				_maxRankLabel = "成品";
 			}
 			else if (tags.Contains("ayatan_sculpture"))
 			{
-				_showMaxRank = true;
+				_showMaxRankStr = "true";
 				_maxRankLabel = "满星";
 			}
 

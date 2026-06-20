@@ -12,7 +12,7 @@
 </MButton>
 @if (!_collapsed)
 {
-	<MDataTable Items="results" Headers="_headers" Dense MultiSort ShowExpand
+	<MDataTable Items="results" Headers="_headers" Dense MustSort ShowExpand
 				HideDefaultFooter ItemsPerPage="-1" @key="Tab"
 				Class="elevation-1" ItemKey="r => r.Id">
 	<ItemColContent>

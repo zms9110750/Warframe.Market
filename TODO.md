@@ -1,73 +1,75 @@
-# TODO — 组件拆分 + Bug 修复
+# TODO
 
-## DataTableHeader 用法
+## P0 — 当前问题
 
-`DataTableHeader<T>` 的构造参数可以传委托表达式，不是只能传属性名。
-例如：`new DataTableHeader<Order>("名称", r => r.User?.IngameName ?? "")`
-这样不用猜属性名，也不用 `ItemColContent` 硬编码。
+### 1. 计算列不能排序
+参考价、差价、物品、英文名不能用 `ValueExpression` 排序。需要改为在 `OnInitialized` 里初始化的 `_headers` + `ValueExpression`。
 
----
+### 2. "打开链接"开关无效
+搜索结果中的物品名、英文名、参考价在 `ClickLink=true` 时没变成超链接。
 
-## P0 Bug
+### 3. 售/购开关逻辑
+旧版：没有开关，永远显示全部。
+新版：两个独立 `MSwitch`。应该改为一个三态开关（购/全/售），或者左右拨的开关。
 
-### 1. 搜索结果：物品名显示"加载中..."且不加载
+### 4. 等级列显示子类型
+OrderTop 中把"光辉"、"完整"、"蓝图"等子类型显示在"等级"列。应该在类型列或单独列显示。
 
-`SearchResultTable` 的渐进刷新循环可能没正确触发。`ItemSvc.GetStatisticAsync` 返回 null 或卡住。
-
-### 2. 英文名列为空
-
-`SearchResultTable` 的 `ItemColContent` 中英文名列读取 `Language.En`，但 `ItemShort.I18n` 字典可能为空（EF Core 的 `Ignore(i => i.I18n)`）。需要确保 I18n 已填充。
-
-### 3. 子面板 "没有必需参数"
-
-`OrderTop` 收到 null `TargetItem`。原因是 `ExpandedItemContent` 的 `context` 未正确传递物品数据。
-
-### 4. 参考价/差价不加载
-
-`UserSearch` 的价格加载循环可能被跳过，或 `ItemSvc.GetStatisticAsync` 返回 null。
-
-### 5. 列 "语言" 多余
-
-删除"语言"列。有中文名和英文名就够了。
-
-### 6. 用户订单没有折叠
-
-每个用户的结果应该可折叠（像物品搜索的 `SearchResultTable` 那样）。
-
-### 7. 赋能包子面板 colspan 不是 9999
-
-`ArcaneTable` 的 `<td colspan` 可能写死了数字，应改为 9999。
-
-### 8. 标签 Index 错误
-
-点第二个固定标签显示第一个的内容，点第一个标签时激活标签 UI 消失。`activeTabIndex` 与标签实际索引不匹配。
+### 5. 满级开关筛选逻辑
+开启"满级"时用新的 API 参数重新请求（`Rank`/`Subtype`），关闭时无条件请求。当前只在前端过滤。
 
 ---
 
-## P1 — 组件拆分
+## P1 — 新旧差异（来自子 AI 比对）
 
-### 9. 拆分物品搜索组件
+### 物品搜索
 
-```
-Pages/ItemSearch/
-  ├── ItemSearch.razor        ← 页面入口
-  ├── ItemSearch.razor.cs
-  ├── SearchTabs.razor        ← 标签栏（与用户搜索共用）
-  ├── SearchBox.razor         ← 搜索框（与用户搜索共用）
-  ├── SearchTermGroup.razor   ← 参数为搜索词：内含 / 分割逻辑、foreach 列表、折叠
-  └── SearchResultTable.razor ← 搜索结果表
-```
+| 旧版 | 新版 | 差异 |
+|------|------|------|
+| Rx 响应式搜索（600ms buffer + 800ms throttle） | 按钮触发搜索 | 输入即搜 vs 点击搜索 |
+| 搜索历史 tags 内嵌在输入框 | 收藏纸片在输入框下方 | 交互位置不同 |
+| 每个 QueryTrie 可单独折叠 | 每个 SearchResultTable 带折叠按钮 | ✅ 一致 |
+| 多词结果平铺在一页 | 每个查询词一个独立标签 | 标签化 vs 平铺 |
+| 无钉住功能 | 支持钉住标签持久化 | 新版新增 |
+| `MultiSort` | `MustSort` | 排序行为不同 |
 
-### 10. 拆分用户订单组件
+### 物品搜索子面板（OrderTop）
 
-```
-Pages/UserSearch/
-  ├── UserSearch.razor        ← 页面入口
-  ├── UserSearch.razor.cs
-  ├── UserResultTable.razor   ← 每个用户的订单表
-  └── UserTabs.razor          ← 标签栏（与物品搜索共用 SearchTabs）
-```
+| 旧版 | 新版 | 差异 |
+|------|------|------|
+| 无筛选开关 | 购/售/满级开关 | 新版新增 |
+| 无满级默认 | MOD/遗物/组件自动默认满级 | 新版新增 |
+| `/w` 消息内联可复制 | "私信"按钮复制到剪贴板 | 交互不同 |
+| `ItemType` 枚举判断 | `Tags` 集合判断 | 实现不同（效果一致） |
 
-### 11. 抽出共用标签组件
+### 玩家查询
 
-`SearchTabs.razor` 被物品搜索和用户订单共用，放在 `Pages/Shared/`。
+| 旧版 | 新版 | 差异 |
+|------|------|------|
+| 无标签，所有用户结果平铺 | 标签化，每个用户一个标签 | 新版新增 |
+| `SplitField` 响应式输入 | `MTextField` + 搜索按钮 | 交互不同 |
+| 无用户信息头 | 显示 IngameName/Platform/Reputation | 新版新增 |
+| 无钉住 | 支持钉住用户持久化 | 新版新增 |
+| `PCopyableText` 可复制名称 | 纯文本显示 | 旧版有可复制 |
+| 参考价按 Rank/Subtype/AmberStars 精确匹配 | 仅按 `Rank > 0` 区分满级/0级 | 旧版更精确 |
+| 有"买/卖"列 | 只有"类型"列 | 旧版有单独列 |
+
+### 玩家查询子面板（OrderTop）
+
+同物品搜索子面板差异。
+
+---
+
+## P2 — 语义对齐（对照 REWRITE-GAP.md）
+
+| 原语义要求 | 当前状态 |
+|-----------|---------|
+| 搜索结果列：中文名、英文名、参考价、满级价 | ✅ |
+| 参考价三层：0级/满级/混合，按物品类型自动选 | ⚠️ 混合价未实现 |
+| OrderTop 类型分支参数 | ✅ |
+| OrderTop 列：声誉、语言 | ⚠️ 新版没有声誉和语言列 |
+| 用户订单：中文名/英文名 | ✅ |
+| 差价 = 参考价 - 订单价（正=便宜） | ✅ |
+| 用户订单404处理 | ✅ |
+| 按买/卖分组 | ✅ |
+| 渐进加载：先显示已有价格，后台刷新 | ⚠️ 新版用户订单是批处理加载 |
