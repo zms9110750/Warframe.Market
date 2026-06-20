@@ -20,6 +20,17 @@ public partial class OrderTop : ComponentBase, IDisposable
 	protected bool _showBuy = false; // 默认售
 	protected bool _showMaxRank; // 默认关
 	protected string _maxRankLabel = "满级";
+	private bool _previousShowMaxRank;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (_previousShowMaxRank != _showMaxRank)
+		{
+			_previousShowMaxRank = _showMaxRank;
+			await RefreshWithRankAsync();
+			StateHasChanged();
+		}
+	}
 
 	protected Order[] TopOrder = Array.Empty<Order>();
 

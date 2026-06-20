@@ -8,7 +8,7 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
-	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true" @bind-Value:after="@(() => _ = RefreshWithRankAsync())">
+	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true">
 		<LabelContent>@(_showMaxRank ? _maxRankLabel : "0级")</LabelContent>
 	</MSwitch>
 </div>
