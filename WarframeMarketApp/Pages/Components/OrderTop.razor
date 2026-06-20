@@ -19,7 +19,7 @@
 	}
 </div>
 
-<MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
+<MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
 			Loading="@loading" @key="@_refreshKey">
 	<GroupHeaderContent>
