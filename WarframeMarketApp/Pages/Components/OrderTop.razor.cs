@@ -148,10 +148,12 @@ public partial class OrderTop : ComponentBase, IDisposable
 	/// <summary>满级开关变化时重新请求 API</summary>
 	private async Task RefreshWithRankAsync()
 	{
+		Log.Information("OrderTop 刷新: rank={Rank}", _selectedRank);
 		if (TargetItem == null) return;
 		try
 		{
 			loading = true;
+			StateHasChanged();
 			StateHasChanged();
 
 			var orders = new List<Order>();

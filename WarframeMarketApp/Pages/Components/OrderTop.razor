@@ -8,12 +8,16 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
-	<input type="range" min="0" max="@_maxRankValue" 
-		   value="@_selectedRank"
-		   @oninput="@((ChangeEventArgs e) => _selectedRank = int.TryParse(e.Value?.ToString(), out var v) ? v : 0)"
-		   @onchange="@(() => _ = RefreshWithRankAsync())"
-		   style="max-width:150px;margin:0 12px;" />
-	<span>等级 @_selectedRank</span>
+	@if (_maxRankValue > 0)
+	{
+		<input type="range" min="0" max="@_maxRankValue" 
+			   value="@_selectedRank"
+			   @oninput="@((ChangeEventArgs e) => { _selectedRank = int.TryParse(e.Value?.ToString(), out var v) ? v : 0; StateHasChanged(); })"
+			   @onmouseup="@(() => _ = RefreshWithRankAsync())"
+			   @ontouchend="@(() => _ = RefreshWithRankAsync())"
+			   style="max-width:150px;margin:0 12px;" />
+		<span>等级 @_selectedRank</span>
+	}
 </div>
 
 <MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
