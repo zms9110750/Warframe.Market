@@ -18,17 +18,17 @@ public partial class OrderTop : ComponentBase, IDisposable
 
 	protected bool loading = true;
 	protected bool _showBuy = false; // 默认售
-	protected bool _showMaxRank; // 默认关
-	protected string _maxRankLabel = "满级";
-	private bool _previousShowMaxRank;
+	protected int _selectedRank = 0;
+	protected int _maxRankValue = 0;
+	protected string _selectedRankLabel = "0级";
+	private int _previousSelectedRank = -1;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		if (_previousShowMaxRank != _showMaxRank)
+		if (_previousSelectedRank != _selectedRank)
 		{
-			_previousShowMaxRank = _showMaxRank;
-			await RefreshWithRankAsync();
-			StateHasChanged();
+			_previousSelectedRank = _selectedRank;
+			// @onchange 已经触发 RefreshWithRankAsync，这里不需要重复调用
 		}
 	}
 
@@ -64,25 +64,23 @@ public partial class OrderTop : ComponentBase, IDisposable
 
 			// 默认开关：MOD/赋能→满级，遗物→光辉，组件→成品
 			var tags = TargetItem.Tags ?? new();
+			_maxRankValue = TargetItem.MaxRank ?? 0;
+			_selectedRank = 0;
 			if (tags.Contains("mod") || tags.Contains("arcane_enhancement"))
 			{
-				_showMaxRank = true;
-				_maxRankLabel = "满级";
+				_selectedRank = _maxRankValue;
 			}
 			else if (tags.Contains("relic"))
 			{
-				_showMaxRank = true;
-				_maxRankLabel = "光辉";
+				_selectedRank = _maxRankValue;
 			}
 			else if (tags.Contains("component"))
 			{
-				_showMaxRank = true;
-				_maxRankLabel = "成品";
+				_selectedRank = _maxRankValue;
 			}
 			else if (tags.Contains("ayatan_sculpture"))
 			{
-				_showMaxRank = true;
-				_maxRankLabel = "满星";
+				_selectedRank = _maxRankValue;
 			}
 
 			var orders = new List<Order>();
@@ -179,7 +177,8 @@ public partial class OrderTop : ComponentBase, IDisposable
 			var maxAmber = TargetItem.MaxAmberStars;
 			var maxCyan = TargetItem.MaxCyanStars;
 
-			var isMaxRank = _showMaxRank;
+			var rank = _selectedRank;
+			var isMaxEquiv = rank >= (_maxRankValue > 0 ? _maxRankValue : int.MaxValue);
 
 			var itemType =
 				Tags.Contains("riven") ? "riven" :
@@ -194,46 +193,40 @@ public partial class OrderTop : ComponentBase, IDisposable
 				case "arcane":
 				case "mod":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, isMaxRank
-						? new OrderTopQueryParameter(Rank: maxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
-						: new OrderTopQueryParameter(Rank: 0, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Rank: rank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}
 				case "relic":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: isMaxRank ? "radiant" : "intact",
-						Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var subtype = isMaxEquiv ? "radiant" : rank switch { 0 => "intact", 1 => "exceptional", 2 => "flawless", 3 => "radiant", _ => "intact" };
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: subtype, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}
 				case "component":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: isMaxRank ? "crafted" : "blueprint",
-						Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var subtype = isMaxEquiv ? "crafted" : "blueprint";
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: subtype, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}
 				case "riven":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: isMaxRank ? "revealed" : "unrevealed",
-						Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
+					var subtype = isMaxEquiv ? "revealed" : "unrevealed";
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Subtype: subtype, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}
 				case "ayatan":
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, isMaxRank
-						? new OrderTopQueryParameter(AmberStars: maxAmber, CyanStars: maxCyan, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: null, CyanStarsLt: null, Subtype: null)
-						: new OrderTopQueryParameter(AmberStars: null, CyanStars: null, Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStarsLt: (maxAmber ?? 1) - 1, CyanStarsLt: (maxCyan ?? 1) - 1, Subtype: null));
+					var a = await Wfm.GetOrdersItemTopAsync(slug, new OrderTopQueryParameter(Rank: null, RankLt: null, Charges: null, ChargesLt: null, AmberStars: rank, AmberStarsLt: null, CyanStars: rank, CyanStarsLt: null, Subtype: null));
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}
 				default:
 				{
-					var a = await Wfm.GetOrdersItemTopAsync(slug, isMaxRank
-						? new OrderTopQueryParameter(Rank: maxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
-						: null);
+					var a = await Wfm.GetOrdersItemTopAsync(slug, null);
 					if (a?.Content?.Data != null) orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
 					break;
 				}

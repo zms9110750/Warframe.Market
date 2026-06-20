@@ -8,9 +8,9 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
-	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true">
-		<LabelContent>@(_showMaxRank ? _maxRankLabel : "0级")</LabelContent>
-	</MSwitch>
+	<MSlider @bind-Value="_selectedRank" Min="0" Max="@(_maxRankValue)" Class="mx-4" Style="max-width:200px;"
+			 @onchange="@(() => _ = RefreshWithRankAsync())" />
+	<span>等级 @_selectedRank</span>
 </div>
 
 <MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
