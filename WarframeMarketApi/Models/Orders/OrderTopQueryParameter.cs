@@ -1,5 +1,3 @@
-using Refit;
-
 namespace zms9110750.WarframeMarketApi.Models.Orders;
 
 /// <summary>
@@ -15,13 +13,13 @@ namespace zms9110750.WarframeMarketApi.Models.Orders;
 /// <param name="CyanStarsLt">青蓝星星数量上限（存在时忽略 CyanStars）</param>
 /// <param name="Subtype">物品子类型（字符串）</param>
 public record OrderTopQueryParameter(
-	[property: AliasAs("rank")] int? Rank,
-	[property: AliasAs("rank_lt")] int? RankLt,
-	[property: AliasAs("charges")] int? Charges,
-	[property: AliasAs("charges_lt")] int? ChargesLt,
-	[property: AliasAs("amber_stars")] int? AmberStars,
-	[property: AliasAs("amber_stars_lt")] int? AmberStarsLt,
-	[property: AliasAs("cyan_stars")] int? CyanStars,
-	[property: AliasAs("cyan_stars_lt")] int? CyanStarsLt,
-	[property: AliasAs("subtype")] string? Subtype
+	int? Rank,
+	int? RankLt,
+	int? Charges,
+	int? ChargesLt,
+	int? AmberStars,
+	int? AmberStarsLt,
+	int? CyanStars,
+	int? CyanStarsLt,
+	string? Subtype
 );

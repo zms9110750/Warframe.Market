@@ -162,8 +162,20 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
-			ContentSerializer = new SystemTextJsonContentSerializer(V2Options)
+			ContentSerializer = new SystemTextJsonContentSerializer(V2Options),
+			UrlParameterKeyFormatter = new SnakeCaseKeyFormatter()
 		});
+	}
+
+	private class SnakeCaseKeyFormatter : IUrlParameterKeyFormatter
+	{
+		public string Format(string key)
+		{
+			return string.Concat(key.Select((c, i) =>
+				i > 0 && char.IsUpper(c)
+					? "_" + char.ToLowerInvariant(c)
+					: char.ToLowerInvariant(c).ToString()));
+		}
 	}
 
 	/// <summary>
@@ -190,7 +202,8 @@ public class WarframeMarketClient : IWarframeMarketApiV2
 
 		_apiV2 = RestService.For<IWarframeMarketApiV2>(_httpClient, new RefitSettings
 		{
-			ContentSerializer = new SystemTextJsonContentSerializer(V2Options)
+			ContentSerializer = new SystemTextJsonContentSerializer(V2Options),
+			UrlParameterKeyFormatter = new SnakeCaseKeyFormatter()
 		});
 	}
 
