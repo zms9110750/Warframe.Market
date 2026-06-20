@@ -193,7 +193,9 @@ public partial class OrderTop : ComponentBase, IDisposable
             {
                 case { IsMod: true } or { IsArcane: true }:
                 {
-                    var a = await Wfm.GetOrdersItemTopAsync(slug, new(Rank: rank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+                    var a = await Wfm.GetOrdersItemTopAsync(slug, isMax
+                        ? new OrderTopQueryParameter(Rank: maxRank, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
+                        : new OrderTopQueryParameter(Rank: null, RankLt: rank + 1, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
                     if (a?.Content?.Data != null)
                     {
                         orders.AddRange(a.Content.Data.Buy.Concat(a.Content.Data.Sell));
