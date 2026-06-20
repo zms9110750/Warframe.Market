@@ -5,12 +5,12 @@
 
 @* 筛选开关 *@
 <div class="d-flex align-center mb-2" style="gap:12px;">
-	<MSelect @bind-Value="_filterType" Items="@(new[] { "all", "buy", "sell" })" 
-			 ItemText="@(t => t == "all" ? "全部" : t == "buy" ? "购" : "售")"
-			 ItemValue="@(t => t)" Dense Solo HideDetails="true" Style="max-width:100px;" />
-	<MSelect @bind-Value="_showMaxRankStr" Items="@(new[] { "false", "true" })"
-			 ItemText="@(t => t == "true" ? _maxRankLabel : "全部等级")"
-			 ItemValue="@(t => t)" Dense Solo HideDetails="true" Style="max-width:120px;" />
+	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
+		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
+	</MSwitch>
+	<MSwitch @bind-Value="_showMaxRank" Dense Inset HideDetails="true" @bind-Value:after="@(() => _ = RefreshWithRankAsync())">
+		<LabelContent>@(_showMaxRank ? _maxRankLabel : "0级")</LabelContent>
+	</MSwitch>
 </div>
 
 <MDataTable Items="@FilteredOrders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"

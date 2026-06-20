@@ -21,14 +21,14 @@ public partial class UserResultTable : ComponentBase
 	{
 		_headers = new()
 		{
-			new("物品", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortName(o)) },
-			new("英文名称", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortEn(o)) },
-			new("类型", nameof(Order.Type)) { Sortable = false },
+			new("物品", "name_cn") { ValueExpression = (Func<Order, object?>)(o => SortName(o)) },
+			new("英文名称", "name_en") { ValueExpression = (Func<Order, object?>)(o => SortEn(o)) },
+			new("类型", "type_name") { ValueExpression = (Func<Order, object?>)(o => o.Type is "buy" or "Buy" ? "购" : "售") },
 			new("铂金", nameof(Order.Platinum)),
 			new("数量", nameof(Order.Quantity)),
 			new("等级", nameof(Order.Rank)),
-			new("参考价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
-			new("差价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
+			new("参考价", "ref_price") { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
+			new("差价", "diff_price") { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
 		};
 	}
 

@@ -80,24 +80,10 @@
 
 		_headers = new()
 		{
-			new("中文名称", nameof(ItemShort.Slug))
-			{
-				ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug)
-			},
-			new("英文名称", nameof(ItemShort.Slug))
-			{
-				ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")
-			},
-			new("价格", nameof(ItemShort.Slug))
-			{
-				Align = DataTableHeaderAlign.End,
-				ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "")
-			},
-			new("满级价格", nameof(ItemShort.Slug))
-			{
-				Align = DataTableHeaderAlign.End,
-				ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "")
-			},
+			new("中文名称", "name_cn") { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug) },
+			new("英文名称", "name_en") { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") },
+			new("价格", "price") { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "") },
+			new("满级价格", "price_max") { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "") },
 		};
 
 		var geting = new HashSet<Task<Statistic?>>();
