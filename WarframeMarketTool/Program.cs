@@ -3,29 +3,31 @@ using zms9110750.WarframeMarketApi.Models.Orders;
 
 var wfm = new WarframeMarketClient { Crossplay = true, Language = zms9110750.WarframeMarketApi.Models.Items.Language.ZhHans, Platform = zms9110750.WarframeMarketApi.Models.Users.Platform.PC };
 
-Console.WriteLine("=== 对比 Rank 精确 vs RankLt (上限) ===");
+var mods = new[] { "high_voltage", "split_flights", "catalyzing_shields", "streamline", "fleeting_expertise" };
 
-async Task T(string label, int? rank, int? rankLt)
+foreach (var mod in mods)
 {
-    var r = await wfm.GetOrdersItemTopAsync("high_voltage",
-        new(Rank: rank, RankLt: rankLt, Charges: null, ChargesLt: null,
-            AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
-    var d = r?.Content?.Data;
-    if (d == null) { Console.WriteLine($"{label}: null"); return; }
-    Console.WriteLine($"{label}: 买={string.Join(",", (d.Buy??[]).Select(b=>$"R{b.Rank}${b.Platinum}"))}");
+    Console.WriteLine($"\n=== {mod} ===");
+    var def = await wfm.GetOrdersItemTopAsync(mod, null);
+    var db = def?.Content?.Data?.Buy ?? [];
+    var ds = def?.Content?.Data?.Sell ?? [];
+    Console.WriteLine($"  默认: 买={db.Length}({string.Join(",",db.Select(b=>$"R{b.Rank}${b.Platinum}"))}) 卖={ds.Length}({string.Join(",",ds.Select(s=>$"R{s.Rank}${s.Platinum}"))})");
+
+    // Rank=0
+    var r0 = await wfm.GetOrdersItemTopAsync(mod, new(Rank: 0, RankLt: null, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+    var r0b = r0?.Content?.Data?.Buy ?? [];
+    Console.WriteLine($"  Rank=0: 买={r0b.Length}({string.Join(",", r0b.Select(b=>$"R{b.Rank}${b.Platinum}"))})");
+
+    // Max rank (取默认数据中最高 rank)
+    var maxRank = db.Concat(ds).Max(o => o.Rank ?? 0);
+    Console.WriteLine($"  最高等级: {maxRank}");
+
+    // RankLt=全部
+    var rLt = await wfm.GetOrdersItemTopAsync(mod, new(Rank: null, RankLt: maxRank, Charges: null, ChargesLt: null, AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+    var rLtB = rLt?.Content?.Data?.Buy ?? [];
+    Console.WriteLine($"  RankLt={maxRank}: 买={rLtB.Length}({string.Join(",", rLtB.Select(b=>$"R{b.Rank}${b.Platinum}"))})");
+
+    // 对比：RankLt 结果是否等于 默认
+    var same = rLtB.Length == db.Length && rLtB.Zip(db).All(p => p.First.Platinum == p.Second.Platinum);
+    Console.WriteLine($"  RankLt==默认: {same}");
 }
-
-Console.WriteLine("--- 基准 ---");
-await T("无参数", null, null);
-
-Console.WriteLine("\n--- Rank 精确 ---");
-await T("rank=0", 0, null);
-await T("rank=1", 1, null);
-await T("rank=2", 2, null);
-await T("rank=3", 3, null);
-
-Console.WriteLine("\n--- RankLt (上限 ≤ ) ---");
-await T("rankLt=0", null, 0);
-await T("rankLt=1", null, 1);
-await T("rankLt=2", null, 2);
-await T("rankLt=3", null, 3);

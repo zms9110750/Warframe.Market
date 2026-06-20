@@ -17,9 +17,11 @@
 	}
 </div>
 
+@if (_showTable)
+{
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
-			Loading="@loading">
+			Loading="@loading" @key="@_refreshKey">
 	<GroupHeaderContent>
 		<td colspan="@_headers.Count">
 			@if (context.Group is "buy" or "Buy") { @("购") }
@@ -68,3 +70,4 @@
 		}
 	</ItemColContent>
 </MDataTable>
+}

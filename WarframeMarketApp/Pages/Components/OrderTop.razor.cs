@@ -21,6 +21,7 @@ public partial class OrderTop : ComponentBase, IDisposable
     protected int _selectedRank = 0;
     protected int _maxRankValue = 0;
     private int _refreshKey;
+    private bool _showTable = true;
 
     protected Order[] TopOrder = Array.Empty<Order>();
 
@@ -182,7 +183,12 @@ public partial class OrderTop : ComponentBase, IDisposable
                     : new OrderTopQueryParameter(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
                         AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
             if (resp?.Content?.Data != null)
+            {
+                _showTable = false;
+                StateHasChanged();
                 TopOrder = resp.Content.Data.Buy.Concat(resp.Content.Data.Sell).Distinct().ToArray();
+                _showTable = true;
+            }
             _refreshKey++;
             Log.Information("OrderTop 刷新完成: rank={Rank}, count={Count}", _selectedRank, TopOrder.Length);
         }
