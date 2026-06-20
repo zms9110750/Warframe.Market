@@ -62,26 +62,10 @@ public partial class OrderTop : ComponentBase, IDisposable
 			Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
 			loading = true;
 
-			// 默认开关：MOD/赋能→满级，遗物→光辉，组件→成品
+			// 默认等级：滑块从0开始
 			var tags = TargetItem.Tags ?? new();
 			_maxRankValue = TargetItem.MaxRank ?? 0;
 			_selectedRank = 0;
-			if (tags.Contains("mod") || tags.Contains("arcane_enhancement"))
-			{
-				_selectedRank = _maxRankValue;
-			}
-			else if (tags.Contains("relic"))
-			{
-				_selectedRank = _maxRankValue;
-			}
-			else if (tags.Contains("component"))
-			{
-				_selectedRank = _maxRankValue;
-			}
-			else if (tags.Contains("ayatan_sculpture"))
-			{
-				_selectedRank = _maxRankValue;
-			}
 
 			var orders = new List<Order>();
 			HashSet<string> Tags = TargetItem.Tags ?? new();

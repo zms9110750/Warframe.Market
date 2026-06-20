@@ -9,7 +9,8 @@
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
 	<input type="range" min="0" max="@_maxRankValue" 
-		   @bind-Value="_selectedRank" @bind-Value:event="oninput"
+		   value="@_selectedRank"
+		   @oninput="@((ChangeEventArgs e) => _selectedRank = int.TryParse(e.Value?.ToString(), out var v) ? v : 0)"
 		   @onchange="@(() => _ = RefreshWithRankAsync())"
 		   style="max-width:150px;margin:0 12px;" />
 	<span>等级 @_selectedRank</span>
