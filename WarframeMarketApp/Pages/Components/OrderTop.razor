@@ -19,7 +19,7 @@
 
 @if (_showTable)
 {
-<MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
+<MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="@_refreshKey"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
 			Loading="@loading" @key="@_refreshKey">
 	<GroupHeaderContent>
