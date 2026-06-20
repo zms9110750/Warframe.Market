@@ -56,10 +56,11 @@ public partial class OrderTop : ComponentBase, IDisposable
 			var maxRank = TargetItem.MaxRank;
 			var maxAmber = TargetItem.MaxAmberStars;
 			var maxCyan = TargetItem.MaxCyanStars;
+			var s = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
 
 			var orders = new List<Order>();
 
-			switch (TargetItem.Subtypes)
+			switch (s)
 			{
 				case { IsMod: true } or { IsArcane: true }:
 				{
@@ -139,7 +140,8 @@ public partial class OrderTop : ComponentBase, IDisposable
 			var maxCyan = TargetItem.MaxCyanStars;
 			var isMax = rank >= (maxRank ?? int.MaxValue);
 
-			switch (TargetItem.Subtypes)
+			var s2 = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
+			switch (s2)
 			{
 				case { IsMod: true } or { IsArcane: true }:
 				{
@@ -189,4 +191,13 @@ public partial class OrderTop : ComponentBase, IDisposable
 	}
 
 	public void Dispose() { }
+
+	private static ItemSubtypeSet? FallbackSubtypes(HashSet<string>? tags)
+	{
+		if (tags == null) return null;
+		// Tags 和 Subtypes 包含相同的分类关键词
+		var result = new ItemSubtypeSet();
+		foreach (var t in tags) result.Add(t);
+		return result;
+	}
 }
