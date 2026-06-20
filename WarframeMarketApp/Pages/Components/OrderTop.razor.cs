@@ -35,10 +35,10 @@ public partial class OrderTop : ComponentBase, IDisposable
 	}
 	protected List<DataTableHeader<Order>> _headers = new()
 	{
-		new("联系", "contact") { Sortable = false },
-		new("卖家", "seller") { ValueExpression = (Func<Order, object?>)(r => r.User?.IngameName) },
-		new("声誉", "reputation") { ValueExpression = (Func<Order, object?>)(r => r.User?.Reputation) },
-		new("语言", "locale") { ValueExpression = (Func<Order, object?>)(r => r.User?.Locale) },
+		new("联系", nameof(Order.Id)) { Sortable = false },
+		new("卖家", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.IngameName) },
+		new("声誉", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Reputation) },
+		new("语言", nameof(Order.User)) { ValueExpression = (Func<Order, object?>)(r => r.User?.Locale) },
 		new("价格", nameof(Order.Platinum)),
 		new("数量", nameof(Order.Quantity)),
 	};
