@@ -22,6 +22,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 	protected int _maxRankValue = 0;
 	protected string _selectedRankLabel = "0级";
 	private int _previousSelectedRank = -1;
+	private int _refreshKey;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -140,6 +141,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 			}
 
 			TopOrder = orders.Distinct().ToArray();
+			_refreshKey++;
 		}
 		catch (Exception ex) { Log.Error(ex, "OrderTop 加载失败"); }
 		finally { loading = false; }
