@@ -30,7 +30,7 @@ public partial class OrderTop : ComponentBase, IDisposable
     {
         get
         {
-            var q = TopOrder.AsEnumerable();
+            var q = (TopOrder ?? Array.Empty<Order>()).AsEnumerable();
             q = q.Where(o => _showBuy ? (o.Type is "buy" or "Buy") : (o.Type is "sell" or "Sell"));
             if (_userStatus == "online")
                 q = q.Where(o => o.User?.Status is "online" or "ingame");
