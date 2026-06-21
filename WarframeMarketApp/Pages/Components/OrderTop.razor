@@ -8,6 +8,9 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
+	<MSelect @bind-Value="_userStatus" Items="@(new[] { "all", "online", "ingame" })"
+			 ItemText="@(s => s == "all" ? "全部" : s == "online" ? "在线" : "游戏中")"
+			 ItemValue="@(s => s)" Dense Solo HideDetails="true" Style="max-width:90px;" />
 	@if (_maxRankValue > 0)
 	{
 		<MSlider @bind-Value="_selectedRank" Min="0" Max="@_maxRankValue"

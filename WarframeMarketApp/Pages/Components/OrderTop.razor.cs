@@ -18,6 +18,7 @@ public partial class OrderTop : ComponentBase, IDisposable
 
     protected bool loading = true;
     protected bool _showBuy = false;
+    protected string _userStatus = "all";
     protected int _selectedRank = 0;
     protected int _maxRankValue = 0;
     private int _refreshKey;
@@ -31,6 +32,10 @@ public partial class OrderTop : ComponentBase, IDisposable
         {
             var q = TopOrder.AsEnumerable();
             q = q.Where(o => _showBuy ? (o.Type is "buy" or "Buy") : (o.Type is "sell" or "Sell"));
+            if (_userStatus == "online")
+                q = q.Where(o => o.User?.Status is "online" or "ingame");
+            else if (_userStatus == "ingame")
+                q = q.Where(o => o.User?.Status == "ingame");
             if (_maxRankValue > 0 && _selectedRank > 0)
             {
                 if (_showBuy)
