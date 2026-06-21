@@ -11,7 +11,7 @@
 	@if (_maxRankValue > 0)
 	{
 		<MSlider @bind-Value="_selectedRank" Min="0" Max="@_maxRankValue"
-				 OnEnd="@((int v) => _ = RefreshWithRankAsync())"
+				 OnEnd="@((int v) => { _showTable = false; StateHasChanged(); _showTable = true; StateHasChanged(); })"
 				 Dense HideDetails="true" Style="max-width:150px;" />
 		<span>等级 @_selectedRank</span>
 	}
