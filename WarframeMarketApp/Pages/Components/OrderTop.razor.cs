@@ -86,17 +86,23 @@ public partial class OrderTop : ComponentBase, IDisposable
 
     private async Task RefreshWithRankAsync()
     {
-        Log.Information("OrderTop 刷新: rankLt={Rank}", _selectedRank);
+        Log.Information("OrderTop 刷新: rankLt={Rank}, showBuy={Buy}", _selectedRank, _showBuy);
         if (TargetItem == null) return;
         try
         {
             var slug = TargetItem.Slug;
-            var resp = await Wfm.GetOrdersItemTopAsync(slug,
-                _selectedRank > 0
-                    ? new OrderTopQueryParameter(Rank: null, RankLt: _selectedRank, Charges: null, ChargesLt: null,
-                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null)
-                    : new OrderTopQueryParameter(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
-                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null));
+            // 购→RankLt(范围广)，售→Rank(精确等级)
+            OrderTopQueryParameter? query;
+            if (_selectedRank <= 0)
+                query = new(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
+                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+            else if (_showBuy)
+                query = new(Rank: null, RankLt: _selectedRank, Charges: null, ChargesLt: null,
+                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+            else
+                query = new(Rank: _selectedRank, RankLt: null, Charges: null, ChargesLt: null,
+                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+            var resp = await Wfm.GetOrdersItemTopAsync(slug, query);
             if (resp?.Content?.Data != null)
             {
                 _showTable = false;
