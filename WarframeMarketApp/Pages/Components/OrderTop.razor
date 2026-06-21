@@ -17,18 +17,14 @@
 	{
 		<input type="range" min="0" max="@_maxRankValue" 
 			   value="@_selectedRank"
-			   @oninput="@((ChangeEventArgs e) => { _selectedRank = int.TryParse(e.Value?.ToString(), out var n) ? n : 0; })"
-			   @onchange="@((ChangeEventArgs e) => { _selectedRank = int.TryParse(e.Value?.ToString(), out var n) ? n : 0; _showTable = false; StateHasChanged(); _showTable = true; StateHasChanged(); })"
+			   @onchange="@((ChangeEventArgs e) => { _selectedRank = int.TryParse(e.Value?.ToString(), out var n) ? n : 0; _refreshKey++; StateHasChanged(); })"
 			   style="max-width:150px;margin:0 12px;" />
 		<span>等级 @_selectedRank</span>
 	}
 </div>
 
-@if (_showTable)
-{
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="@_refreshKey"
-			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
-			SortBy="@(Array.Empty<string>())" SortDesc="@(Array.Empty<bool>())" Loading="@loading">
+			GroupBy="nameof(Order.Type)" GroupDesc="[true]" Loading="@loading">
 	<GroupHeaderContent>
 		<td colspan="@_headers.Count">
 			@if (context.Group is "buy" or "Buy") { @("购") }
