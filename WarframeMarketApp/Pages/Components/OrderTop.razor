@@ -28,7 +28,7 @@
 {
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" @key="@_refreshKey"
 			GroupBy="nameof(Order.Type)" GroupDesc="[true]"
-			MustSort SortBy="@("Platinum")" SortDesc="@true" Loading="@loading">
+			SortBy="@(Array.Empty<string>())" SortDesc="@(Array.Empty<bool>())" Loading="@loading">
 	<GroupHeaderContent>
 		<td colspan="@_headers.Count">
 			@if (context.Group is "buy" or "Buy") { @("购") }
