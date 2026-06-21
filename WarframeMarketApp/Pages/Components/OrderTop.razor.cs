@@ -92,16 +92,16 @@ public partial class OrderTop : ComponentBase, IDisposable
         {
             var slug = TargetItem.Slug;
             // 购→RankLt(范围广)，售→Rank(精确等级)
-            OrderTopQueryParameter? query;
-            if (_selectedRank <= 0)
-                query = new(Rank: 0, RankLt: null, Charges: null, ChargesLt: null,
-                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
-            else if (_showBuy)
-                query = new(Rank: null, RankLt: _selectedRank, Charges: null, ChargesLt: null,
-                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
-            else
-                query = new(Rank: _selectedRank, RankLt: null, Charges: null, ChargesLt: null,
-                    AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+            OrderTopQueryParameter? query = null;
+            if (_selectedRank > 0)
+            {
+                if (_showBuy)
+                    query = new(Rank: null, RankLt: _selectedRank, Charges: null, ChargesLt: null,
+                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+                else
+                    query = new(Rank: _selectedRank, RankLt: null, Charges: null, ChargesLt: null,
+                        AmberStars: null, AmberStarsLt: null, CyanStars: null, CyanStarsLt: null, Subtype: null);
+            }
             var resp = await Wfm.GetOrdersItemTopAsync(slug, query);
             if (resp?.Content?.Data != null)
             {
