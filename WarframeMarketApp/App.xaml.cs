@@ -23,6 +23,16 @@ public partial class App : Application
                 depth++;
             }
             System.IO.File.WriteAllText("crash.log", sb.ToString());
+
+            // Masa Blazor JS 清理在 WebView 中会炸（removeEventListener/getAttributeNames），
+            // 这种异常不可恢复但可以忽略不崩
+            if (e.Exception is System.Reflection.TargetInvocationException tie
+                && tie.InnerException is Microsoft.JSInterop.JSException)
+            {
+                e.Handled = true;
+                return;
+            }
+
             e.Handled = true;
             Current.Shutdown();
         };
