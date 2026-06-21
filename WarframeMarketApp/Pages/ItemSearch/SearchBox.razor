@@ -1,13 +1,9 @@
 @namespace WarframeMarketApp.Pages.ItemSearch
 @using Serilog
 
-<MTextField @bind-Value="query"
-            @bind-Value:event="oninput"
-            Label="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
-            AppendIcon="mdi-magnify"
-            Clearable
-            Dense Solo Class="mb-2"
-            Style="max-width: 600px;" />
+<input @bind-Value="query" @bind-Value:event="oninput"
+	   placeholder="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
+	   style="flex:1;border:1px solid #ccc;border-radius:4px;padding:6px 10px;font-size:14px;max-width:600px;" />
 
 <MButton Class="mt-1" Color="primary" Small OnClick="@(() => _ = DoSearch())">搜索</MButton>
 
@@ -39,7 +35,6 @@
 
 	private async Task DoSearch()
 	{
-		Log.Information("SearchBox 搜索: {Query}", query);
 		var q = query?.Trim();
 		if (!string.IsNullOrWhiteSpace(q))
 			await OnSearch.InvokeAsync(q);
@@ -47,14 +42,12 @@
 
 	private async Task OpenTab(string q)
 	{
-		Log.Information("SearchBox 打开收藏: {Query}", q);
 		query = q;
 		await OnFavoriteClick.InvokeAsync(q);
 	}
 
 	private async Task SaveQuery()
 	{
-		Log.Information("SearchBox 保存收藏: {Query}", query);
 		if (!string.IsNullOrWhiteSpace(query) && !SavedQueries.Contains(query))
 		{
 			SavedQueries.Add(query);

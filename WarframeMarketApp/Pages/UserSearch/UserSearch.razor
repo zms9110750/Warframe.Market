@@ -10,7 +10,9 @@
 
 @if (activeTabIndex == 0)
 {
-	<MTextField @bind-Value="slug" Label="输入用户名（/分隔多用户）" Clearable Dense Solo Class="mb-4" Style="max-width: 400px;" />
+	<input @bind-Value="slug" @bind-Value:event="oninput"
+		   placeholder="输入用户名（/分隔多用户）"
+		   style="flex:1;max-width:400px;border:1px solid #ccc;border-radius:4px;padding:6px 10px;font-size:14px;margin-bottom:12px;" />
 	<MButton OnClick="SearchAsync" Color="primary">查询</MButton>
 }
 
