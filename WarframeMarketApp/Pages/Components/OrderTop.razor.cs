@@ -95,7 +95,13 @@ public partial class OrderTop : ComponentBase, IDisposable
         catch { }
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        // MSlider 的 DisposeAsync 在 WebView 中会触发 JS 异常
+        // https://0.0.0.1/_content/Masa.Blazor/js/masa-blazor.js
+        // e.removeEventListener is not a function
+        // 这个异常是不可恢复的，只能不在 Dispose 时让 MSlider 清理
+    }
 
     private static ItemSubtypeSet? FallbackSubtypes(HashSet<string>? tags)
     {
