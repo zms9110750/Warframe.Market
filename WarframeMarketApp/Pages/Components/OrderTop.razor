@@ -8,9 +8,11 @@
 	<MSwitch @bind-Value="_showBuy" Dense Inset HideDetails="true">
 		<LabelContent>@(_showBuy ? "购" : "售")</LabelContent>
 	</MSwitch>
-	<MSelect @bind-Value="_userStatus" Items="@(new[] { "all", "online", "ingame" })"
-			 ItemText="@(s => s == "all" ? "全部" : s == "online" ? "在线" : "游戏中")"
-			 ItemValue="@(s => s)" Dense Solo HideDetails="true" Style="max-width:90px;" />
+	<select @bind-Value="_userStatus" @bind-Value:event="onchange" style="max-width:90px;border:1px solid #ccc;border-radius:4px;padding:4px;">
+		<option value="all">全部</option>
+		<option value="online">在线</option>
+		<option value="ingame">游戏中</option>
+	</select>
 	@if (_maxRankValue > 0)
 	{
 		<input type="range" min="0" max="@_maxRankValue" 
