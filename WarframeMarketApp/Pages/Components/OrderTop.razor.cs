@@ -47,14 +47,7 @@ public partial class OrderTop : ComponentBase, IDisposable
         }
     }
 
-    protected List<DataTableHeader<Order>> _headers = new()
-    {
-        new("联系", nameof(Order.Id)) { Sortable = false },
-        new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
-        new("声誉", nameof(Order.User), (Func<Order, object?>)(r => r.User?.Reputation)),
-        new("价格", nameof(Order.Platinum)),
-        new("数量", nameof(Order.Quantity)),
-    };
+    protected List<DataTableHeader<Order>> _headers = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -64,19 +57,29 @@ public partial class OrderTop : ComponentBase, IDisposable
             Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
             loading = true;
 
-            _maxRankValue = TargetItem.MaxRank ?? 0;
-            StateHasChanged();
-
+            // 一次性构建完整表头（同步操作，无需等待）
+            var baseHeaders = new List<DataTableHeader<Order>>
+            {
+                new("联系", nameof(Order.Id)) { Sortable = false },
+                new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
+                new("声誉", nameof(Order.User), (Func<Order, object?>)(r => r.User?.Reputation)),
+                new("价格", nameof(Order.Platinum)),
+                new("数量", nameof(Order.Quantity)),
+            };
             var s = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
             if (s is { IsMod: true } or { IsArcane: true })
-                _headers.Add(new("等级", nameof(Order.Rank)));
+                baseHeaders.Add(new("等级", nameof(Order.Rank)));
             else if (s is { IsAyatan: true })
             {
-                _headers.Add(new("琥珀星", nameof(Order.AmberStars)));
-                _headers.Add(new("青蓝星", nameof(Order.CyanStars)));
+                baseHeaders.Add(new("琥珀星", nameof(Order.AmberStars)));
+                baseHeaders.Add(new("青蓝星", nameof(Order.CyanStars)));
             }
             else if (s is { IsComponent: true } or { IsRelic: true } or { IsRiven: true })
-                _headers.Add(new("类型", nameof(Order.Subtype)));
+                baseHeaders.Add(new("类型", nameof(Order.Subtype)));
+            _headers = baseHeaders;
+
+            _maxRankValue = TargetItem.MaxRank ?? 0;
+            StateHasChanged();
 
             var slug = TargetItem.Slug;
             var resp = await Wfm.GetOrdersItemAsync(slug);
