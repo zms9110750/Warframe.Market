@@ -60,11 +60,11 @@ public partial class OrderTop : ComponentBase, IDisposable
             // 一次性构建完整表头（同步操作，无需等待）
             var baseHeaders = new List<DataTableHeader<Order>>
             {
-                new("联系", nameof(Order.Id)) { Sortable = false },
-                new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
-                new("声誉", nameof(Order.User), (Func<Order, object?>)(r => r.User?.Reputation)),
-                new("价格", nameof(Order.Platinum)),
-                new("数量", nameof(Order.Quantity)),
+                new("联系", "contact", (Func<Order, object?>)(r => (object?)null)) { Sortable = false },
+                new("卖家", "seller", (Func<Order, object?>)(r => r.User?.IngameName)),
+                new("声誉", "rep", (Func<Order, object?>)(r => (int?)r.User?.Reputation)),
+                new("价格", "plat", (Func<Order, object?>)(r => (int?)r.Platinum)),
+                new("数量", "qty", (Func<Order, object?>)(r => (int?)r.Quantity)),
             };
             var s = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
             if (s is { IsMod: true } or { IsArcane: true })
