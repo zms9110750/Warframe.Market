@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/WarframeMarketApi/WarframeMarketApi.csproj" />
+  <Project Path="src/WarframeMarketApp/WarframeMarketApp.csproj" />
+  <Project Path="src/WarframeMarketQuery/WarframeMarketQuery.csproj" />
+  <Project Path="src/WarframeMarketQueryWPF/WarframeMarketQueryWPF.csproj" />
+  <Project Path="src/WarframeMarketTool/WarframeMarketTool.csproj" />
+</Solution>

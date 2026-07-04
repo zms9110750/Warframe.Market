@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>zms9110750.$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
+    <AssemblyName>zms9110750.$(MSBuildProjectName)</AssemblyName>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <Authors>zms9110750</Authors>
+    <PackageProjectUrl>https://github.com/zms9110750/zms9110750Library</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zms9110750/zms9110750Library</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>0.1.0</Version>
+    <InformationalVersion>0.1.0+v0.23.0</InformationalVersion>
+    <Title>WarframeMarketApi</Title>
+    <Description>Warframe.Market API 的 .NET 封装库</Description>
+    <PackageTags>Warframe Market API</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Refit.HttpClientFactory" Version="12.0.0" />
+    <PackageReference Include="Polly" Version="8.7.0" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.7.0" />
+  </ItemGroup>
+</Project>
