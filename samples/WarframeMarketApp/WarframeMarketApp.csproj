@@ -19,7 +19,7 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <PackageReference Include="zms9110750.TreeCollection" Version="1.1.1" />
-    <ProjectReference Include="..\WarframeMarketApi\WarframeMarketApi.csproj" />
+    <ProjectReference Include="..\..\src\WarframeMarketApi\WarframeMarketApi.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Update="wwwroot\**">

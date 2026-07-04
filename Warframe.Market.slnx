@@ -1,7 +1,11 @@
 <Solution>
-  <Project Path="src/WarframeMarketApi/WarframeMarketApi.csproj" />
-  <Project Path="src/WarframeMarketApp/WarframeMarketApp.csproj" />
-  <Project Path="src/WarframeMarketQuery/WarframeMarketQuery.csproj" />
-  <Project Path="src/WarframeMarketQueryWPF/WarframeMarketQueryWPF.csproj" />
-  <Project Path="src/WarframeMarketTool/WarframeMarketTool.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/WarframeMarketApi/WarframeMarketApi.csproj" />
+    <Project Path="src/WarframeMarketQuery/WarframeMarketQuery.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/WarframeMarketApp/WarframeMarketApp.csproj" />
+    <Project Path="samples/WarframeMarketQueryWPF/WarframeMarketQueryWPF.csproj" />
+    <Project Path="samples/WarframeMarketTool/WarframeMarketTool.csproj" />
+  </Folder>
 </Solution>

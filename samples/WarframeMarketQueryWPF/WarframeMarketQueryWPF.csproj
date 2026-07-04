@@ -13,7 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Masa.Blazor" Version="1.11.9" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <ProjectReference Include="..\WarframeMarketQuery\WarframeMarketQuery.csproj" />
+    <ProjectReference Include="..\..\src\WarframeMarketQuery\WarframeMarketQuery.csproj" />
     <PackageReference Include="Humanizer.Core.zh-Hans" Version="3.0.10" />
     <Content Update="wwwroot\**">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
