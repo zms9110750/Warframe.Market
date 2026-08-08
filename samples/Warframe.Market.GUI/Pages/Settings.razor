@@ -9,11 +9,31 @@
 
 <h4 class="mt-4">语言 / 平台 / 跨平台</h4>
 
+<div class="mb-2">
+    <div class="d-flex align-center mb-1" style="gap:12px;">
+        <text class="text-caption" style="width:110px;">界面语言（单选）</text>
+        <text class="text-caption">下载语言包（勾选后用于该语言的物品缓存/i18n）</text>
+    </div>
+    <MRadioGroup @bind-Value="lang" Dense HideDetails="true">
+        @foreach (var li in langItems)
+        {
+            var isDownloaded = _downloadedLangs.Contains(li);
+            <div class="d-flex align-center" style="gap:10px;">
+                <MRadio Value="@li" Label="@li" Dense />
+                <MCheckbox Value="@isDownloaded"
+                           ValueChanged="@((bool v) => _ = ToggleDownload(li, v))"
+                           Dense HideDetails="true">
+                    <ChildContent>
+                        <span class="text-caption">下载语言包</span>
+                    </ChildContent>
+                </MCheckbox>
+                @if (isDownloaded) { <span class="text-caption" style="color:#888;">已下载</span> }
+            </div>
+        }
+    </MRadioGroup>
+</div>
+
 <div class="d-flex align-center mb-2" style="gap:12px;">
-    <MSelect TItem="string" TItemValue="string" TValue="string"
-             Items="@langItems" ItemText="@(i => i)" ItemValue="@(i => i)"
-             Value="@lang" ValueChanged="@((string v) => { lang = v; State.Language = AppState.StrToLang(v); })"
-             Label="语言" Dense Solo HideDetails="true" Style="max-width:140px;" />
     <MSelect TItem="string" TItemValue="string" TValue="string"
              Items="@platItems" ItemText="@(i => i)" ItemValue="@(i => i)"
              Value="@plat" ValueChanged="@((string v) => { plat = v; State.Platform = AppState.StrToPlat(v); })"
@@ -49,10 +69,12 @@
     [Inject] private AppState State { get; set; } = null!;
     [Inject] private ConfigService Config { get; set; } = null!;
     [Inject] private UpdateService Updates { get; set; } = null!;
+    [Inject] private LocalizationDownloadService Localizations { get; set; } = null!;
 
     private string lang = "zh-hans";
     private string plat = "pc";
     private bool crossplay = true;
+    private HashSet<string> _downloadedLangs = new();
     private GiteeRelease[]? Releases;
 
     private List<string> langItems => Enum.GetValues<Language>()
@@ -67,6 +89,28 @@
         lang = cfg.DefaultLanguage;
         plat = cfg.DefaultPlatform;
         crossplay = cfg.DefaultCrossplay;
+        // 已下载的语言包：配置列表 + 本地已存在的
+        _downloadedLangs = cfg.DownloadedLanguages
+            .Concat(langItems.Where(LocalizationDownloadService.IsDownloaded))
+            .ToHashSet();
+    }
+
+    /// <summary>勾选/取消"下载语言包"：勾选即从 wfm-localization 下载该语言 JSON 存本地</summary>
+    private async Task ToggleDownload(string li, bool v)
+    {
+        if (v)
+        {
+            if (await Localizations.DownloadAsync(li))
+            {
+                _downloadedLangs.Add(li);
+                Log.Information("Settings 语言包已下载: {Lang}", li);
+            }
+        }
+        else
+        {
+            _downloadedLangs.Remove(li);
+            Log.Information("Settings 移除语言包: {Lang}", li);
+        }
     }
 
     private void Save()
@@ -76,8 +120,10 @@
             DefaultLanguage = lang,
             DefaultPlatform = plat,
             DefaultCrossplay = crossplay,
+            DownloadedLanguages = _downloadedLangs.ToList(),
         });
-        Log.Information("Settings 保存默认配置: {Lang}/{Plat}/crossplay={Cross}", lang, plat, crossplay);
+        Log.Information("Settings 保存默认配置: {Lang}/{Plat}/crossplay={Cross}, 语言包={Langs}",
+            lang, plat, crossplay, string.Join(",", _downloadedLangs));
     }
 
     private async Task LoadReleases()

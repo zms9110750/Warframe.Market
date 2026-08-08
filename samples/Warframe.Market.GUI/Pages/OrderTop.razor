@@ -59,13 +59,17 @@
     <ItemColContent>
         @if (context.Header.Text == "联系")
         {
-            var locale = context.Item.User?.Locale;
+            @* 私聊文本：按对方语言用 order_clipboard_template.json 模板生成；
+               中文目标用中文模板；其他用英文模板 + 末尾追加 对方语言物品名 <=> 价格（若有该语言 i18n） *@
+            var locale = context.Item.User?.Locale ?? "";
             var enName = TargetItem.I18n.TryGetValue(Language.En, out var en) ? en.Name : TargetItem.Slug;
-            var zhName = locale == "zh-hans" && TargetItem.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
-            var hasSubtype = context.Item.Subtype != null ? $" of {context.Item.Subtype}" : null;
-            var rank = context.Item.Rank != null ? $" rank {context.Item.Rank}" : null;
+            var localizedName = OrderMessageFormatter.IsChineseLocale(locale)
+                ? (TargetItem.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null)
+                : (Enum.TryParse<Language>(locale, true, out var loc) && TargetItem.I18n.TryGetValue(loc, out var lp) ? lp.Name : null);
             var type = context.Item.Type is "buy" or "Buy" ? "sell" : "buy";
-            var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: \"{enName}\"{zhName}{hasSubtype}{rank} for {context.Item.Platinum} platinum.";
+            var msg = OrderMessageFormatter.BuildMessage(
+                locale, type, context.Item.User?.IngameName ?? "", enName, localizedName,
+                context.Item.PerTrade, context.Item.Subtype, context.Item.Rank, null, context.Item.Platinum);
             <MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
         }
         else if (context.Header.Text == "卖家")

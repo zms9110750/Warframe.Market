@@ -91,6 +91,8 @@ class Program
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("wfm");
             return new WarframeMarketClient(http);
         });
+        // 语言包下载（独立 HttpClient，不走 wfm 的缓存/限流管道）
+        appBuilder.Services.AddSingleton<LocalizationDownloadService>(_ => new(new HttpClient()));
 
         // Gitee 更新源
         appBuilder.Services.AddRefitClient<IGitee>()
@@ -101,7 +103,9 @@ class Program
         appBuilder.Services.AddSingleton<ConfigService>();
         appBuilder.Services.AddSingleton<PersistentStorage>();
         appBuilder.Services.AddSingleton<UpdateService>();
-        appBuilder.Services.AddSingleton<IItemSearchService, ItemSearchService>();
+        appBuilder.Services.AddSingleton<IItemSearchService>(sp => new ItemSearchService(
+            sp.GetRequiredService<WarframeMarketClient>(),
+            () => sp.GetRequiredService<ConfigService>().LoadAppConfig().DownloadedLanguages));
         appBuilder.Services.AddSingleton<IUserOrderService, UserOrderService>();
         appBuilder.Services.AddSingleton<IArcanePackService, ArcanePackService>();
         appBuilder.Services.AddSingleton<IOrderService, OrderService>();

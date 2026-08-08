@@ -11,6 +11,7 @@ namespace zms9110750.WarframeMarketApi.Services;
 public class ItemSearchService : IItemSearchService
 {
     private readonly WarframeMarketClient _wfm;
+    private readonly Func<IEnumerable<string>>? _extraLanguagesProvider;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     private Trie? _trie;
@@ -19,9 +20,11 @@ public class ItemSearchService : IItemSearchService
     private Dictionary<string, ItemShort>? _byName;
     private bool _loaded;
 
-    public ItemSearchService(WarframeMarketClient wfm)
+    /// <summary>extraLanguagesProvider：返回需要合并 i18n 的额外语言代码列表（来自设置页勾选的"下载语言包"）</summary>
+    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null)
     {
         _wfm = wfm;
+        _extraLanguagesProvider = extraLanguagesProvider;
     }
 
     public void Invalidate()
@@ -76,6 +79,50 @@ public class ItemSearchService : IItemSearchService
                         byName.TryAdd(pake.Name, item);
                         byName.TryAdd(NormalizeName(pake.Name), item); // 归一化键（空格/·/- 等价）
                     }
+                }
+            }
+
+            // 额外语言合并：设置页勾选"下载语言包"的语言 → 各请求一次 items（带该语言头）→
+            // 把该语言的物品名并入索引与 I18n（显示/私信用对方语言的物品名）
+            var extraLangs = _extraLanguagesProvider?.Invoke() ?? [];
+            foreach (var lang in extraLangs.Distinct())
+            {
+                try
+                {
+                    var langResp = await _wfm.GetItemsAsync(ct, lang);
+                    var langItems = langResp?.Content?.Data ?? [];
+                    System.Diagnostics.Debug.WriteLine($"ItemsService 合并语言 {lang}: {langItems.Length} 个物品");
+                    foreach (var it in langItems)
+                    {
+                        if (!bySlug.TryGetValue(it.Slug, out var main))
+                        {
+                            continue;
+                        }
+
+                        if (it.I18n == null)
+                        {
+                            continue;
+                        }
+
+                        foreach (var kv in it.I18n)
+                        {
+                            var loc = kv.Key;
+                            var pake = kv.Value;
+                            if (string.IsNullOrEmpty(pake?.Name))
+                            {
+                                continue;
+                            }
+
+                            trie.Add(pake.Name);
+                            byName.TryAdd(pake.Name, main);
+                            byName.TryAdd(NormalizeName(pake.Name), main);
+                            main.I18n[loc] = pake; // 合并进主物品（ItemShort.I18n 现为可变）
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ItemsService 合并语言 {lang} 失败: {ex.Message}");
                 }
             }
 

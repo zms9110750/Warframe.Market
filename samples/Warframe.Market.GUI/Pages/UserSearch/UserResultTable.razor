@@ -22,33 +22,27 @@ else
             {
                 <p class="text-caption">@(result.LoadingPrices ? " — 加载中..." : "")</p>
                 <MDataTable Items="result.Orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" Loading="@result.Loading" MustSort
-                            ItemKey="r => r.Id"
+                            ItemKey="r => r.Id" ShowExpand
                             GroupBy="nameof(Order.Type)" GroupDesc="[true]">
                     <GroupHeaderContent>
                         <td colspan="@_headers.Count">
                             @if (context.Group is "buy" or "Buy") { @("购") } else { @("售") }
                         </td>
                     </GroupHeaderContent>
+                    <ExpandedItemContent>
+                        <td colspan="9999">
+                            @* 用户订单展开：订单有确认等级 → 等级滑块默认选中该等级 *@
+                            <OrderTop TargetItem="@GetItemShort(result, context.Item)" InitialRank="@(context.Item.Rank)" CancelToken="@CancelToken" />
+                        </td>
+                    </ExpandedItemContent>
                     <ItemColContent>
                         @if (context.Header.Text == "物品") { @GetItemName(result, context.Item) }
                         else if (context.Header.Text == "英文名称") { @GetEnName(result, context.Item) }
                         else if (context.Header.Text == "参考价") { @GetRef(result, context.Item) }
                         else if (context.Header.Text == "差价") { @GetDiff(result, context.Item) }
-                        else if (context.Header.Text == "订单")
-                        {
-                            <MButton Small Outlined Color="primary" OnClick="@(() => _selectedOrder = context.Item)">查看订单</MButton>
-                        }
                         else { @context.Value?.ToString() }
                     </ItemColContent>
                 </MDataTable>
-
-                @* 自定义订单子面板（订单有确认等级 → 等级滑块默认选中该等级） *@
-                @if (_selectedOrder != null)
-                {
-                    <div style="margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px;">
-                        <OrderTop TargetItem="@GetItemShort(result, _selectedOrder)" InitialRank="@(_selectedOrder.Rank)" CancelToken="@CancelToken" />
-                    </div>
-                }
             }
             else if (!result.Loading) { <p>无公开订单</p> }
         </div>
@@ -65,7 +59,6 @@ else
     [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
 
     private DateTime? _lastRefreshed;
-    private Order? _selectedOrder;
     private List<DataTableHeader<Order>> _headers = new();
 
     private async Task DoRefresh()
@@ -98,7 +91,6 @@ else
             new("等级", nameof(Order.Rank)),
             new("参考价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
             new("差价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
-            new("订单", "") { Sortable = false, ValueExpression = (Func<Order, object?>)(_ => null) },
         };
     }
 

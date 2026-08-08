@@ -22,9 +22,10 @@ internal interface IWarframeMarketApiV2
     [Get("/v2/versions")]
     Task<IApiResponse<Response<ServerVersion>>> GetVersionsAsync(CancellationToken cancellation = default);
 
-    /// <summary>获取所有可交易物品列表</summary>
+    /// <summary>获取所有可交易物品列表（language 为空时用客户端默认 Language 头）</summary>
     [Get("/v2/items")]
-    Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(CancellationToken cancellation = default);
+    Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(
+        CancellationToken cancellation = default, [Header("Language")] string? language = null);
 
     /// <summary>获取指定物品的完整信息（支持 slug 或 itemId）</summary>
     [Get("/v2/item/{slugOrItemId}")]

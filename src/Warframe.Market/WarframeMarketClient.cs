@@ -196,9 +196,9 @@ public class WarframeMarketClient : IWarframeMarketApiV2
     }
 
     /// <inheritdoc/>
-    public Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(CancellationToken cancellation = default)
+    public Task<IApiResponse<Response<ItemShort[]>>> GetItemsAsync(CancellationToken cancellation = default, string? language = null)
     {
-        return _apiV2.GetItemsAsync(cancellation);
+        return _apiV2.GetItemsAsync(cancellation, language);
     }
 
     /// <inheritdoc/>
