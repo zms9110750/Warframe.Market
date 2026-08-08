@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -207,7 +208,18 @@ public class ItemSearchService : IItemSearchService
         return results;
     }
 
-    public async Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
+    public Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
+    {
+        // per-slug 并发去重（照旧版 CacheService._pendingStats 模式）：
+        // 同 slug 并发请求只发一次（赋能包 45 任务 × 每包物品会重复请求同一物品），
+        // 其余调用共享同一 Task——把网络请求从 ~585 降到 ~146，配合限流让"逐格动态"可感知
+        return _statTasks.GetOrAdd(slug, s => FetchStatisticAsync(s, ct));
+    }
+
+    /// <summary>去重字典：slug → 进行中/已完成的统计请求（完成保留，后续直接命中）</summary>
+    private readonly ConcurrentDictionary<string, Task<Statistic?>> _statTasks = new();
+
+    private async Task<Statistic?> FetchStatisticAsync(string slug, CancellationToken ct)
     {
         // 全局统计并发限制（3）：避免赋能包多任务并行触发请求风暴挤爆限流队列
         await StatThrottle.WaitAsync(ct);
