@@ -56,7 +56,7 @@ class Program
             }))
             .AsHybridCache();
 
-        // Warframe.Market HTTP 客户端：缓存(命中跳过后续策略) → 429 指数重试 → 令牌桶限流 3/s
+        // Warframe.Market HTTP 客户端：缓存(命中跳过后续策略) → 限流感知重试(本地限流异常/429) → 令牌桶限流 3/s
         // HTTP 响应缓存键 = {method}/{scheme}/{host}{path}，GET 全自动缓存，无需业务层管缓存
         appBuilder.Services.AddHttpClient("wfm", c => c.BaseAddress = new Uri("https://api.warframe.market"))
             .AddResilienceHandler("wfm", (pipeline, ctx) => {
@@ -72,20 +72,26 @@ class Program
                             }
                             : CacheConfig.EntryOptionsProvider(pipelineCtx.GetRequestMessage()?.RequestUri?.LocalPath ?? "")),
                 });
-                pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage> {
-                    ShouldHandle = args => ValueTask.FromResult(
-                        args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
-                    MaxRetryAttempts = 3,
-                    Delay = TimeSpan.FromSeconds(1),
-                    BackoffType = DelayBackoffType.Exponential,
-                    UseJitter = true,
-                });
-                pipeline.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions {
+
+                // 共享限流器：retry 读取其队列数估算等待时间
+                var limiter = new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions {
                     PermitLimit = 3,
                     SegmentsPerWindow = 1,
                     Window = TimeSpan.FromSeconds(1),
                     QueueLimit = 600,
-                }));
+                });
+
+                // 限流感知重试（内层限流抛 RateLimiterRejectedException 或服务器 429 时重试）：
+                // 等待时间 = 当前限流队列中请求数 × 每请求所需时间（3/s → ~333ms）+ 余量
+                pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage> {
+                    ShouldHandle = args => ValueTask.FromResult(
+                        args.Outcome.Exception is RateLimiterRejectedException
+                        || args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
+                    MaxRetryAttempts = 3,
+                    DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromMilliseconds((limiter.GetStatistics().CurrentQueuedCount * 333) + 300)),
+                });
+
+                pipeline.AddRateLimiter(limiter);
             });
         appBuilder.Services.AddSingleton(sp => {
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("wfm");

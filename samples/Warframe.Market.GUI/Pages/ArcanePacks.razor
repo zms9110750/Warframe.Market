@@ -11,6 +11,7 @@
 
 <MDataTable Items="Pack" Headers="_headers" Dense Loading="@(Pack.Length == 0)"
             ShowExpand ItemKey="r => r.Name" HideDefaultFooter
+            MustSort SortBy="@nameof(ArcanePackConfig.Name)"  @* 必选排序（单选），默认按包名 *@
             Class="elevation-1 mt-2" ItemsPerPage="-1">
     <ExpandedItemContent>
         <td colspan="9999" @key="@context.Item.Name">
@@ -61,13 +62,18 @@
             }
         }
 
-        // 动态表头
+        // 动态表头（购买量列）：排序值 = 对应计算任务的结果——任务未完成 → null（排最后），完成 → 数值
+        // （参照原始实现：task.IsCompleted ? (float)task.Result : (double?)null）
         foreach (var count in PurchaseVolumes)
         {
-            _headers.Add(new(count.ToString(), count.ToString())
+            var c = count;
+            _headers.Add(new(c.ToString(), c.ToString())
             {
                 Align = DataTableHeaderAlign.End,
-                ValueExpression = pack => (object?)pack.Name
+                ValueExpression = (Func<ArcanePackConfig, object?>)(pack =>
+                    _tasks.TryGetValue((pack.Name, c), out var task) && task.IsCompleted
+                        ? (object?)(float)task.Result
+                        : null),
             });
         }
 
