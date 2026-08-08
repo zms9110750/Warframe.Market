@@ -44,20 +44,20 @@
     protected List<DataTableHeader<ArcanePackConfig>> _headers = new();
     internal Dictionary<(string PackName, int Purchase), Task<double>> _tasks = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         Log.Information("ArcanePacks 初始化");
         Pack = Config.LoadArcaneConfig();
 
         _headers.Add(new("赋能包", nameof(ArcanePackConfig.Name)));
 
-        // 启动对所有包 × 购买量的计算
+        // 启动对所有包 × 购买量的计算（fire-and-forget：不阻塞组件初始化，每完成一个立即刷新）
         foreach (var pack in Pack)
         {
             foreach (var count in PurchaseVolumes)
             {
-                var task = Arcane.GetReferencePriceAsync(pack, count);
-                _tasks[(pack.Name, count)] = task;
+                var packName = pack.Name;
+                _tasks[(packName, count)] = ComputeAsync(pack, count, packName);
             }
         }
 
@@ -71,15 +71,23 @@
             });
         }
 
-        // 渐进刷新
-        var allTasks = Task.WhenAll(_tasks.Values);
-        do
-        {
-            await Task.Delay(200);
-            await InvokeAsync(StateHasChanged);
-        } while (!allTasks.IsCompleted);
+        return Task.CompletedTask;
+    }
 
-        await Task.Delay(100);
-        await InvokeAsync(StateHasChanged);
+    private async Task<double> ComputeAsync(ArcanePackConfig pack, int count, string packName)
+    {
+        try
+        {
+            return await Arcane.GetReferencePriceAsync(pack, count);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "赋能包计算失败: {Pack} x{Count}", packName, count);
+            return 0;
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
     }
 }

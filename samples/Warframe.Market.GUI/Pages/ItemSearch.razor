@@ -135,7 +135,7 @@
         StateHasChanged();
     }
 
-    /// <summary>切换标签：取消旧标签未完成的任务（搜索/统计），避免排队</summary>
+    /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始搜索</summary>
     private void OnTabChanged(int idx)
     {
         if (idx < 0 || idx >= _tabs.Count || idx == activeTabIndex) return;
@@ -145,6 +145,13 @@
             cts.Cancel(); // 旧标签未完成的任务立即取消
         }
         activeTabIndex = idx;
+
+        // 点击标签即开始加载（钉住标签初始化仅显示，点击才搜索）
+        var tab = _tabs[idx];
+        if (tab != WelcomeTab && !tabTermResults.ContainsKey(tab) && !searchingTabs.Contains(tab))
+        {
+            _ = DoSearchTab(tab);
+        }
     }
 
     protected void TogglePin(string tab)

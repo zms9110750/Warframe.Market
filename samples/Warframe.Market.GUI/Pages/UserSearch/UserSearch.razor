@@ -139,7 +139,7 @@
         StateHasChanged();
     }
 
-    /// <summary>切换标签：取消旧标签未完成的任务（用户查询/订单加载），避免排队</summary>
+    /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始查询</summary>
     private void OnTabChanged(int idx)
     {
         if (idx < 0 || idx >= _users.Count || idx == activeTabIndex) return;
@@ -149,6 +149,13 @@
             cts.Cancel();
         }
         activeTabIndex = idx;
+
+        // 点击标签即开始查询（钉住用户初始化仅显示，点击才加载）
+        var name = _users[idx];
+        if (name != WelcomeTab && !_userResults.ContainsKey(name) && !_searchingUsers.Contains(name))
+        {
+            _ = SearchUserAsync(name);
+        }
     }
 
     protected void TogglePin(string name)
