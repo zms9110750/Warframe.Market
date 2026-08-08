@@ -197,6 +197,7 @@
     {
         // 收起子面板（ShowExpand 折叠/组件销毁）时取消未完成的订单请求。
         // 注意：不调用 base.Dispose（Masa 组件在 WebView 中 Dispose 会触发不可恢复 JS 异常，故意不清理组件资源）
+        Log.Information("OrderTop 子面板销毁（收起/路由离开），取消请求");
         _cts.Cancel();
     }
 

@@ -87,6 +87,7 @@ else
 
     protected override void OnInitialized()
     {
+        Log.Information("UserResultTable 初始化: {UserName}", UserName);
         _headers = new()
         {
             new("物品", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortName(o)) },

@@ -146,8 +146,10 @@
         var old = _users[activeTabIndex];
         if (old != WelcomeTab && _userCts.TryGetValue(old, out var cts))
         {
+            Log.Information("UserSearch 取消用户标签任务: {Name}", old);
             cts.Cancel();
         }
+        Log.Information("UserSearch 切换标签: {Old} -> {New}", old, _users[idx]);
         activeTabIndex = idx;
 
         // 点击标签即开始查询（钉住用户初始化仅显示，点击才加载）
@@ -177,7 +179,7 @@
         if (idx <= 0 || idx >= _users.Count) return; // 欢迎 tab 不可关
         var name = _users[idx];
         if (_pinned.Contains(name)) return;
-        if (_userCts.TryGetValue(name, out var cts)) cts.Cancel();
+        if (_userCts.TryGetValue(name, out var cts)) { Log.Information("UserSearch 关闭用户标签并取消: {Name}", name); cts.Cancel(); }
         _userCts.Remove(name);
         _users.RemoveAt(idx);
         _userResults.Remove(name);
@@ -207,6 +209,7 @@
     /// <summary>离开路由时取消本页所有标签未完成的请求</summary>
     public void Dispose()
     {
+        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务", _userCts.Count);
         foreach (var cts in _userCts.Values) cts.Cancel();
         _userCts.Clear();
     }

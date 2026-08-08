@@ -16,6 +16,7 @@ public partial class MainLayout : LayoutComponentBase
     [Inject] private ConfigService Config { get; set; } = null!;
     [Inject] private IItemSearchService Items { get; set; } = null!;
     [Inject] private IFusionCache Cache { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
 
     private string currentTitle = "";
     protected bool canWrite;
@@ -27,6 +28,9 @@ public partial class MainLayout : LayoutComponentBase
         Log.Information("MainLayout 初始化");
         navItems = GetNavItemsFromAssembly();
         currentTitle = navItems.FirstOrDefault(s => s.Route == "/")?.Title ?? "";
+
+        // 路由切换日志（定位"哪个页面离开/进入"，配合各页 Dispose 取消日志）
+        Nav.LocationChanged += (_, e) => Log.Information("路由切换: {Uri}", e.Location);
 
         // 从 config.yaml 初始化语言/平台/跨平台
         var cfg = Config.LoadAppConfig();

@@ -63,8 +63,14 @@ class Program
                 pipeline.AddCaching(new HttpCachingStrategyOptions {
                     HybridCache = ctx.ServiceProvider.GetRequiredService<HybridCache>(),
                     CacheKeyProvider = CacheConfig.CacheKeyProvider,
-                    HybridCacheSetEntryOptionsProvider = (pipelineCtx, _) => new ValueTask<HybridCacheEntryOptions?>(
-                        CacheConfig.EntryOptionsProvider(pipelineCtx.GetRequestMessage()?.RequestUri?.LocalPath ?? "")),
+                    // 非 200（404/429/5xx）不缓存——避免"未找到"/失败响应被缓存后长期命中
+                    HybridCacheSetEntryOptionsProvider = (pipelineCtx, response) => new ValueTask<HybridCacheEntryOptions?>(
+                        response.StatusCode != HttpStatusCode.OK
+                            ? new HybridCacheEntryOptions {
+                                Flags = HybridCacheEntryFlags.DisableLocalCacheWrite
+                                      | HybridCacheEntryFlags.DisableDistributedCacheWrite,
+                            }
+                            : CacheConfig.EntryOptionsProvider(pipelineCtx.GetRequestMessage()?.RequestUri?.LocalPath ?? "")),
                 });
                 pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage> {
                     ShouldHandle = args => ValueTask.FromResult(

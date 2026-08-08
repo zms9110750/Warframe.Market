@@ -21,6 +21,7 @@ public class UserOrderService : IUserOrderService
     public async Task<UserSearchResult> SearchUserAsync(string name, CancellationToken ct = default)
     {
         var result = new UserSearchResult { Loading = true };
+        Log.Information("UserOrderService 查询用户: {Name}", name);
         try
         {
             User? user;
@@ -28,15 +29,18 @@ public class UserOrderService : IUserOrderService
             {
                 var userResp = await _wfm.GetUserAsync(name, ct);
                 user = userResp?.Content?.Data;
+                Log.Information("UserOrderService 用户响应: {Name}, User={User}", name, user?.IngameName);
             }
             catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
+                Log.Warning("UserOrderService 用户 404: {Name}", name);
                 result.NotFound = true;
                 result.Loading = false;
                 return result;
             }
             if (user == null)
             {
+                Log.Warning("UserOrderService 用户为空: {Name}", name);
                 result.NotFound = true;
                 result.Loading = false;
                 return result;

@@ -142,8 +142,10 @@
         var old = _tabs[activeTabIndex];
         if (old != WelcomeTab && _tabCts.TryGetValue(old, out var cts))
         {
+            Log.Information("ItemSearch 取消标签任务: {Tab}", old);
             cts.Cancel(); // 旧标签未完成的任务立即取消
         }
+        Log.Information("ItemSearch 切换标签: {Old} -> {New}", old, _tabs[idx]);
         activeTabIndex = idx;
 
         // 点击标签即开始加载（钉住标签初始化仅显示，点击才搜索）
@@ -173,7 +175,7 @@
         if (idx <= 0 || idx >= _tabs.Count) return; // 欢迎 tab 不可关
         var tab = _tabs[idx];
         if (_pinned.Contains(tab)) return; // 钉住的不能关（MChip 不显示 x）
-        if (_tabCts.TryGetValue(tab, out var cts)) cts.Cancel();
+        if (_tabCts.TryGetValue(tab, out var cts)) { Log.Information("ItemSearch 关闭标签并取消: {Tab}", tab); cts.Cancel(); }
         _tabCts.Remove(tab);
         _tabs.RemoveAt(idx);
         tabTermResults.Remove(tab);
@@ -186,6 +188,7 @@
     /// <summary>离开路由时取消本页所有标签未完成的请求</summary>
     public void Dispose()
     {
+        Log.Information("ItemSearch 离开路由，取消 {Count} 个标签任务", _tabCts.Count);
         foreach (var cts in _tabCts.Values) cts.Cancel();
         _tabCts.Clear();
     }
