@@ -12,7 +12,7 @@ else
             <strong>@result.User.IngameName</strong> — @result.User.Platform — 声望 @result.User.Reputation — @result.User.LastSeenLocal.ToString("g")
         </p>
     }
-    @if (result.Orders != null && result.Orders.Count > 0)
+    @if (result.Orders != null)
     {
         @* 折叠按钮（原版样式）：三角形在用户名前，不单独一行 *@
         <MButton Small Text OnClick="@(() => _collapsed = !_collapsed)" Class="mb-1" style="cursor:pointer;text-transform:none;">
@@ -95,7 +95,7 @@ else
             // 注意：此循环在独立 fire-and-forget 任务中（组件已渲染），StateHasChanged 有效
             while (!task.IsCompleted)
             {
-                await Task.Delay(200);
+                await Task.Delay(200, CancelToken); // 切换标签/路由离开时立即跳出
                 await InvokeAsync(StateHasChanged);
             }
             await task;

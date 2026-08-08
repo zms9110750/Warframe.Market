@@ -86,14 +86,20 @@ public class UserOrderService : IUserOrderService
     /// </summary>
     public async Task LoadPricesAsync(UserSearchResult result, CancellationToken ct = default)
     {
+        if (result.Orders is null)
+        {
+            return; // 返回问题（响应 null）：无可加载的订单
+        }
+
         result.LoadingPrices = true;
         try
         {
             var priceTasks = new List<Task>();
+            var loading = new HashSet<string>(); // 批内/跨批去重：同 slug 只请求一次
             foreach (var o in result.Orders)
             {
                 var item = result.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-                if (item != null && !result.Prices.ContainsKey(item.Slug))
+                if (item != null && !result.Prices.ContainsKey(item.Slug) && loading.Add(item.Slug))
                 {
                     var slug = item.Slug;
                     priceTasks.Add(LoadPriceAsync(result, slug, ct));

@@ -110,21 +110,14 @@
         _downloadedLangs.Add("en");
     }
 
-    /// <summary>勾选/取消"下载语言包"：勾选即从 wfm-localization 下载该语言 JSON 存本地</summary>
+    /// <summary>勾选"下载语言包"：只允许打勾下载；已下载完成/核心语言由 Disabled 只读，不可取消</summary>
     private async Task ToggleDownload(string li, bool v)
     {
-        if (v)
+        if (!v) return; // 只读语言不可取消（UI 层 Disabled 已阻止，此处兜底）
+        if (await Localizations.DownloadAsync(li))
         {
-            if (await Localizations.DownloadAsync(li))
-            {
-                _downloadedLangs.Add(li);
-                Log.Information("Settings 语言包已下载: {Lang}", li);
-            }
-        }
-        else
-        {
-            _downloadedLangs.Remove(li);
-            Log.Information("Settings 移除语言包: {Lang}", li);
+            _downloadedLangs.Add(li);
+            Log.Information("Settings 语言包已下载: {Lang}", li);
         }
     }
 

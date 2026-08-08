@@ -177,6 +177,34 @@ public class ServiceTests
         Assert.Equal(0, value);
     }
 
+    [Fact]
+    public async Task ArcanePack_purchase_caps_expected_value_by_daily_volume()
+    {
+        // purchase>0 时按 日成交量/购买量 封顶有效量（防"开箱量超过市场流通量"期望虚高）
+        var fake = new FakeItemSearch {
+            Results = new List<ItemShort>
+            {
+                new("id1", "slug1", "GameRef", new HashSet<string>(), 0, null, null, null, null, null, null, null,
+                    new Dictionary<Language, LanguagePake>())
+            },
+            Stat = CreateFakeStat(100), // Day90 7 条，Volume=10/条 → GetDailyVolume = 70/90 ≈ 0.7778
+            MaxPrice = 200,
+        };
+        var svc = new ArcanePackService(fake);
+        var pack = new ArcanePackConfig {
+            Name = "测试包",
+            Items = [new ArcaneQualityGroup { Subtypes = "Common", Quality = 1.0, Items = ["物品一"] }],
+        };
+
+        var uncapped = await svc.GetReferencePriceAsync(pack, purchase: 0); // 150 = 200×1.0×PackGainRate
+        var capped = await svc.GetReferencePriceAsync(pack, purchase: 10); // 封顶 ≈ 200×(70/90/10) ≈ 15.6
+
+        Assert.True(uncapped > 0);
+        Assert.True(capped > 0);
+        Assert.True(capped < uncapped); // 封顶后显著小于未封顶
+        Assert.Equal(200 * (70.0 / 90 / 10), capped, 0.001);
+    }
+
     private static Statistic CreateFakeStat(double median)
     {
         var entries = Enumerable.Range(1, 7)
