@@ -1,0 +1,156 @@
+@* 每个搜索词的结果表，可折叠 *@
+
+@if (results.Count == 0) { return; }
+
+@* 原生按钮：PhotinoX 下 MButton OnClick 可能不派发 *@
+<button type="button" class="m-btn m-btn--small m-btn--text"
+        style="cursor:pointer;text-transform:none;margin-bottom:4px;"
+        @onclick="@(() => ToggleCollapsed())">
+    <i class="mdi @(_collapsed ? "mdi-chevron-right" : "mdi-chevron-down")" style="font-size:18px;vertical-align:-3px;"></i>
+    @Tab — @results.Count 个结果
+</button>
+@if (!_collapsed)
+{
+    <MDataTable Items="results" Headers="_headers" Dense MustSort ShowExpand
+                HideDefaultFooter ItemsPerPage="-1" @key="Tab"
+                Class="elevation-1" ItemKey="r => r.Id">
+        <ExpandedItemContent>
+            <td colspan="9999">
+                <OrderTop TargetItem="@context.Item" CancelToken="@CancelToken" />
+            </td>
+        </ExpandedItemContent>
+        <ItemColContent>
+            @if (context.Header.Text == "中文名称")
+            {
+                <MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
+                if (ClickLink)
+                {
+                    <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
+                }
+                else { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
+            }
+            else if (context.Header.Text == "英文名称")
+            {
+                <MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
+                if (ClickLink)
+                {
+                    <a href="@($"https://warframe.market/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
+                }
+                else { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
+            }
+            else if (context.Header.Text == "价格")
+            {
+                var has = _prices.TryGetValue(context.Item.Slug, out var pv);
+                var p = has ? pv : null;
+                if (has && p.HasValue)
+                {
+                    if (ClickLink)
+                    {
+                        <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{p:F1}")</a>
+                    }
+                    else { @($"{p:F1}") }
+                }
+                else if (has) { @("") } // 已加载但无数据
+                else { @("加载中") }    // 尚未加载完成
+            }
+            else if (context.Header.Text == "满级价格")
+            {
+                var has = _maxPrices.TryGetValue(context.Item.Slug, out var mpv);
+                var mp = has ? mpv : null;
+                if (has && mp.HasValue)
+                {
+                    if (ClickLink)
+                    {
+                        <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{mp:F1}")</a>
+                    }
+                    else { @($"{mp:F1}") }
+                }
+                else if (has) { @("") }
+                else { @("加载中") }
+            }
+        </ItemColContent>
+    </MDataTable>
+}
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+
+    [Parameter] public string Tab { get; set; } = "";
+    [Parameter] public List<ItemShort> results { get; set; } = new();
+    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+
+    private bool _collapsed;
+
+    private void ToggleCollapsed()
+    {
+        Log.Information("折叠切换: {Tab} -> {Collapsed}", Tab, !_collapsed);
+        _collapsed = !_collapsed;
+    }
+    private List<DataTableHeader<ItemShort>> _headers = new();
+    private Dictionary<string, double?> _prices = new();
+    private Dictionary<string, double?> _maxPrices = new();
+
+    /// <summary>所属标签的取消令牌（切换标签/关闭标签/离开路由时由父级取消）</summary>
+    [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Log.Information("SearchResultTable 初始化: {Tab}, {Count} 物品", Tab, results.Count);
+
+        _headers = new()
+        {
+            new("中文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug) },
+            new("英文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") },
+            new("价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "") },
+            new("满级价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "") },
+        };
+
+        // 统计后台加载：不阻塞组件初始化/渲染（此前 do-while 轮询会冻结整个组件，
+        // 导致折叠按钮、查看订单等点击的状态变更无法渲染）。每个统计完成立即刷新。
+        foreach (var item in results)
+        {
+            var slug = item.Slug;
+            _ = LoadStatAsync(slug);
+        }
+    }
+
+    private async Task LoadStatAsync(string slug)
+    {
+        try
+        {
+            var stat = await ItemSvc.GetStatisticAsync(slug, CancelToken);
+            _prices[slug] = stat != null ? stat.GetReferencePrice() : null;
+            _maxPrices[slug] = stat != null ? stat.GetMaxReferencePrice() : null;
+        }
+        catch (OperationCanceledException)
+        {
+            // 标签切换/路由离开取消，忽略
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "统计加载失败: {Slug}", slug);
+            _prices[slug] = null;
+            _maxPrices[slug] = null;
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string TrimSuffix(ItemShort item)
+    {
+        var name = item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name
+                : item.I18n.TryGetValue(Language.En, out var e) ? e.Name
+                : item.Slug;
+        return new string(name.TrimEnd(" Set").TrimEnd(" 一套"));
+    }
+
+    private async Task CopyText(string text)
+    {
+        try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", text); }
+        catch { }
+    }
+}

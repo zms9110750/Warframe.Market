@@ -22,6 +22,10 @@ global using Serilog;
 #endif
 
 // Project-type usings
+#if IS_GUI && !USE_DI
+// GUI 在未启用 DI 时仍需要 ServiceCollection（模板语义），已启用 DI 则由 USE_DI 块提供
+global using Microsoft.Extensions.DependencyInjection;
+#endif
 #if IS_CLI
 global using System.CommandLine;
 #endif

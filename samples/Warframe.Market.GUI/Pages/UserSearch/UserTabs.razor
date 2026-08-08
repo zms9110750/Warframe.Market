@@ -1,0 +1,40 @@
+@* 用户搜索标签栏（首个为"欢迎"tab；图钉开关开启时：钉住的显示 pin-off、未钉住的显示 MChip 原生 x） *@
+
+<MTabs Value="@activeTabIndex">
+    @foreach (var (name, idx) in _activeUsers.Select((t, i) => (t, i)))
+    {
+        var isPinned = pinned.Contains(name);
+        var isWelcome = name == "欢迎";
+        <MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
+            <MChip Label Class="mr-1" OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))"
+                   Close="@(!isWelcome && pin && !isPinned)"
+                   OnCloseClick="@(() => CloseTab.InvokeAsync(idx))">
+                @name
+                @if (!isWelcome && pin && isPinned)
+                {
+                    <span @onclick:stopPropagation
+                          @onclick="@(() => TogglePin.InvokeAsync(name))"
+                          style="display:inline-flex;cursor:pointer;">
+                        <MIcon XSmall Color="orange">mdi-pin-off</MIcon>
+                    </span>
+                }
+                else if (!isWelcome && !pin)
+                {
+                    <span style="display:inline-flex;visibility:hidden;">
+                        <MIcon XSmall>mdi-pin-outline</MIcon>
+                    </span>
+                }
+            </MChip>
+        </MTab>
+    }
+</MTabs>
+
+@code {
+    [Parameter] public int activeTabIndex { get; set; }
+    [Parameter] public EventCallback<int> activeTabIndexChanged { get; set; }
+    [Parameter] public List<string> _activeUsers { get; set; } = new();
+    [Parameter] public HashSet<string> pinned { get; set; } = new();
+    [Parameter] public bool pin { get; set; }
+    [Parameter] public EventCallback<string> TogglePin { get; set; }
+    [Parameter] public EventCallback<int> CloseTab { get; set; }
+}

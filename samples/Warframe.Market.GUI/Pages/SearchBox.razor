@@ -1,0 +1,35 @@
+@* 搜索框 + 图钉开关（JMComic 式：图钉为全局开关，开启后 tab 上可切换钉住） *@
+
+<div class="d-flex align-center" style="gap:8px;margin-bottom:8px;">
+    <input @bind-Value="query" @bind-Value:event="oninput"
+           @onkeydown="@(e => { if (e.Key == "Enter") _ = DoSearch(); })"
+           placeholder="输入物品名搜索（空格/· 为段分隔符，/ 分隔多词）"
+           style="flex:1;border:1px solid #ccc;border-radius:4px;padding:6px 10px;font-size:14px;" />
+    <MButton Class="mt-1" Color="primary" Small OnClick="@(() => _ = DoSearch())">搜索</MButton>
+    <MButton Icon OnClick="TogglePin" Title="固定此搜索" Class="mt-1">
+        <MIcon Color="@(pin ? "primary" : "grey")">
+            @(pin ? "mdi-pin" : "mdi-pin-outline")
+        </MIcon>
+    </MButton>
+</div>
+
+@code {
+    public string query { get; set; } = "";
+
+    [Parameter] public EventCallback<string> OnSearch { get; set; }
+    [Parameter] public bool pin { get; set; }
+    [Parameter] public EventCallback<bool> pinChanged { get; set; }
+
+    private async Task DoSearch()
+    {
+        var q = query?.Trim();
+        if (!string.IsNullOrWhiteSpace(q))
+            await OnSearch.InvokeAsync(q);
+    }
+
+    private void TogglePin()
+    {
+        pin = !pin;
+        _ = pinChanged.InvokeAsync(pin);
+    }
+}

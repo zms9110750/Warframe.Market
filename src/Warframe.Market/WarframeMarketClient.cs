@@ -346,20 +346,12 @@ public class WarframeMarketClient : IWarframeMarketApiV2
     }
 
     /// <summary>
-    /// 获取指定物品的统计数据（V1 端点，内部自动反序列化并包装为 V2 统一响应格式）
+    /// 获取指定物品的统计数据（V1 端点，直接返回反序列化后的 V1 定义，不套 V2 响应壳）
     /// </summary>
-    public async Task<Response<Statistic>> GetStatisticsAsync(string slug, CancellationToken cancellation = default)
+    public async Task<Statistic?> GetStatisticsAsync(string slug, CancellationToken cancellation = default)
     {
-        try
-        {
-            var json = await _httpClient.GetStringAsync($"/v1/items/{slug}/statistics", cancellation);
-            var statistic = JsonSerializer.Deserialize<Statistic>(json, V1Options);
-            return new Response<Statistic>("0.25.0", statistic!, null);
-        }
-        catch (HttpRequestException ex)
-        {
-            return new Response<Statistic>("0.25.0", null!, ex.Message);
-        }
+        var json = await _httpClient.GetStringAsync($"/v1/items/{slug}/statistics", cancellation);
+        return JsonSerializer.Deserialize<Statistic>(json, V1Options);
     }
 }
 

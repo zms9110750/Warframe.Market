@@ -1,0 +1,89 @@
+@page "/settings"
+@attribute [NavItem("设置", "mdi-cog-outline", Order = 4)]
+
+<h3>设置</h3>
+
+<MAlert Dense Type="@AlertTypes.Info">
+    数据版本：@State.VersionText。HTTP 响应缓存 30 分钟，点顶栏版本按钮（显示"再次点击强制刷新"后）可清缓存并重建物品索引。
+</MAlert>
+
+<h4 class="mt-4">语言 / 平台 / 跨平台</h4>
+
+<div class="d-flex align-center mb-2" style="gap:12px;">
+    <MSelect TItem="string" TItemValue="string" TValue="string"
+             Items="@langItems" ItemText="@(i => i)" ItemValue="@(i => i)"
+             Value="@lang" ValueChanged="@((string v) => { lang = v; State.Language = AppState.StrToLang(v); })"
+             Label="语言" Dense Solo HideDetails="true" Style="max-width:140px;" />
+    <MSelect TItem="string" TItemValue="string" TValue="string"
+             Items="@platItems" ItemText="@(i => i)" ItemValue="@(i => i)"
+             Value="@plat" ValueChanged="@((string v) => { plat = v; State.Platform = AppState.StrToPlat(v); })"
+             Label="平台" Dense Solo HideDetails="true" Style="max-width:130px;" />
+    <MSwitch @bind-Value="crossplay" @bind-Value:after="@(() => State.Crossplay = crossplay)" Dense Inset HideDetails="true">
+        <LabelContent>跨平台</LabelContent>
+    </MSwitch>
+    <MButton Small Color="primary" OnClick="Save">保存为默认</MButton>
+</div>
+
+<h4 class="mt-4">检查更新</h4>
+
+<text class="text-caption">
+    更新源：gitee.com/@(UpdateService.Owner)/@(UpdateService.Repo)。<br />
+    .tgz / .tar.gz 文件下载后自动解压到程序目录；其他文件直接保存。
+    打开上方"打开链接"开关可跳转浏览器下载。
+</text>
+<br /><br />
+<MButton Small Color="primary" Outlined OnClick="LoadReleases">
+    <MIcon Small Class="mr-1">mdi-update</MIcon>检查更新
+</MButton>
+
+@if (Releases != null)
+{
+    if (Releases.Length == 0) { <p class="text-caption mt-2">无发布版本</p> }
+    @foreach (var r in Releases)
+    {
+        <ShowRelease Release="r" />
+    }
+}
+
+@code {
+    [Inject] private AppState State { get; set; } = null!;
+    [Inject] private ConfigService Config { get; set; } = null!;
+    [Inject] private UpdateService Updates { get; set; } = null!;
+
+    private string lang = "zh-hans";
+    private string plat = "pc";
+    private bool crossplay = true;
+    private GiteeRelease[]? Releases;
+
+    private List<string> langItems => Enum.GetValues<Language>()
+        .Where(l => l != Language.Node)
+        .Select(l => AppState.LangToStr(l)).ToList();
+    private List<string> platItems => Enum.GetValues<Platform>()
+        .Select(p => AppState.PlatToStr(p)).ToList();
+
+    protected override void OnInitialized()
+    {
+        var cfg = Config.LoadAppConfig();
+        lang = cfg.DefaultLanguage;
+        plat = cfg.DefaultPlatform;
+        crossplay = cfg.DefaultCrossplay;
+    }
+
+    private void Save()
+    {
+        Config.SaveAppConfig(new AppConfig
+        {
+            DefaultLanguage = lang,
+            DefaultPlatform = plat,
+            DefaultCrossplay = crossplay,
+        });
+        Log.Information("Settings 保存默认配置: {Lang}/{Plat}/crossplay={Cross}", lang, plat, crossplay);
+    }
+
+    private async Task LoadReleases()
+    {
+        Log.Information("Settings 检查更新");
+        Releases = await Updates.GetReleasesAsync();
+        StateHasChanged();
+    }
+}

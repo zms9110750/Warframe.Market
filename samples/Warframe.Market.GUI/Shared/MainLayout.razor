@@ -1,0 +1,61 @@
+@inherits LayoutComponentBase
+
+<MApp>
+    <MAppBar App>
+        <MToolbarTitle>@currentTitle</MToolbarTitle>
+
+        <MSpacer></MSpacer>
+
+        <MButton OnClick="OnVersionClick" Disabled="@State.IsUpdating" Class="mr-2" Color="primary" Outlined Small
+                 onmouseleave="@(() => OnVersionLeave())" @onfocusout="@(() => OnVersionLeave())">
+            @if (State.IsUpdating)
+            {
+                <MProgressCircular Size="18" Width="2" Indeterminate Class="mr-1" />
+            }
+            @State.VersionText
+        </MButton>
+
+        <MSwitch @bind-Value="clickLink" Dense Inset HideDetails="true">
+            <LabelContent>打开链接</LabelContent>
+        </MSwitch>
+
+        <MSwitch @bind-Value="canWrite" Dense Inset HideDetails="true" Class="ml-2">
+            <LabelContent>可编辑</LabelContent>
+        </MSwitch>
+    </MAppBar>
+
+    <MNavigationDrawer App Permanent MiniVariant>
+        <MList Nav Routable>
+            @foreach (var navItem in navItems)
+            {
+                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="@(() => currentTitle = navItem.Title)">
+                    <MListItemIcon>
+                        <MIcon>@navItem.Icon</MIcon>
+                    </MListItemIcon>
+                    <MListItemContent>
+                        <MListItemTitle>@navItem.Title</MListItemTitle>
+                    </MListItemContent>
+                </MListItem>
+            }
+        </MList>
+    </MNavigationDrawer>
+
+    <MMain>
+        @if (State.StatusMessage != null)
+        {
+            <MAlert Dense Type="@AlertTypes.Info" Class="ma-4 mb-0">@State.StatusMessage</MAlert>
+        }
+
+        <div class="@(State.IsUpdating ? "cursor-wait" : "")">
+            <MContainer Fluid>
+                <MErrorHandler>
+                    <CascadingValue Value="canWrite" Name="CanWrite">
+                        <CascadingValue Value="clickLink" Name="ClickLink">
+                            @Body
+                        </CascadingValue>
+                    </CascadingValue>
+                </MErrorHandler>
+            </MContainer>
+        </div>
+    </MMain>
+</MApp>

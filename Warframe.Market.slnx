@@ -2,6 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/Warframe.Market/Warframe.Market.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Warframe.Market.GUI/Warframe.Market.GUI.csproj" />
+  </Folder>
   <Folder Name="/test/">
     <Project Path="test/Warframe.Market.Tests/Warframe.Market.Tests.csproj" />
   </Folder>

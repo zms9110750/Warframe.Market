@@ -1,0 +1,93 @@
+@* 赋能包展开明细：出货率（静态） + 价格（异步加载） *@
+
+@if (Pack == null)
+{
+    <MAlert Dense Type="@AlertTypes.Error">参数为 null</MAlert>
+    return;
+}
+
+<MDataTable Items="@Pack.Items.SelectMany(q => q.Items)" Headers="_headersItem"
+            Dense HideDefaultFooter Class="elevation-1" ItemsPerPage="-1" @key="Pack.Name">
+    <ItemColContent>
+        @if (context.Header.Text == "名称") { @context.Item }
+        else if (context.Header.Text == "出货率%") { @($"{Pack.GetProbability(context.Item) * 100:F2}") }
+        else if (_data.TryGetValue(context.Item, out var d))
+        {
+            if (context.Header.Text == "参考价") { @(d.Price?.ToString("F2") ?? "-") }
+            else if (context.Header.Text == "出货率×价") { @(d.Expected?.ToString("F2") ?? "-") }
+            else if (context.Header.Text == "日均交易量") { @(d.DailyVol?.ToString("F1") ?? "-") }
+        }
+        else { @("加载中") }
+    </ItemColContent>
+</MDataTable>
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+
+    [Parameter] public ArcanePackConfig Pack { get; set; } = default!;
+
+    private List<DataTableHeader<string>> _headersItem = [];
+    private Dictionary<string, (double Prob, double? Price, double? Expected, double? DailyVol)> _data = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Log.Information("ArcaneTable 初始化: {Pack}", Pack.Name);
+        _headersItem.Add(new("名称", "名称") { ValueExpression = (Func<string, object?>)(t => t) });
+        _headersItem.Add(new("出货率%", "rate") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => Pack.GetProbability(t) * 100) });
+        _headersItem.Add(new("参考价", "price") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Price : null) });
+        _headersItem.Add(new("出货率×价", "expected") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Expected : null) });
+        _headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.DailyVol : null) });
+
+        // 逐条异步加载，收集任务用于渐进刷新
+        var geting = new HashSet<Task>();
+        foreach (var itemName in Pack.Items.SelectMany(q => q.Items))
+        {
+            var prob = Pack.GetProbability(itemName);
+            var loadTask = LoadItemDataAsync(itemName, prob);
+            if (!loadTask.IsCompleted)
+                geting.Add(loadTask);
+        }
+
+        var allTasks = Task.WhenAll(geting);
+        do
+        {
+            StateHasChanged();
+            await Task.Delay(200);
+        } while (!allTasks.IsCompleted);
+        StateHasChanged();
+    }
+
+    private async Task LoadItemDataAsync(string itemName, double prob)
+    {
+        try
+        {
+            var item = await ItemSvc.FindByKeyAsync(itemName);
+            if (item == null) return;
+
+            var stat = await ItemSvc.GetStatisticAsync(item.Slug);
+            double? price = null;
+            double? dailyVol = null;
+
+            if (stat != null)
+            {
+                var maxPrice = stat.GetMaxReferencePrice();
+                if (maxPrice != null)
+                {
+                    var firstRanked = stat.Payload?.StatisticsClosed?.Day90?.FirstOrDefault(e => e.ModRank > 0);
+                    var rank = firstRanked?.ModRank ?? 0;
+                    var syn = rank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[rank] : 1;
+                    price = maxPrice / syn;
+                }
+                dailyVol = stat.Payload?.StatisticsClosed?.Day90
+                    ?.Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0;
+            }
+
+            _data[itemName] = (prob, price, price * prob, dailyVol);
+        }
+        catch { }
+    }
+}

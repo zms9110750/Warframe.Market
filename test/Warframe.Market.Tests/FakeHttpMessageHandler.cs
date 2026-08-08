@@ -34,11 +34,14 @@ internal sealed class FakeHttpMessageHandler : HttpMessageHandler
         {
             var json = File.ReadAllText(file);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+                RequestMessage = request,
             });
         }
 
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) {
+            RequestMessage = request,
+        });
     }
 }
 

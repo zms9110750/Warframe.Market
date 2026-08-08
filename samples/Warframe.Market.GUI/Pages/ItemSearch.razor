@@ -1,0 +1,185 @@
+@page "/"
+@attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
+
+@* 搜索框 + 图钉开关（独立于 tab） *@
+<SearchBox OnSearch="@OnSearch" pin="@pin" pinChanged="@((v) => pin = v)" />
+
+@* 结果标签栏（首个为"欢迎"tab，不触发网络；钉住的搜索词初始化即显示但不自动搜索） *@
+@if (_tabs.Count > 0)
+{
+    <SearchTabs activeTabIndex="@activeTabIndex" activeTabIndexChanged="@((int v) => OnTabChanged(v))"
+                _activeTabs="@_tabs" pinned="@_pinned" pin="@pin"
+                TogglePin="@((string t) => TogglePin(t))" CloseTab="@((int i) => CloseTab(i))" />
+}
+
+@* 所有 tab 内容常驻渲染（display 控制显隐）——切换 tab 时组件不销毁，价格/统计结果保留 *@
+@for (var i = 0; i < _tabs.Count; i++)
+{
+    var tab = _tabs[i];
+    var isActive = i == activeTabIndex;
+    <div style="display:@(isActive ? "" : "none");">
+        @if (tab == WelcomeTab)
+        {
+            <div style="margin-top:12px;max-width:720px;line-height:1.8;">
+                <h4>Warframe.Market 物品搜索</h4>
+                <p class="text-caption">
+                    在顶部搜索框输入物品名称（支持中/英文，多个词用 / 或空格分隔）后回车或点搜索。
+                    结果按词分组展示：中文名 / 英文名 / 参考价（90 天加权中位数）/ 满级参考价。
+                    点击行首箭头可展开该物品的 Top 买卖订单；订单面板支持购/售、在线状态、等级滑块、
+                    价格区间与最少数量筛选，表头可排序。
+                </p>
+                <p class="text-caption">
+                    搜索框右侧图钉按钮开启后：钉住的标签显示 pin-off 图标（可取消钉住），
+                    未钉住的标签显示 x（可关闭）。钉住的搜索词会在启动时显示为标签，点击后才开始搜索。
+                </p>
+            </div>
+        }
+        else if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
+        {
+            <SearchTermGroup Query="@tab" TermResults="@tabTermResults" TermTerms="@tabTerms"
+                             CancelToken="@(_tabCts.GetValueOrDefault(tab)?.Token ?? CancellationToken.None)" />
+        }
+        else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
+        else { <p class="text-caption" style="color:#999;margin-top:8px;">点击标签开始搜索</p> }
+    </div>
+}
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private PersistentStorage Storage { get; set; } = null!;
+    [CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
+
+    /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
+    internal const string WelcomeTab = "欢迎";
+
+    /// <summary>全部结果标签（含钉住），按创建顺序；首个为欢迎 tab</summary>
+    protected List<string> _tabs = new();
+    /// <summary>钉住的搜索词</summary>
+    protected HashSet<string> _pinned = new();
+    /// <summary>全局图钉开关（JMComic 式）</summary>
+    protected bool pin;
+
+    protected HashSet<string> searchingTabs = new();
+    protected Dictionary<string, List<List<ItemShort>>> tabTermResults = new();
+    protected Dictionary<string, List<string>> tabTerms = new();
+    protected int activeTabIndex;
+
+    /// <summary>每个标签一个取消源：切换标签/关闭标签/离开路由时取消该标签未完成的任务</summary>
+    private readonly Dictionary<string, CancellationTokenSource> _tabCts = new();
+
+    protected override Task OnInitializedAsync()
+    {
+        Log.Information("ItemSearch 初始化");
+        _tabs.Add(WelcomeTab);
+        _pinned = Storage.Load().PinnedSearches.ToHashSet();
+        // 钉住的搜索词显示为标签（不自动搜索——避免一进来就发网络请求，点击后才加载）
+        _tabs.AddRange(_pinned);
+        activeTabIndex = 0;
+        return Task.CompletedTask;
+    }
+
+    protected async Task OnSearch(string query)
+    {
+        Log.Information("ItemSearch 搜索: {Query}", query);
+        if (string.IsNullOrWhiteSpace(query)) return;
+
+        if (_pinned.Contains(query))
+        {
+            // 已钉住：只切换标签，不重复搜索
+            activeTabIndex = _tabs.IndexOf(query);
+            if (activeTabIndex < 0)
+            {
+                _tabs.Add(query);
+                activeTabIndex = _tabs.Count - 1;
+            }
+            return;
+        }
+
+        if (!_tabs.Contains(query))
+        {
+            _tabs.Add(query);
+            activeTabIndex = _tabs.Count - 1;
+        }
+        else
+        {
+            activeTabIndex = _tabs.IndexOf(query);
+        }
+
+        if (!tabTermResults.ContainsKey(query))
+            await DoSearchTab(query);
+    }
+
+    private async Task DoSearchTab(string tab)
+    {
+        if (tabTermResults.ContainsKey(tab)) return; // 已加载
+
+        if (!_tabCts.TryGetValue(tab, out var cts))
+        {
+            cts = new CancellationTokenSource();
+            _tabCts[tab] = cts;
+        }
+
+        searchingTabs.Add(tab);
+        var terms = tab.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        tabTerms[tab] = terms;
+
+        var allResults = new List<List<ItemShort>>();
+        foreach (var term in terms)
+        {
+            var results = await ItemSvc.SearchAsync(term, cts.Token);
+            allResults.Add(results);
+        }
+        tabTermResults[tab] = allResults;
+        searchingTabs.Remove(tab);
+        Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词", tab, terms.Count);
+        StateHasChanged();
+    }
+
+    /// <summary>切换标签：取消旧标签未完成的任务（搜索/统计），避免排队</summary>
+    private void OnTabChanged(int idx)
+    {
+        if (idx < 0 || idx >= _tabs.Count || idx == activeTabIndex) return;
+        var old = _tabs[activeTabIndex];
+        if (old != WelcomeTab && _tabCts.TryGetValue(old, out var cts))
+        {
+            cts.Cancel(); // 旧标签未完成的任务立即取消
+        }
+        activeTabIndex = idx;
+    }
+
+    protected void TogglePin(string tab)
+    {
+        if (tab == WelcomeTab) return;
+        if (!_pinned.Add(tab))
+        {
+            _pinned.Remove(tab);
+            Storage.UnpinSearch(tab);
+        }
+        else
+        {
+            Storage.PinSearch(tab);
+        }
+    }
+
+    protected void CloseTab(int idx)
+    {
+        if (idx <= 0 || idx >= _tabs.Count) return; // 欢迎 tab 不可关
+        var tab = _tabs[idx];
+        if (_pinned.Contains(tab)) return; // 钉住的不能关（MChip 不显示 x）
+        if (_tabCts.TryGetValue(tab, out var cts)) cts.Cancel();
+        _tabCts.Remove(tab);
+        _tabs.RemoveAt(idx);
+        tabTermResults.Remove(tab);
+        tabTerms.Remove(tab);
+        searchingTabs.Remove(tab);
+        if (activeTabIndex >= _tabs.Count)
+            activeTabIndex = Math.Max(0, _tabs.Count - 1);
+    }
+
+    /// <summary>离开路由时取消本页所有标签未完成的请求</summary>
+    public void Dispose()
+    {
+        foreach (var cts in _tabCts.Values) cts.Cancel();
+        _tabCts.Clear();
+    }
+}

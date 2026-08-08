@@ -11,9 +11,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\samples\Warframe.Market.GUI\Warframe.Market.GUI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" Version="2.9.0" />
+    <PackageReference Include="Masa.Blazor" Version="1.11.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,7 +29,7 @@
 
   <!-- 备份的真实 API JSON（test/Resources/ 资源文件夹，非本项目内容）：复制到输出目录，测试从本地文件读取假数据 -->
   <ItemGroup>
-    <Content Include="../Resources/**/*.json"
+    <Content Include="../Resources/**/*.json;../Resources/**/*.yaml"
              Link="Resources/%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

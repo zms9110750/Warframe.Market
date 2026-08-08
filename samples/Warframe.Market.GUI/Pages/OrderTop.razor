@@ -1,0 +1,210 @@
+@* Top 买卖单子面板：拉取全部订单，本地筛选（购/售 + 用户状态 + 等级滑块 + 价格区间 + 最少数量） *@
+
+@if (TargetItem == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
+
+<style>
+    .rank-range {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 6px;
+        border-radius: 3px;
+        outline: none;
+    }
+    .rank-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #1867c0;
+        cursor: pointer;
+    }
+</style>
+
+@* 筛选：购/售 + 用户状态 单选按钮组 + 等级滑块 + 价格区间 + 最少数量 *@
+<div class="d-flex align-center mb-2" style="gap:12px;margin-top:10px;padding-top:2px;flex-wrap:wrap;">
+    <div class="d-flex" style="gap:4px;">
+        <MButton Small Outlined="@(!_showBuy)" Color="@(!_showBuy ? "primary" : "")" OnClick="@(() => { _showBuy = false; StateHasChanged(); })">售</MButton>
+        <MButton Small Outlined="@(_showBuy)" Color="@(_showBuy ? "primary" : "")" OnClick="@(() => { _showBuy = true; StateHasChanged(); })">购</MButton>
+    </div>
+    <div class="d-flex" style="gap:4px;">
+        <MButton Small Outlined="@(_userStatus == "all")" Color="@(_userStatus == "all" ? "primary" : "")" OnClick="@(() => { _userStatus = "all"; StateHasChanged(); })">全部</MButton>
+        <MButton Small Outlined="@(_userStatus == "online")" Color="@(_userStatus == "online" ? "primary" : "")" OnClick="@(() => { _userStatus = "online"; StateHasChanged(); })">在线</MButton>
+        <MButton Small Outlined="@(_userStatus == "ingame")" Color="@(_userStatus == "ingame" ? "primary" : "")" OnClick="@(() => { _userStatus = "ingame"; StateHasChanged(); })">游戏中</MButton>
+    </div>
+    @if (_maxRankValue > 0)
+    {
+        var pct = (int)Math.Round(_selectedRank * 100.0 / _maxRankValue);
+        // 购：左半边填充（4 = 4-，想买低价）；售：右半边填充（4 = 4+，想卖高价）
+        var grad = _showBuy
+            ? $"linear-gradient(to right, #1867c0 0%, #1867c0 {pct}%, #ddd {pct}%, #ddd 100%)"
+            : $"linear-gradient(to left, #1867c0 0%, #1867c0 {100 - pct}%, #ddd {100 - pct}%, #ddd 100%)";
+        <input type="range" class="rank-range" min="0" max="@_maxRankValue"
+               value="@_selectedRank"
+               title="@(_showBuy ? $"{_selectedRank} 级及以下（购）" : $"{_selectedRank} 级及以上（售）")"
+               @onchange="@((ChangeEventArgs e) => { _selectedRank = int.TryParse(e.Value?.ToString(), out var n) ? n : 0; StateHasChanged(); })"
+               style="max-width:150px;margin:0 12px;width:150px;background:@grad;" />
+        <span>等级 @_selectedRank@(_showBuy ? "-" : "+")</span>
+    }
+    <input type="number" placeholder="最低价" min="0" style="width:80px;"
+           @onchange="@((ChangeEventArgs e) => { _priceMin = ParseInt(e.Value); StateHasChanged(); })" />
+    <input type="number" placeholder="最高价" min="0" style="width:80px;"
+           @onchange="@((ChangeEventArgs e) => { _priceMax = ParseInt(e.Value); StateHasChanged(); })" />
+    <input type="number" placeholder="最少数量" min="0" style="width:80px;"
+           @onchange="@((ChangeEventArgs e) => { _minQuantity = ParseInt(e.Value); StateHasChanged(); })" />
+</div>
+
+<MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
+            MustSort SortBy="nameof(Order.Platinum)" SortDesc="@_showBuy" Loading="@loading">
+    <ItemColContent>
+        @if (context.Header.Text == "联系")
+        {
+            var locale = context.Item.User?.Locale;
+            var enName = TargetItem.I18n.TryGetValue(Language.En, out var en) ? en.Name : TargetItem.Slug;
+            var zhName = locale == "zh-hans" && TargetItem.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name : null;
+            var hasSubtype = context.Item.Subtype != null ? $" of {context.Item.Subtype}" : null;
+            var rank = context.Item.Rank != null ? $" rank {context.Item.Rank}" : null;
+            var type = context.Item.Type is "buy" or "Buy" ? "sell" : "buy";
+            var msg = $"/w {context.Item.User?.IngameName} Hi! I want to {type}: \"{enName}\"{zhName}{hasSubtype}{rank} for {context.Item.Platinum} platinum.";
+            <MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
+        }
+        else if (context.Header.Text == "卖家")
+        {
+            var nameStr = context.Item.User?.IngameName ?? "";
+            if (ClickLink)
+            {
+                <a href="@($"https://warframe.market/zh-hans/profile/{nameStr}")">@nameStr</a>
+            }
+            else
+            {
+                <text>@nameStr</text>
+            }
+        }
+        else
+        {
+            @(context.Value switch
+            {
+                null => "",
+                "blueprint" => "蓝图", "crafted" => "成品",
+                "intact" => "完整", "radiant" => "光辉",
+                "revealed" => "已揭示", "unrevealed" => "未揭示",
+                "exceptional" => "优良", "flawless" => "无暇",
+                string s when s.StartsWith("zh-") => s == "zh-hans" ? "简体中文" : "繁体中文",
+                "en" => "英语", "ko" => "韩语", "ru" => "俄语", "de" => "德语",
+                "fr" => "法语", "pt" => "葡萄牙语", "es" => "西班牙语",
+                "it" => "意大利语", "pl" => "波兰语", "uk" => "乌克兰语",
+                _ => context.Value?.ToString()
+            })
+        }
+    </ItemColContent>
+</MDataTable>
+
+@if (!loading && !FilteredOrders.Any())
+{
+    <p class="text-caption" style="color:#999;">当前筛选下无订单（可切换购/售或调整等级滑块）</p>
+}
+
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+    [Inject] private IOrderService OrderSvc { get; set; } = null!;
+
+    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+    [Parameter] public ItemShort? TargetItem { get; set; }
+    /// <summary>用户订单展开时传入的确认等级，等级滑块默认选中该等级</summary>
+    [Parameter] public int? InitialRank { get; set; }
+    /// <summary>所属标签/页面的取消令牌（切换 tab/路由离开时由父级取消）</summary>
+    [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
+
+    /// <summary>本面板自己的取消源：收起子面板（组件销毁）时取消未完成请求</summary>
+    private readonly CancellationTokenSource _cts = new();
+
+    protected bool loading = true;
+    protected bool _showBuy = false;
+    protected string _userStatus = "all";
+    protected int _selectedRank = 0;
+    protected int _maxRankValue = 0;
+    private int _priceMin, _priceMax, _minQuantity;
+
+    protected Order[] TopOrder = Array.Empty<Order>();
+
+    protected IEnumerable<Order> FilteredOrders =>
+        OrderSvc.FilterOrders(TopOrder ?? Array.Empty<Order>(), _showBuy, _userStatus, _selectedRank, _maxRankValue,
+            _priceMin, _priceMax, _minQuantity);
+
+    protected List<DataTableHeader<Order>> _headers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (TargetItem == null) { Log.Warning("OrderTop TargetItem 为 null"); loading = false; return; }
+            Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
+            loading = true;
+
+            // 表头由 OrderService.BuildColumns 定义（可单测；价格列 Sortable + Value=Platinum 等）
+            // 表头构建（与可打开的旧版一致；GetOrders/Filter 走 IOrderService 接口）
+            var baseHeaders = new List<DataTableHeader<Order>>
+            {
+                new("联系", nameof(Order.Id)) { Sortable = false, ValueExpression = (Func<Order, object?>)(_ => null) },
+                new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
+                new("声誉", nameof(Order.User), (Func<Order, object?>)(r => (int?)r.User?.Reputation)),
+                new("价格", nameof(Order.Platinum)),
+                new("数量", nameof(Order.Quantity)),
+            };
+            var s = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
+            if (s is { IsMod: true } or { IsArcane: true })
+                baseHeaders.Add(new("等级", nameof(Order.Rank)));
+            else if (s is { IsAyatan: true })
+            {
+                baseHeaders.Add(new("琥珀星", nameof(Order.AmberStars)));
+                baseHeaders.Add(new("青蓝星", nameof(Order.CyanStars)));
+            }
+            else if (s is { IsComponent: true } or { IsRelic: true } or { IsRiven: true })
+                baseHeaders.Add(new("类型", nameof(Order.Subtype)));
+            _headers = baseHeaders;
+            _maxRankValue = TargetItem.MaxRank ?? 0;
+            _selectedRank = InitialRank ?? 0;
+            if (_selectedRank > _maxRankValue) _selectedRank = _maxRankValue;
+            StateHasChanged();
+
+            var slug = TargetItem.Slug;
+            // 组合令牌：父级（tab/路由）取消 + 本面板收起（Dispose）取消
+            using var linked = CancelToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(CancelToken, _cts.Token)
+                : null;
+            var token = linked?.Token ?? _cts.Token;
+            TopOrder = await OrderSvc.GetOrdersAsync(slug, token);
+            Log.Information("OrderTop 初始化完成: {Slug}, count={Count}", slug, TopOrder.Length);
+        }
+        catch (OperationCanceledException)
+        {
+            // 收起子面板/切换标签/路由离开时取消，忽略
+        }
+        catch (Exception ex) { Log.Error(ex, "OrderTop 加载失败"); }
+        finally { loading = false; }
+    }
+
+    protected async Task CopyAsync(string text)
+    {
+        try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", text); }
+        catch { }
+    }
+
+    /// <summary>数字输入框解析：空/非法 → 0（0 = 不限）</summary>
+    private static int ParseInt(object? v) => int.TryParse(v?.ToString(), out var n) ? n : 0;
+
+    public void Dispose()
+    {
+        // 收起子面板（ShowExpand 折叠/组件销毁）时取消未完成的订单请求。
+        // 注意：不调用 base.Dispose（Masa 组件在 WebView 中 Dispose 会触发不可恢复 JS 异常，故意不清理组件资源）
+        _cts.Cancel();
+    }
+
+    private static ItemSubtypeSet? FallbackSubtypes(HashSet<string>? tags)
+    {
+        if (tags == null) return null;
+        var result = new ItemSubtypeSet();
+        foreach (var t in tags) result.Add(t);
+        return result;
+    }
+}

@@ -1,0 +1,85 @@
+@page "/arcane"
+@attribute [NavItem("赋能包", "mdi-package-variant", Order = 2)]
+
+<h3>赋能包查询</h3>
+
+<text class="text-caption">
+    这里列出的数字是指，购买一组小小黑赋能（2520荧尘）开箱子的期望价值。
+    表头的数字是指每天购买多少组小小黑赋能。例如35是指一天买35组。
+    如果某列期望值暴跌 → 开出的赋能比市场流通量还多，按成交量封顶。
+</text>
+
+<MDataTable Items="Pack" Headers="_headers" Dense Loading="@(Pack.Length == 0)"
+            ShowExpand ItemKey="r => r.Name" HideDefaultFooter
+            Class="elevation-1 mt-2" ItemsPerPage="-1">
+    <ExpandedItemContent>
+        <td colspan="9999" @key="@context.Item.Name">
+            <ArcaneTable Pack="context.Item" />
+        </td>
+    </ExpandedItemContent>
+    <ItemColContent>
+        @if (context.Header.Text == "赋能包")
+        {
+            @context.Item.Name
+        }
+        else if (int.TryParse(context.Header.Text, out var count)
+            && _tasks.TryGetValue((context.Item.Name, count), out var task))
+        {
+            @(task.IsCompleted ? $"{task.Result,-6:f1}" : "加载中")
+        }
+        else
+        {
+            @context.Value?.ToString()
+        }
+    </ItemColContent>
+</MDataTable>
+
+@code {
+    [Inject] private ConfigService Config { get; set; } = null!;
+    [Inject] private IArcanePackService Arcane { get; set; } = null!;
+
+    private static readonly int[] PurchaseVolumes = [0, 2, 6, 15, 35];
+
+    protected ArcanePackConfig[] Pack = [];
+    protected List<DataTableHeader<ArcanePackConfig>> _headers = new();
+    internal Dictionary<(string PackName, int Purchase), Task<double>> _tasks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Log.Information("ArcanePacks 初始化");
+        Pack = Config.LoadArcaneConfig();
+
+        _headers.Add(new("赋能包", nameof(ArcanePackConfig.Name)));
+
+        // 启动对所有包 × 购买量的计算
+        foreach (var pack in Pack)
+        {
+            foreach (var count in PurchaseVolumes)
+            {
+                var task = Arcane.GetReferencePriceAsync(pack, count);
+                _tasks[(pack.Name, count)] = task;
+            }
+        }
+
+        // 动态表头
+        foreach (var count in PurchaseVolumes)
+        {
+            _headers.Add(new(count.ToString(), count.ToString())
+            {
+                Align = DataTableHeaderAlign.End,
+                ValueExpression = pack => (object?)pack.Name
+            });
+        }
+
+        // 渐进刷新
+        var allTasks = Task.WhenAll(_tasks.Values);
+        do
+        {
+            await Task.Delay(200);
+            await InvokeAsync(StateHasChanged);
+        } while (!allTasks.IsCompleted);
+
+        await Task.Delay(100);
+        await InvokeAsync(StateHasChanged);
+    }
+}

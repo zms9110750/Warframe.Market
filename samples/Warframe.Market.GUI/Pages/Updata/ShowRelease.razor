@@ -1,0 +1,27 @@
+@* 单个发布版本 *@
+
+<MDivider Class="my-3" />
+
+<h5>@Release.TagName — @Release.Name <span class="text-caption">(@Release.CreatedAt.ToString("yyyy-MM-dd"))</span></h5>
+
+@if (!string.IsNullOrEmpty(Release.Body))
+{
+    <pre style="white-space:pre-wrap;max-height:200px;overflow:auto;background:#f5f5f5;padding:8px;border-radius:4px;">@Release.Body</pre>
+}
+
+@foreach (var asset in Release.Assets.Where(a => !a.Name.Contains("archive/refs/tags")))
+{
+    @if (ClickLink)
+    {
+        <a href="@asset.BrowserDownloadUrl" class="mr-2">@asset.Name</a>
+    }
+    else
+    {
+        <Download Title="@Release.TagName" Url="@asset.BrowserDownloadUrl" SavePath="@($"{Release.TagName}/{asset.Name}")" />
+    }
+}
+
+@code {
+    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+    [Parameter] public GiteeRelease Release { get; set; } = default!;
+}

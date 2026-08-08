@@ -1,0 +1,25 @@
+@* 搜索词分割组件：按 / 分割查询词，foreach 显示可折叠列表 *@
+
+@if (string.IsNullOrWhiteSpace(Query) || TermResults == null || TermTerms == null) { return; }
+
+@if (!TermResults.TryGetValue(Query, out var termResults) || termResults.Count == 0)
+{
+    <p class="text-caption">无匹配结果</p>
+    return;
+}
+
+@if (!TermTerms.TryGetValue(Query, out var terms)) { return; }
+
+@for (int ti = 0; ti < termResults.Count; ti++)
+{
+    var results = termResults[ti];
+    @if (results.Count > 0) { <SearchResultTable Tab="@terms[ti]" results="@results" @key="@($"{Query}_{ti}")" CancelToken="@CancelToken" /> }
+}
+
+@code {
+    [Parameter] public string Query { get; set; } = "";
+    [Parameter] public Dictionary<string, List<List<ItemShort>>>? TermResults { get; set; }
+    [Parameter] public Dictionary<string, List<string>>? TermTerms { get; set; }
+    /// <summary>所属标签的取消令牌：切换标签/关闭标签/离开路由时取消统计请求</summary>
+    [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
+}
