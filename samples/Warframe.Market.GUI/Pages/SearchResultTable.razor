@@ -115,12 +115,33 @@
             new("满级价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "") },
         };
 
-        // 统计后台加载：不阻塞组件初始化/渲染（此前 do-while 轮询会冻结整个组件，
-        // 导致折叠按钮、查看订单等点击的状态变更无法渲染）。每个统计完成立即刷新。
+        // 统计后台加载：不阻塞组件初始化/渲染。每个统计完成立即刷新 + 200ms 轮询兜底
+        // （轮询在独立 fire-and-forget 任务中，组件已渲染，StateHasChanged 有效）
         foreach (var item in results)
         {
             var slug = item.Slug;
-            _ = LoadStatAsync(slug);
+            _statTasks.Add(LoadStatAsync(slug));
+        }
+        _ = PollUntilLoadedAsync();
+    }
+
+    /// <summary>每个 slug 一个统计任务（用于轮询判断是否全部完成）</summary>
+    private readonly List<Task> _statTasks = new();
+
+    /// <summary>200ms 轮询：统计加载期间周期性刷新界面（价格列"加载中"逐格变为数值）</summary>
+    private async Task PollUntilLoadedAsync()
+    {
+        try
+        {
+            while (_statTasks.Any(t => !t.IsCompleted))
+            {
+                await Task.Delay(200, CancelToken);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 标签切换/路由离开取消，忽略
         }
     }
 

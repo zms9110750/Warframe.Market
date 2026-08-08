@@ -71,7 +71,36 @@
             });
         }
 
+        // 200ms 轮询：加载期间周期性刷新（价格列逐格出现；独立任务中 StateHasChanged 有效）
+        _ = PollUntilLoadedAsync();
         return Task.CompletedTask;
+    }
+
+    private readonly CancellationTokenSource _cts = new();
+
+    /// <summary>离开路由时取消未完成的计算/轮询</summary>
+    public void Dispose() => _cts.Cancel();
+
+    private async Task PollUntilLoadedAsync()
+    {
+        try
+        {
+            while (_tasks.Values.Any(t => !t.IsCompleted))
+            {
+                await Task.Delay(200, _cts.Token);
+                await InvokeAsync(StateHasChanged);
+            }
+
+            await InvokeAsync(StateHasChanged); // 全部完成后最终刷新一次
+        }
+        catch (OperationCanceledException)
+        {
+            // 路由离开取消，忽略
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ArcanePacks 轮询异常");
+        }
     }
 
     private async Task<double> ComputeAsync(ArcanePackConfig pack, int count, string packName)
@@ -90,7 +119,8 @@
         {
             // 每次计算完成都记录刷新（验证动态刷新是否逐格触发）
             Log.Information("ArcanePacks 刷新: {Pack} x{Count} = {Value}", packName, count, value);
-            await InvokeAsync(StateHasChanged);
+            try { await InvokeAsync(StateHasChanged); }
+            catch { /* 组件已释放时忽略，避免 task 进入 Faulted 导致 task.Result 崩溃 */ }
         }
         return value;
     }
