@@ -39,7 +39,13 @@
             <SearchTermGroup Query="@tab" TermResults="@tabTermResults" TermTerms="@tabTerms"
                              CancelToken="@(_tabCts.GetValueOrDefault(tab)?.Token ?? CancellationToken.None)" />
         }
-        else if (searchingTabs.Contains(tab)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
+        else if (searchingTabs.Contains(tab))
+        {
+            <div class="d-flex align-center" style="gap:10px;margin-top:8px;">
+                <MProgressCircular Indeterminate Size="20" Width="2" />
+                <span class="text-caption">正在搜索「@tab」…（首次需加载物品索引，可能数秒）</span>
+            </div>
+        }
         else { <p class="text-caption" style="color:#999;margin-top:8px;">点击标签开始搜索</p> }
     </div>
 }
@@ -123,15 +129,13 @@
         var terms = tab.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
         tabTerms[tab] = terms;
 
-        var allResults = new List<List<ItemShort>>();
-        foreach (var term in terms)
-        {
-            var results = await ItemSvc.SearchAsync(term, cts.Token);
-            allResults.Add(results);
-        }
-        tabTermResults[tab] = allResults;
+        // 各词并行搜索（保持顺序）；首次搜索含物品索引下载 + Trie 构建，可能需数秒
+        var tasks = terms.Select(t => ItemSvc.SearchAsync(t, cts.Token)).ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        tabTermResults[tab] = results.ToList();
         searchingTabs.Remove(tab);
-        Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词", tab, terms.Count);
+        Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词，{Count} 个结果", tab, terms.Count, results.Sum(r => r.Count));
         StateHasChanged();
     }
 
