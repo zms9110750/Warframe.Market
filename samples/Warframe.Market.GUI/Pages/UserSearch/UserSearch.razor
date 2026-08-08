@@ -159,6 +159,7 @@
         {
             Log.Information("UserSearch 取消用户标签任务: {Name}", old);
             cts.Cancel();
+            _userCts.Remove(old); // 移除已取消的 CTS——切回该标签时重建，避免复用已取消令牌导致永远搜不出
         }
         Log.Information("UserSearch 切换标签: {Old} -> {New}", old, _users[idx]);
         activeTabIndex = idx;

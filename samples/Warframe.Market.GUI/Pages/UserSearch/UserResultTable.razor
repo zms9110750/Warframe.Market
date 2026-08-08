@@ -53,6 +53,7 @@ else
                 </MDataTable>
             </div>
             }
+            }
             else if (!result.Loading) { <p>无公开订单</p> }
         }
 }
@@ -78,7 +79,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        if (result is { Loading: false } && result.Orders.Count > 0)
+        if (result is { Loading: false } && result.Orders is { Count: > 0 })
         {
             _ = LoadPricesAsync();
         }

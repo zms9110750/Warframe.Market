@@ -158,6 +158,7 @@
         {
             Log.Information("ItemSearch 取消标签任务: {Tab}", old);
             cts.Cancel(); // 旧标签未完成的任务立即取消
+            _tabCts.Remove(old); // 移除已取消的 CTS——切回时重建，避免复用已取消令牌
         }
         Log.Information("ItemSearch 切换标签: {Old} -> {New}", old, _tabs[idx]);
         activeTabIndex = idx;
