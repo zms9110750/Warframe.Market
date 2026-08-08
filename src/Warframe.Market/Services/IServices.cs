@@ -48,6 +48,9 @@ public interface IItemSearchService
 public interface IUserOrderService
 {
     Task<UserSearchResult> SearchUserAsync(string name, CancellationToken ct = default);
+
+    /// <summary>后台分批加载订单参考价（每批 3 个）；调用方在每批完成后刷新界面</summary>
+    Task LoadPricesAsync(UserSearchResult result, CancellationToken ct = default);
 }
 
 /// <summary>赋能包期望值计算服务</summary>

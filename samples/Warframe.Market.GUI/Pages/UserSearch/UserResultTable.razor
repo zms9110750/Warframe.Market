@@ -51,6 +51,7 @@ else
 
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IUserOrderService UserSvc { get; set; } = null!;
 
     [Parameter] public string UserName { get; set; } = "";
     [Parameter] public UserSearchResult? result { get; set; }
@@ -60,6 +61,48 @@ else
 
     private DateTime? _lastRefreshed;
     private List<DataTableHeader<Order>> _headers = new();
+
+    /// <summary>
+    /// 异步刷新核心：订单列表由 SearchUserAsync 立即提供（表格先展示），
+    /// 价格在这里后台分批加载（fire-and-forget），每批完成即刷新界面——不阻塞列表展示。
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (result is { Loading: false } && result.Orders.Count > 0)
+        {
+            _ = LoadPricesAsync();
+        }
+    }
+
+    private async Task LoadPricesAsync()
+    {
+        try
+        {
+            Log.Information("UserResultTable 开始后台加载价格: {UserName}", UserName);
+            var task = UserSvc.LoadPricesAsync(result!, CancelToken);
+            // 渐进刷新：加载期间每 200ms 刷新界面（价格列"加载中"逐个变为数值）
+            // 注意：此循环在独立 fire-and-forget 任务中（组件已渲染），StateHasChanged 有效
+            while (!task.IsCompleted)
+            {
+                await Task.Delay(200);
+                await InvokeAsync(StateHasChanged);
+            }
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消，忽略
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "UserResultTable 价格加载失败: {UserName}", UserName);
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
 
     private async Task DoRefresh()
     {
@@ -84,13 +127,13 @@ else
         _headers = new()
         {
             new("物品", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortName(o)) },
-            new("英文名称", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortEn(o)) },
+            new("英文名称", "en-name") { ValueExpression = (Func<Order, object?>)(o => SortEn(o)) },
             new("类型", nameof(Order.Type)) { ValueExpression = (Func<Order, object?>)(o => o.Type is "buy" or "Buy" ? "购" : "售") },
             new("铂金", nameof(Order.Platinum)),
             new("数量", nameof(Order.Quantity)),
-            new("等级", nameof(Order.Rank)),
-            new("参考价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
-            new("差价", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
+            new("等级/品质", nameof(Order.Rank)),
+            new("参考价", "ref") { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
+            new("差价", "diff") { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
         };
     }
 

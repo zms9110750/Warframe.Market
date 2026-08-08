@@ -55,18 +55,26 @@
             }
             else if (context.Header.Text == "满级价格")
             {
-                var has = _maxPrices.TryGetValue(context.Item.Slug, out var mpv);
-                var mp = has ? mpv : null;
-                if (has && mp.HasValue)
+                // 无等级/类别的物品（MaxRank 为空，如普通武器/蓝图）没有"满级价格"概念 → 显示 -
+                if (context.Item.MaxRank is not > 0)
                 {
-                    if (ClickLink)
-                    {
-                        <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{mp:F1}")</a>
-                    }
-                    else { @($"{mp:F1}") }
+                    @("-")
                 }
-                else if (has) { @("") }
-                else { @("加载中") }
+                else
+                {
+                    var has = _maxPrices.TryGetValue(context.Item.Slug, out var mpv);
+                    var mp = has ? mpv : null;
+                    if (has && mp.HasValue)
+                    {
+                        if (ClickLink)
+                        {
+                            <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{mp:F1}")</a>
+                        }
+                        else { @($"{mp:F1}") }
+                    }
+                    else if (has) { @("-") } // 已加载但无满级数据
+                    else { @("加载中") }
+                }
             }
         </ItemColContent>
     </MDataTable>

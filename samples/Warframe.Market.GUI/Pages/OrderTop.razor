@@ -46,11 +46,11 @@
                style="max-width:150px;margin:0 12px;width:150px;background:@grad;" />
         <span>等级 @_selectedRank@(_showBuy ? "-" : "+")</span>
     }
-    <input type="number" placeholder="最低价" min="0" style="width:80px;"
+    <input type="number" placeholder="最低价" min="0" style="width:80px;border:1px solid #ccc;border-radius:4px;padding:4px 6px;font-size:14px;background:#fff;"
            @onchange="@((ChangeEventArgs e) => { _priceMin = ParseInt(e.Value); StateHasChanged(); })" />
-    <input type="number" placeholder="最高价" min="0" style="width:80px;"
+    <input type="number" placeholder="最高价" min="0" style="width:80px;border:1px solid #ccc;border-radius:4px;padding:4px 6px;font-size:14px;background:#fff;"
            @onchange="@((ChangeEventArgs e) => { _priceMax = ParseInt(e.Value); StateHasChanged(); })" />
-    <input type="number" placeholder="最少数量" min="0" style="width:80px;"
+    <input type="number" placeholder="最少数量" min="0" style="width:80px;border:1px solid #ccc;border-radius:4px;padding:4px 6px;font-size:14px;background:#fff;"
            @onchange="@((ChangeEventArgs e) => { _minQuantity = ParseInt(e.Value); StateHasChanged(); })" />
 </div>
 

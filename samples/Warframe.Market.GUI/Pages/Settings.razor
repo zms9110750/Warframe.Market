@@ -9,35 +9,42 @@
 
 <h4 class="mt-4">语言 / 平台 / 跨平台</h4>
 
-<div class="mb-2">
-    <div class="d-flex align-center mb-1" style="gap:12px;">
-        <text class="text-caption" style="width:110px;">界面语言（单选）</text>
-        <text class="text-caption">下载语言包（勾选后用于该语言的物品缓存/i18n）</text>
-    </div>
-    <MRadioGroup @bind-Value="lang" Dense HideDetails="true">
-        @foreach (var li in langItems)
-        {
-            var isDownloaded = _downloadedLangs.Contains(li);
-            <div class="d-flex align-center" style="gap:10px;">
-                <MRadio Value="@li" Label="@li" Dense />
-                <MCheckbox Value="@isDownloaded"
-                           ValueChanged="@((bool v) => _ = ToggleDownload(li, v))"
-                           Dense HideDetails="true">
-                    <ChildContent>
-                        <span class="text-caption">下载语言包</span>
-                    </ChildContent>
-                </MCheckbox>
-                @if (isDownloaded) { <span class="text-caption" style="color:#888;">已下载</span> }
-            </div>
-        }
-    </MRadioGroup>
+<style>
+    .settings-lang-grid {
+        display: grid;
+        grid-template-columns: 150px 200px 70px;
+        row-gap: 2px;
+        column-gap: 8px;
+        align-items: center;
+    }
+</style>
+
+<div class="settings-lang-grid mb-2">
+    <div class="text-caption" style="font-weight:600;">界面语言（单选）</div>
+    <div class="text-caption" style="font-weight:600;">下载语言包（缓存该语言 i18n）</div>
+    <div></div>
+    @foreach (var li in langItems)
+    {
+        var isDownloaded = _downloadedLangs.Contains(li);
+        <div><MRadio Value="@li" Label="@li" Dense /></div>
+        <div>
+            <MCheckbox Value="@isDownloaded"
+                       ValueChanged="@((bool v) => _ = ToggleDownload(li, v))"
+                       Dense HideDetails="true">
+                <ChildContent><span class="text-caption">下载</span></ChildContent>
+            </MCheckbox>
+        </div>
+        <div>@if (isDownloaded) { <span class="text-caption" style="color:#888;">已下载</span> }</div>
+    }
 </div>
 
-<div class="d-flex align-center mb-2" style="gap:12px;">
-    <MSelect TItem="string" TItemValue="string" TValue="string"
-             Items="@platItems" ItemText="@(i => i)" ItemValue="@(i => i)"
-             Value="@plat" ValueChanged="@((string v) => { plat = v; State.Platform = AppState.StrToPlat(v); })"
-             Label="平台" Dense Solo HideDetails="true" Style="max-width:130px;" />
+<div class="d-flex align-center mb-2" style="gap:12px;flex-wrap:wrap;">
+    @* 平台：按钮组单选（与 OrderTop 购/售按钮组同款，已验证可靠） *@
+    @foreach (var p in platItems)
+    {
+        <MButton Small Outlined="@(plat != p)" Color="@(plat == p ? "primary" : "")"
+                 OnClick="@(() => { plat = p; State.Platform = AppState.StrToPlat(p); })">@p</MButton>
+    }
     <MSwitch @bind-Value="crossplay" @bind-Value:after="@(() => State.Crossplay = crossplay)" Dense Inset HideDetails="true">
         <LabelContent>跨平台</LabelContent>
     </MSwitch>
