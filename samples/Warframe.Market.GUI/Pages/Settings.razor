@@ -12,7 +12,7 @@
 <style>
     .settings-lang-grid {
         display: grid;
-        grid-template-columns: 150px 200px 70px;
+        grid-template-columns: 200px 140px;
         row-gap: 2px;
         column-gap: 8px;
         align-items: center;
@@ -20,21 +20,29 @@
 </style>
 
 <div class="settings-lang-grid mb-2">
-    <div class="text-caption" style="font-weight:600;">界面语言（单选）</div>
     <div class="text-caption" style="font-weight:600;">下载语言包（缓存该语言 i18n）</div>
-    <div></div>
+    <div class="text-caption" style="font-weight:600;">状态</div>
     @foreach (var li in langItems)
     {
-        var isDownloaded = _downloadedLangs.Contains(li);
-        <div><MRadio Value="@li" Label="@li" Dense /></div>
+        var isCore = li is "zh-hans" or "en";
+        var fileExists = LocalizationDownloadService.IsDownloaded(li);
+        var inConfig = _downloadedLangs.Contains(li);
+        var isReadOnly = isCore || fileExists;                  // 核心语言 / 已下载完成 → 只读
+        var isIndeterminate = !isReadOnly && inConfig;          // 配置标记但文件缺失 → 半选（可重新下载）
         <div>
-            <MCheckbox Value="@isDownloaded"
+            <MCheckbox Value="@(isCore || fileExists)"
+                       Indeterminate="@isIndeterminate"
+                       Disabled="@isReadOnly"
                        ValueChanged="@((bool v) => _ = ToggleDownload(li, v))"
                        Dense HideDetails="true">
-                <ChildContent><span class="text-caption">下载</span></ChildContent>
+                <ChildContent><span>@li</span></ChildContent>
             </MCheckbox>
         </div>
-        <div>@if (isDownloaded) { <span class="text-caption" style="color:#888;">已下载</span> }</div>
+        <div>
+            @if (isCore) { <span class="text-caption" style="color:#888;">核心</span> }
+            else if (fileExists) { <span class="text-caption" style="color:#888;">已下载</span> }
+            else if (isIndeterminate) { <span class="text-caption" style="color:#b26a00;">需重新下载</span> }
+        </div>
     }
 </div>
 
@@ -78,7 +86,6 @@
     [Inject] private UpdateService Updates { get; set; } = null!;
     [Inject] private LocalizationDownloadService Localizations { get; set; } = null!;
 
-    private string lang = "zh-hans";
     private string plat = "pc";
     private bool crossplay = true;
     private HashSet<string> _downloadedLangs = new();
@@ -93,13 +100,14 @@
     protected override void OnInitialized()
     {
         var cfg = Config.LoadAppConfig();
-        lang = cfg.DefaultLanguage;
         plat = cfg.DefaultPlatform;
         crossplay = cfg.DefaultCrossplay;
-        // 已下载的语言包：配置列表 + 本地已存在的
+        // 已下载的语言包：配置列表 + 本地已存在的 + 强制核心语言（zh-hans/en 只读勾选）
         _downloadedLangs = cfg.DownloadedLanguages
             .Concat(langItems.Where(LocalizationDownloadService.IsDownloaded))
             .ToHashSet();
+        _downloadedLangs.Add("zh-hans");
+        _downloadedLangs.Add("en");
     }
 
     /// <summary>勾选/取消"下载语言包"：勾选即从 wfm-localization 下载该语言 JSON 存本地</summary>
@@ -124,13 +132,14 @@
     {
         Config.SaveAppConfig(new AppConfig
         {
-            DefaultLanguage = lang,
+            // 界面语言固定中文（不做界面语言切换）
+            DefaultLanguage = "zh-hans",
             DefaultPlatform = plat,
             DefaultCrossplay = crossplay,
             DownloadedLanguages = _downloadedLangs.ToList(),
         });
-        Log.Information("Settings 保存默认配置: {Lang}/{Plat}/crossplay={Cross}, 语言包={Langs}",
-            lang, plat, crossplay, string.Join(",", _downloadedLangs));
+        Log.Information("Settings 保存默认配置: {Plat}/crossplay={Cross}, 语言包={Langs}",
+            plat, crossplay, string.Join(",", _downloadedLangs));
     }
 
     private async Task LoadReleases()

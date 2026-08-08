@@ -6,24 +6,31 @@
 else if (result.NotFound) { <MAlert Dense Type="@AlertTypes.Error">未找到该用户：@UserName</MAlert> }
 else
 {
-    <details open>
-        <summary style="cursor:pointer;padding:6px 0;user-select:none;">
-            <div class="d-flex align-center" style="gap:12px;width:100%;">
-                <span style="font-weight:500;">@UserName — @(result.Orders?.Count ?? 0) 个订单 — @result.User?.Platform</span>
-                <span @onclick:stopPropagation>
-                    <MButton Small Outlined Color="primary" OnClick="@(() => _ = DoRefresh())">
-                        <MIcon Small Class="mr-1">mdi-refresh</MIcon>刷新@(_lastRefreshed.HasValue ? $" ({RelativeText()})" : "")
-                    </MButton>
-                </span>
-            </div>
-        </summary>
-        <div style="margin-top:8px;">
-            @if (result.Orders != null && result.Orders.Count > 0)
-            {
-                <p class="text-caption">@(result.LoadingPrices ? " — 加载中..." : "")</p>
-                <MDataTable Items="result.Orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" Loading="@result.Loading" MustSort
-                            ItemKey="r => r.Id" ShowExpand
-                            GroupBy="nameof(Order.Type)" GroupDesc="[true]">
+    @if (result.User != null)
+    {
+        <p class="mt-2">
+            <strong>@result.User.IngameName</strong> — @result.User.Platform — 声望 @result.User.Reputation — @result.User.LastSeenLocal.ToString("g")
+        </p>
+    }
+    @if (result.Orders != null && result.Orders.Count > 0)
+    {
+        @* 折叠按钮（原版样式）：三角形在用户名前，不单独一行 *@
+        <MButton Small Text OnClick="@(() => _collapsed = !_collapsed)" Class="mb-1" style="cursor:pointer;text-transform:none;">
+            <MIcon Small>@(_collapsed ? "mdi-chevron-right" : "mdi-chevron-down")</MIcon>
+            @UserName — @result.Orders.Count 个订单
+            <span @onclick:stopPropagation style="margin-left:12px;">
+                <MButton Small Outlined Color="primary" OnClick="@(() => _ = DoRefresh())">
+                    <MIcon Small Class="mr-1">mdi-refresh</MIcon>刷新@(_lastRefreshed.HasValue ? $" ({RelativeText()})" : "")
+                </MButton>
+            </span>
+        </MButton>
+        @if (!_collapsed)
+        {
+            <div style="margin-top:4px;">
+            <p class="text-caption">@(result.LoadingPrices ? " — 加载中..." : "")</p>
+            <MDataTable Items="result.Orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" Loading="@result.Loading" MustSort
+                        ItemKey="r => r.Id" ShowExpand
+                        GroupBy="nameof(Order.Type)" GroupDesc="[true]">
                     <GroupHeaderContent>
                         <td colspan="@_headers.Count">
                             @if (context.Group is "buy" or "Buy") { @("购") } else { @("售") }
@@ -38,15 +45,16 @@ else
                     <ItemColContent>
                         @if (context.Header.Text == "物品") { @GetItemName(result, context.Item) }
                         else if (context.Header.Text == "英文名称") { @GetEnName(result, context.Item) }
+                        else if (context.Header.Text == "等级/品质") { @(context.Item.Rank?.ToString() ?? "-") }
                         else if (context.Header.Text == "参考价") { @GetRef(result, context.Item) }
                         else if (context.Header.Text == "差价") { @GetDiff(result, context.Item) }
                         else { @context.Value?.ToString() }
                     </ItemColContent>
                 </MDataTable>
+            </div>
             }
             else if (!result.Loading) { <p>无公开订单</p> }
-        </div>
-    </details>
+        }
 }
 
 @code {
@@ -59,6 +67,7 @@ else
     /// <summary>所属标签/页面的取消令牌（切换用户标签/路由离开时由父级取消，透传给 OrderTop）</summary>
     [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
 
+    private bool _collapsed;
     private DateTime? _lastRefreshed;
     private List<DataTableHeader<Order>> _headers = new();
 

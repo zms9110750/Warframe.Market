@@ -131,12 +131,22 @@
 
         // 各词并行搜索（保持顺序）；首次搜索含物品索引下载 + Trie 构建，可能需数秒
         var tasks = terms.Select(t => ItemSvc.SearchAsync(t, cts.Token)).ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        tabTermResults[tab] = results.ToList();
-        searchingTabs.Remove(tab);
-        Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词，{Count} 个结果", tab, terms.Count, results.Sum(r => r.Count));
-        StateHasChanged();
+        try
+        {
+            var results = await Task.WhenAll(tasks);
+            tabTermResults[tab] = results.ToList();
+            Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词，{Count} 个结果", tab, terms.Count, results.Sum(r => r.Count));
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消：清理搜索中状态，避免转圈残留
+            Log.Information("ItemSearch 搜索取消: {Tab}", tab);
+        }
+        finally
+        {
+            searchingTabs.Remove(tab);
+            StateHasChanged();
+        }
     }
 
     /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始搜索</summary>

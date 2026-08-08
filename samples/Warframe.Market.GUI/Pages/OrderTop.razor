@@ -152,6 +152,7 @@
                 new("联系", nameof(Order.Id)) { Sortable = false, ValueExpression = (Func<Order, object?>)(_ => null) },
                 new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
                 new("声誉", nameof(Order.User), (Func<Order, object?>)(r => (int?)r.User?.Reputation)),
+                new("语言", "locale", (Func<Order, object?>)(r => r.User?.Locale)),
                 new("价格", nameof(Order.Platinum)),
                 new("数量", nameof(Order.Quantity)),
             };

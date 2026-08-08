@@ -132,11 +132,22 @@
         _searchingUsers.Add(name);
         Log.Information("UserSearch 开始搜索用户: {Name}", name);
 
-        var result = await UserSvc.SearchUserAsync(name, cts.Token);
-        _userResults[name] = result;
-        _searchingUsers.Remove(name);
-        Log.Information("UserSearch 搜索完成: {Name}, NotFound={NotFound}", name, result.NotFound);
-        StateHasChanged();
+        try
+        {
+            var result = await UserSvc.SearchUserAsync(name, cts.Token);
+            _userResults[name] = result;
+            Log.Information("UserSearch 搜索完成: {Name}, NotFound={NotFound}", name, result.NotFound);
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消：清理搜索中状态，避免转圈残留
+            Log.Information("UserSearch 搜索取消: {Name}", name);
+        }
+        finally
+        {
+            _searchingUsers.Remove(name);
+            StateHasChanged();
+        }
     }
 
     /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始查询</summary>
