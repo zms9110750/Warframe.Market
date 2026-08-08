@@ -189,14 +189,19 @@ else
     protected string GetRef(UserSearchResult r, Order o)
     {
         var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-        if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "-";
+        if (item == null) return "-";
+        // 价格未加载（Prices 无该 slug）→ 加载中；加载完成但无数据（stat null）→ 不存在
+        if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
+        if (stat == null) return "-";
         var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
         return p?.ToString("F1") ?? "-";
     }
     protected string GetDiff(UserSearchResult r, Order o)
     {
         var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-        if (item == null || !r.Prices.TryGetValue(item.Slug, out var stat) || stat == null) return "";
+        if (item == null) return "";
+        if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
+        if (stat == null) return "";
         var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
         if (refP == null || refP <= 0) return "";
         var diff = refP.Value - o.Platinum;

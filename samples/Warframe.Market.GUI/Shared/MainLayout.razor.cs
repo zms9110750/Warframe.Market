@@ -19,7 +19,7 @@ public partial class MainLayout : LayoutComponentBase
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
     private string currentTitle = "";
-    protected bool canWrite;
+    protected bool canWrite => State.CanWrite;
     protected bool clickLink;
     private List<NavItemInfo> navItems = new();
 

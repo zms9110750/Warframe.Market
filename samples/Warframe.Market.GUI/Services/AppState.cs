@@ -38,6 +38,9 @@ public class AppState
 
     public string? VersionText { get; set; }
     public bool IsUpdating { get; set; }
+
+    /// <summary>快速回复可编辑开关（原顶部 AppBar 开关，移到快速回复页内）</summary>
+    public bool CanWrite { get; set; }
     public bool ShowRefreshPrompt { get; set; }
     public string? StatusMessage { get; set; }
 

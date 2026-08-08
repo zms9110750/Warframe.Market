@@ -3,6 +3,12 @@
 
 <h3>快捷回复</h3>
 
+@* 可编辑开关（原顶部 AppBar 开关移到这里） *@
+<MButton Small Outlined="@(!canWrite)" Color="@(canWrite ? "primary" : "")" Class="mb-2"
+         OnClick="@(() => { State.CanWrite = !State.CanWrite; StateHasChanged(); })">
+    <MIcon Small Class="mr-1">@(canWrite ? "mdi-pencil-off" : "mdi-pencil")</MIcon>@(canWrite ? "完成编辑" : "编辑")
+</MButton>
+
 @for (int i = 0; i < Tags.Count; i++)
 {
     var idx = i;
@@ -45,6 +51,7 @@ else if (Tags.Count == 0)
 @code {
     [Inject] private IJSRuntime Js { get; set; } = null!;
     [Inject] private PersistentStorage Storage { get; set; } = null!;
+    [Inject] private AppState State { get; set; } = null!;
 
     [CascadingParameter(Name = "CanWrite")]
     public bool canWrite { get; set; }

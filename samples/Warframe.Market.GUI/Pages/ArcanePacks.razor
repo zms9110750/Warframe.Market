@@ -76,18 +76,22 @@
 
     private async Task<double> ComputeAsync(ArcanePackConfig pack, int count, string packName)
     {
+        double value = 0;
         try
         {
-            return await Arcane.GetReferencePriceAsync(pack, count);
+            value = await Arcane.GetReferencePriceAsync(pack, count);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "赋能包计算失败: {Pack} x{Count}", packName, count);
-            return 0;
+            value = 0;
         }
         finally
         {
+            // 每次计算完成都记录刷新（验证动态刷新是否逐格触发）
+            Log.Information("ArcanePacks 刷新: {Pack} x{Count} = {Value}", packName, count, value);
             await InvokeAsync(StateHasChanged);
         }
+        return value;
     }
 }
