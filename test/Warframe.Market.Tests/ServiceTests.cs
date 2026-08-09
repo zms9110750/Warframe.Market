@@ -62,6 +62,41 @@ public class ServiceTests
         Assert.True(svc.GetReferencePrice(stat) > 0);
     }
 
+    [Fact]
+    public async Task ItemSearch_GetStatistic_concurrent_same_slug_fetches_once()
+    {
+        // 统计缓存（手动 ConcurrentDictionary + Lazy）：同 slug 并发只发 1 次请求
+        // （替代 FusionCache 2.6.0 并发锁 NRE 的统计缓存）
+        var (handler, client) = CreatePair();
+        var slug = "secura_dual_cestra";
+        handler.Map($"/v1/items/{slug}/statistics", Data.File("statistics", "secura_dual_cestra.json"));
+        var svc = new ItemSearchService(client);
+
+        var tasks = Enumerable.Range(0, 10).Select(_ => svc.GetStatisticAsync(slug)).ToArray();
+        var stats = await Task.WhenAll(tasks);
+
+        var statCalls = handler.RequestUris.Count(u => u.PathAndQuery.Contains("/statistics"));
+        Assert.Equal(1, statCalls);
+        Assert.All(stats, s => Assert.NotNull(s));
+    }
+
+    [Fact]
+    public async Task ItemSearch_GetStatistic_failure_returns_null_without_crash()
+    {
+        // 统计 404（未 Map）：返回 null 不崩（FusionCache 曾在此路径 NRE → 赋能包全失败）
+        var (handler, client) = CreatePair();
+        var slug = "no_such_slug";
+        var svc = new ItemSearchService(client);
+
+        var first = await svc.GetStatisticAsync(slug);
+        var second = await svc.GetStatisticAsync(slug);
+
+        Assert.Null(first);
+        Assert.Null(second);
+        // 失败（null）也被缓存 → 只发 1 次请求（避免失败风暴）
+        Assert.Equal(1, handler.RequestUris.Count(u => u.PathAndQuery.Contains("/statistics")));
+    }
+
     // ─── IUserOrderService ───
 
     [Fact]

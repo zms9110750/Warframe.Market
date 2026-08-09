@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Caching.Memory;
-using ZiggyCreatures.Caching.Fusion;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -15,8 +13,12 @@ public class ItemSearchService : IItemSearchService
 {
     private readonly WarframeMarketClient _wfm;
     private readonly Func<IEnumerable<string>>? _extraLanguagesProvider;
-    private readonly IFusionCache? _statCache;
     private readonly SemaphoreSlim _lock = new(1, 1);
+
+    // 统计内存缓存：Lazy 并发去重（同 slug 并发只请求一次）+ TTL 到 UTC0（跨天刷新）。
+    // 不用 FusionCache：2.6.0 的 GetOrSetAsync 并发锁路径 NRE（"releasing the MEMORY LOCK"，
+    // 日志 stat:xxx 全部失败 → 赋能包全算失败）——手动实现等价功能绕开该 bug。
+    private readonly ConcurrentDictionary<string, (Lazy<Task<Statistic?>> Lazy, DateTime ExpiresAt)> _statCache = new();
 
     private Trie? _trie;
     private Dictionary<string, ItemShort>? _byId;
@@ -24,16 +26,10 @@ public class ItemSearchService : IItemSearchService
     private Dictionary<string, ItemShort>? _byName;
     private bool _loaded;
 
-    /// <summary>
-    /// statCache：统计的内存缓存（FusionCache，key 前缀 "stat:" 与 HTTP 缓存隔离）。
-    /// 提供 per-slug 并发去重 + 跨天刷新（TTL 到 UTC0）+ 优先级生命周期（使用中 NeverRemove）。
-    /// 不传时回退为直接请求（测试场景）。
-    /// </summary>
-    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null, IFusionCache? statCache = null)
+    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null)
     {
         _wfm = wfm;
         _extraLanguagesProvider = extraLanguagesProvider;
-        _statCache = statCache;
     }
 
     public void Invalidate()
@@ -216,25 +212,29 @@ public class ItemSearchService : IItemSearchService
         return results;
     }
 
-    public Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
+    public async Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
     {
-        if (_statCache == null)
+        // 过期条目移除（跨天刷新）
+        if (_statCache.TryGetValue(slug, out var entry) && entry.ExpiresAt <= DateTime.UtcNow)
         {
-            return FetchStatisticAsync(slug, ct); // 测试场景：无缓存直接请求
+            _statCache.TryRemove(slug, out _);
         }
 
-        // FusionCache 内存缓存（key "stat:{slug}" 与 HTTP 缓存隔离）：
-        // 1. per-slug 并发去重（同 slug 只执行一次 factory）
-        // 2. TTL 到下一个 UTC0（统计每天刷新，不再永久缓存跨天陈旧）
-        // 3. 优先级 NeverRemove：使用中的统计在内存压力下不被回收
-        //    （页面生命周期降级：tag 关闭 → SetPriority(High)，页面关闭 → SetPriority(Normal)，由 UI 层调用）
-        return _statCache.GetOrSetAsync<Statistic?>(
-            $"stat:{slug}",
-            _ => FetchStatisticAsync(slug, ct),
-            new FusionCacheEntryOptions {
-                Priority = CacheItemPriority.NeverRemove,
-                Duration = TimeUntilNextUtcMidnight(),
-            }).AsTask();
+        // Lazy 保证同 slug 并发只执行一次 factory；未过期则复用缓存 Task
+        var lazy = _statCache.GetOrAdd(slug, _ => (
+            new Lazy<Task<Statistic?>>(() => FetchStatisticAsync(slug, ct)),
+            DateTime.UtcNow + TimeUntilNextUtcMidnight())).Lazy;
+
+        try
+        {
+            return await lazy.Value;
+        }
+        catch (OperationCanceledException)
+        {
+            // 取消的缓存任务移除：下次调用重新请求（避免 Lazy 缓存异常）
+            _statCache.TryRemove(slug, out _);
+            throw;
+        }
     }
 
     /// <summary>到下一个 UTC 0 的剩余时长（与 HTTP 缓存策略一致：统计每天刷新）</summary>

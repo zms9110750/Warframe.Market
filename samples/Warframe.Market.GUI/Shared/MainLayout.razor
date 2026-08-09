@@ -48,10 +48,8 @@
         <div class="@(State.IsUpdating ? "cursor-wait" : "")">
             <MContainer Fluid>
                 <MErrorHandler>
-                    <CascadingValue Value="State.CanWrite" Name="CanWrite">
-                        <CascadingValue Value="clickLink" Name="ClickLink">
-                            @Body
-                        </CascadingValue>
+                    <CascadingValue Value="clickLink" Name="ClickLink">
+                        @Body
                     </CascadingValue>
                 </MErrorHandler>
             </MContainer>
