@@ -72,7 +72,7 @@
                 Align = DataTableHeaderAlign.End,
                 ValueExpression = (Func<ArcanePackConfig, object?>)(pack =>
                     _tasks.TryGetValue((pack.Name, c), out var task) && task.IsCompleted
-                        ? (object?)(float)task.Result
+                        ? (float?)task.Result // float? 自动装箱为 object?（未完成 → null，排最后）
                         : null),
             });
         }
