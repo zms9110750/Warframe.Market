@@ -86,6 +86,33 @@
 
     private readonly CancellationTokenSource _cts = new();
 
+    // 渲染节流：45 个任务完成时逐个 StateHasChanged 会产生大量并发渲染批次，
+    // 触发 PhotinoX 的 WebView 渲染批次竞态（"unexpected acknowledgement for render batch"）→ 页面报错。
+    private DateTime _lastRefresh = DateTime.MinValue;
+    private readonly object _refreshLock = new();
+
+    /// <summary>节流版刷新：200ms 窗口内最多触发一次渲染（任务完成 + 轮询共用）</summary>
+    private async Task RefreshThrottledAsync()
+    {
+        lock (_refreshLock)
+        {
+            if ((DateTime.UtcNow - _lastRefresh).TotalMilliseconds < 200)
+            {
+                return;
+            }
+            _lastRefresh = DateTime.UtcNow;
+        }
+
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // 组件已释放时忽略
+        }
+    }
+
     /// <summary>离开路由时取消未完成的计算/轮询</summary>
     public void Dispose()
     {
@@ -102,10 +129,10 @@
             while (_tasks.Values.Any(t => !t.IsCompleted))
             {
                 await Task.Delay(200, _cts.Token);
-                await InvokeAsync(StateHasChanged);
+                await RefreshThrottledAsync();
             }
 
-            await InvokeAsync(StateHasChanged); // 全部完成后最终刷新一次
+            await RefreshThrottledAsync(); // 全部完成后最终刷新一次
         }
         catch (OperationCanceledException)
         {
@@ -133,8 +160,7 @@
         {
             // 每次计算完成都记录刷新（验证动态刷新是否逐格触发）
             Log.Information("ArcanePacks 刷新: {Pack} x{Count} = {Value}", packName, count, value);
-            try { await InvokeAsync(StateHasChanged); }
-            catch { /* 组件已释放时忽略，避免 task 进入 Faulted 导致 task.Result 崩溃 */ }
+            await RefreshThrottledAsync(); // 节流：合并 45 任务的高频渲染，避免渲染批次竞态
         }
         return value;
     }

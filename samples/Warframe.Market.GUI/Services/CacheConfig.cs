@@ -83,8 +83,12 @@ public static class CacheConfig
         if (localPath.StartsWith("/v1/", StringComparison.Ordinal)
             && localPath.EndsWith("/statistics", StringComparison.Ordinal))
         {
+            // 统计：仅内存缓存（跨天作废，无需落 SQLite）。禁分布式写——
+            // 响应流在 HttpClient 释放后异步序列化会 ObjectDisposedException
+            // （日志 [DC] an error occurred while serializing an entry / NetworkStream）
             return new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions {
                 Expiration = TimeUntilNextUtcMidnight(),
+                Flags = Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryFlags.DisableDistributedCacheWrite,
             };
         }
 
