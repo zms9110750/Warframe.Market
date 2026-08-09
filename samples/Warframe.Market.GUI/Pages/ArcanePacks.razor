@@ -87,7 +87,13 @@
     private readonly CancellationTokenSource _cts = new();
 
     /// <summary>离开路由时取消未完成的计算/轮询</summary>
-    public void Dispose() => _cts.Cancel();
+    public void Dispose()
+    {
+        _cts.Cancel();
+
+        // 路由离开：本次用过的统计全部降级（Normal 可逐出），不再驻留
+        Arcane.SetStatisticsPriority(Microsoft.Extensions.Caching.Memory.CacheItemPriority.Normal);
+    }
 
     private async Task PollUntilLoadedAsync()
     {

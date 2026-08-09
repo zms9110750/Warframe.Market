@@ -1,4 +1,5 @@
 @page "/"
+@using Microsoft.Extensions.Caching.Memory
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
 @* 搜索框 + 图钉开关（独立于 tab） *@
@@ -191,6 +192,10 @@
         if (_pinned.Contains(tab)) return; // 钉住的不能关（MChip 不显示 x）
         if (_tabCts.TryGetValue(tab, out var cts)) { Log.Information("ItemSearch 关闭标签并取消: {Tab}", tab); cts.Cancel(); }
         _tabCts.Remove(tab);
+
+        // tab 关闭 → 该 tab 用过的统计降级为 High（内存压力可逐出）
+        DemoteTabStatistics(tab, CacheItemPriority.High);
+
         _tabs.RemoveAt(idx);
         tabTermResults.Remove(tab);
         tabTerms.Remove(tab);
@@ -199,11 +204,33 @@
             activeTabIndex = Math.Max(0, _tabs.Count - 1);
     }
 
-    /// <summary>离开路由时取消本页所有标签未完成的请求</summary>
+    /// <summary>把某 tab 搜索结果用过的统计 slug 批量降级</summary>
+    private void DemoteTabStatistics(string tab, CacheItemPriority priority)
+    {
+        if (!tabTermResults.TryGetValue(tab, out var groups))
+        {
+            return;
+        }
+
+        foreach (var group in groups)
+        {
+            foreach (var item in group)
+            {
+                ItemSvc.SetStatisticPriority(item.Slug, priority);
+            }
+        }
+    }
+
+    /// <summary>离开路由时取消本页所有标签未完成的请求，并降级所有统计（Normal 可逐出）</summary>
     public void Dispose()
     {
-        Log.Information("ItemSearch 离开路由，取消 {Count} 个标签任务", _tabCts.Count);
+        Log.Information("ItemSearch 离开路由，取消 {Count} 个标签任务，降级统计", _tabCts.Count);
         foreach (var cts in _tabCts.Values) cts.Cancel();
         _tabCts.Clear();
+
+        foreach (var tab in tabTermResults.Keys)
+        {
+            DemoteTabStatistics(tab, CacheItemPriority.Normal);
+        }
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -15,10 +15,11 @@ public class ItemSearchService : IItemSearchService
     private readonly Func<IEnumerable<string>>? _extraLanguagesProvider;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    // 统计内存缓存：Lazy 并发去重（同 slug 并发只请求一次）+ TTL 到 UTC0（跨天刷新）。
-    // 不用 FusionCache：2.6.0 的 GetOrSetAsync 并发锁路径 NRE（"releasing the MEMORY LOCK"，
-    // 日志 stat:xxx 全部失败 → 赋能包全算失败）——手动实现等价功能绕开该 bug。
-    private readonly ConcurrentDictionary<string, (Lazy<Task<Statistic?>> Lazy, DateTime ExpiresAt)> _statCache = new();
+    // 统计缓存：MS IMemoryCache（可逐出，不驻留）。GetOrCreateAsync 工厂走 HTTP（Polly → FusionCache）。
+    // 优先级生命周期：使用中 NeverRemove；组件关闭时 SetStatisticPriority 降级（tab 关 High / 路由走 Normal）。
+    private readonly IMemoryCache? _statCache;
+    private readonly HashSet<string> _active = new();
+    private readonly object _activeLock = new();
 
     private Trie? _trie;
     private Dictionary<string, ItemShort>? _byId;
@@ -26,10 +27,11 @@ public class ItemSearchService : IItemSearchService
     private Dictionary<string, ItemShort>? _byName;
     private bool _loaded;
 
-    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null)
+    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null, IMemoryCache? statCache = null)
     {
         _wfm = wfm;
         _extraLanguagesProvider = extraLanguagesProvider;
+        _statCache = statCache;
     }
 
     public void Invalidate()
@@ -214,26 +216,40 @@ public class ItemSearchService : IItemSearchService
 
     public async Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
     {
-        // 过期条目移除（跨天刷新）
-        if (_statCache.TryGetValue(slug, out var entry) && entry.ExpiresAt <= DateTime.UtcNow)
+        if (_statCache == null)
         {
-            _statCache.TryRemove(slug, out _);
+            return await FetchStatisticAsync(slug, ct); // 测试场景：无缓存直接请求
         }
 
-        // Lazy 保证同 slug 并发只执行一次 factory；未过期则复用缓存 Task
-        var lazy = _statCache.GetOrAdd(slug, _ => (
-            new Lazy<Task<Statistic?>>(() => FetchStatisticAsync(slug, ct)),
-            DateTime.UtcNow + TimeUntilNextUtcMidnight())).Lazy;
-
-        try
+        // 使用中：标记 + 不逐出（组件关闭时由 SetStatisticPriority 降级）
+        lock (_activeLock)
         {
-            return await lazy.Value;
+            _active.Add(slug);
         }
-        catch (OperationCanceledException)
+
+        // MS IMemoryCache：条目可被内存压力逐出（不会永久驻留）
+        return await _statCache.GetOrCreateAsync<Statistic?>(slug, async entry => {
+            entry.AbsoluteExpiration = DateTimeOffset.UtcNow + TimeUntilNextUtcMidnight();
+            entry.Priority = CacheItemPriority.NeverRemove; // 使用中不逐出
+            return await FetchStatisticAsync(slug, ct);
+        });
+    }
+
+    public void SetStatisticPriority(string slug, CacheItemPriority priority)
+    {
+        // 不再使用：从活动集合移除
+        lock (_activeLock)
         {
-            // 取消的缓存任务移除：下次调用重新请求（避免 Lazy 缓存异常）
-            _statCache.TryRemove(slug, out _);
-            throw;
+            _active.Remove(slug);
+        }
+
+        // 降级缓存条目优先级（读出来重新 Set，保留到期时间）
+        if (_statCache != null && _statCache.TryGetValue(slug, out Statistic? stat))
+        {
+            _statCache.Set(slug, stat, new MemoryCacheEntryOptions {
+                AbsoluteExpiration = DateTimeOffset.UtcNow + TimeUntilNextUtcMidnight(),
+                Priority = priority,
+            });
         }
     }
 

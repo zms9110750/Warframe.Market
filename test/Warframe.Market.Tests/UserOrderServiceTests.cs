@@ -76,6 +76,10 @@ public class UserOrderServiceTests
         {
             return stat?.GetMaxReferencePrice();
         }
+
+        public void SetStatisticPriority(string slug, Microsoft.Extensions.Caching.Memory.CacheItemPriority priority)
+        {
+        }
     }
 
     private static UserOrderService CreateService(CountingItemSearch items)

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Http.Resilience;
 using Polly.RateLimiting;
 using Refit;
@@ -111,7 +112,8 @@ class Program
         appBuilder.Services.AddSingleton<UpdateService>();
         appBuilder.Services.AddSingleton<IItemSearchService>(sp => new ItemSearchService(
             sp.GetRequiredService<WarframeMarketClient>(),
-            () => sp.GetRequiredService<ConfigService>().LoadAppConfig().DownloadedLanguages));
+            () => sp.GetRequiredService<ConfigService>().LoadAppConfig().DownloadedLanguages,
+            new MemoryCache(new MemoryCacheOptions()))); // 统计缓存：独立 MS 内存缓存（不跟 FusionCache 共用）
         appBuilder.Services.AddSingleton<IUserOrderService, UserOrderService>();
         appBuilder.Services.AddSingleton<IArcanePackService, ArcanePackService>();
         appBuilder.Services.AddSingleton<IOrderService, OrderService>();

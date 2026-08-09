@@ -10,6 +10,9 @@ public class ArcanePackService : IArcanePackService
 {
     private readonly IItemSearchService _items;
 
+    // 本次页面生命周期内用过的统计 slug（页面关闭时 SetStatisticsPriority 批量降级）
+    private readonly HashSet<string> _usedSlugs = new();
+
     // 一组小小黑(420荧尘) × 6组/包 / 200(每包价格) × 3(每包开3个赋能)
     public const double PackGainRate = 420.0 * 6 / 200 * 3; // = 37.8
 
@@ -33,6 +36,7 @@ public class ArcanePackService : IArcanePackService
                 }
 
                 var slug = item.Slug;
+                _usedSlugs.Add(slug); // 记录：页面关闭时统一降级优先级
 
                 reqCount++;
                 if (reqCount % 3 == 0)
@@ -81,5 +85,15 @@ public class ArcanePackService : IArcanePackService
 
         return stat.Payload.StatisticsClosed.Day90
             .Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0;
+    }
+
+    /// <summary>赋能包页面关闭时：把本次用过的统计条目降级（路由离开 → Normal 可逐出）</summary>
+    public void SetStatisticsPriority(Microsoft.Extensions.Caching.Memory.CacheItemPriority priority)
+    {
+        foreach (var slug in _usedSlugs)
+        {
+            _items.SetStatisticPriority(slug, priority);
+        }
+        _usedSlugs.Clear();
     }
 }

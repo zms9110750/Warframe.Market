@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Arcane;
 using zms9110750.WarframeMarketApi.Models.Items;
@@ -63,30 +64,53 @@ public class ServiceTests
     }
 
     [Fact]
-    public async Task ItemSearch_GetStatistic_concurrent_same_slug_fetches_once()
+    public async Task ItemSearch_GetStatistic_cached_until_priority_demoted()
     {
-        // 统计缓存（手动 ConcurrentDictionary + Lazy）：同 slug 并发只发 1 次请求
-        // （替代 FusionCache 2.6.0 并发锁 NRE 的统计缓存）
+        // 统计缓存：MS IMemoryCache（独立实例，可逐出）。串行同 slug 命中缓存（HTTP 1 次）。
         var (handler, client) = CreatePair();
         var slug = "secura_dual_cestra";
         handler.Map($"/v1/items/{slug}/statistics", Data.File("statistics", "secura_dual_cestra.json"));
-        var svc = new ItemSearchService(client);
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var svc = new ItemSearchService(client, statCache: cache);
+
+        var first = await svc.GetStatisticAsync(slug);
+        var second = await svc.GetStatisticAsync(slug);
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        // 缓存命中：第二次不再发 HTTP
+        Assert.Equal(1, handler.RequestUris.Count(u => u.PathAndQuery.Contains("/statistics")));
+
+        // 组件关闭（路由离开）→ 降级为 Normal：条目仍在缓存（第三次仍命中）
+        svc.SetStatisticPriority(slug, CacheItemPriority.Normal);
+        var third = await svc.GetStatisticAsync(slug);
+        Assert.NotNull(third);
+        Assert.Equal(1, handler.RequestUris.Count(u => u.PathAndQuery.Contains("/statistics")));
+    }
+
+    [Fact]
+    public async Task ItemSearch_GetStatistic_concurrent_returns_consistent_results()
+    {
+        // 并发同 slug：MS MemoryCache 无工厂去重（去重由 HTTP 缓存层承担），
+        // 但结果一致、不崩（FusionCache 曾在此并发路径 NRE → 赋能包全失败）
+        var (handler, client) = CreatePair();
+        var slug = "secura_dual_cestra";
+        handler.Map($"/v1/items/{slug}/statistics", Data.File("statistics", "secura_dual_cestra.json"));
+        var svc = new ItemSearchService(client, statCache: new MemoryCache(new MemoryCacheOptions()));
 
         var tasks = Enumerable.Range(0, 10).Select(_ => svc.GetStatisticAsync(slug)).ToArray();
         var stats = await Task.WhenAll(tasks);
 
-        var statCalls = handler.RequestUris.Count(u => u.PathAndQuery.Contains("/statistics"));
-        Assert.Equal(1, statCalls);
         Assert.All(stats, s => Assert.NotNull(s));
     }
 
     [Fact]
     public async Task ItemSearch_GetStatistic_failure_returns_null_without_crash()
     {
-        // 统计 404（未 Map）：返回 null 不崩（FusionCache 曾在此路径 NRE → 赋能包全失败）
+        // 统计 404（未 Map）：返回 null 不崩且被缓存（FusionCache 曾在此路径 NRE → 赋能包全失败）
         var (handler, client) = CreatePair();
         var slug = "no_such_slug";
-        var svc = new ItemSearchService(client);
+        var svc = new ItemSearchService(client, statCache: new MemoryCache(new MemoryCacheOptions()));
 
         var first = await svc.GetStatisticAsync(slug);
         var second = await svc.GetStatisticAsync(slug);
@@ -166,6 +190,10 @@ public class ServiceTests
         public double? GetMaxReferencePrice(Statistic? stat)
         {
             return MaxPrice ?? stat?.GetMaxReferencePrice();
+        }
+
+        public void SetStatisticPriority(string slug, Microsoft.Extensions.Caching.Memory.CacheItemPriority priority)
+        {
         }
 
         public void Invalidate() { }

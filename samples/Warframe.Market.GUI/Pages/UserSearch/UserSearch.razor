@@ -1,4 +1,5 @@
 @page "/user"
+@using Microsoft.Extensions.Caching.Memory
 @attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
 
 @* 搜索框 + 查询 + 图钉开关（独立于 tab） *@
@@ -50,6 +51,7 @@
 @code {
     [Inject] private WarframeMarketClient Wfm { get; set; } = null!;
     [Inject] private IUserOrderService UserSvc { get; set; } = null!;
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
     [Inject] private PersistentStorage Storage { get; set; } = null!;
     [Inject] private AppState State { get; set; } = null!;
     [Inject] private ZiggyCreatures.Caching.Fusion.IFusionCache Cache { get; set; } = null!;
@@ -192,11 +194,27 @@
         if (_pinned.Contains(name)) return;
         if (_userCts.TryGetValue(name, out var cts)) { Log.Information("UserSearch 关闭用户标签并取消: {Name}", name); cts.Cancel(); }
         _userCts.Remove(name);
+
+        // tab 关闭 → 该用户价格统计降级为 High（内存压力可逐出）
+        DemoteUserStatistics(name, CacheItemPriority.High);
+
         _users.RemoveAt(idx);
         _userResults.Remove(name);
         _searchingUsers.Remove(name);
         if (activeTabIndex >= _users.Count)
             activeTabIndex = Math.Max(0, _users.Count - 1);
+    }
+
+    /// <summary>把某用户结果加载过的价格统计 slug 批量降级</summary>
+    private void DemoteUserStatistics(string name, CacheItemPriority priority)
+    {
+        if (_userResults.TryGetValue(name, out var result) && result.Prices != null)
+        {
+            foreach (var slug in result.Prices.Keys)
+            {
+                ItemSvc.SetStatisticPriority(slug, priority);
+            }
+        }
     }
 
     /// <summary>手动刷新：清除该用户的 HTTP 缓存键（user + orders），重置结果后重新查询</summary>
@@ -217,11 +235,16 @@
         StateHasChanged();
     }
 
-    /// <summary>离开路由时取消本页所有标签未完成的请求</summary>
+    /// <summary>离开路由时取消本页所有标签未完成的请求，并降级所有价格统计（Normal 可逐出）</summary>
     public void Dispose()
     {
-        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务", _userCts.Count);
+        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务，降级统计", _userCts.Count);
         foreach (var cts in _userCts.Values) cts.Cancel();
         _userCts.Clear();
+
+        foreach (var name in _userResults.Keys)
+        {
+            DemoteUserStatistics(name, CacheItemPriority.Normal);
+        }
     }
 }

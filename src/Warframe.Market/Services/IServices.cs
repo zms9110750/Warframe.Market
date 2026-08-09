@@ -34,6 +34,12 @@ public interface IItemSearchService
     /// <summary>获取物品统计（V1，HTTP 缓存）</summary>
     Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default);
 
+    /// <summary>
+    /// 统计缓存优先级生命周期管理：组件关闭/切换时调用。
+    /// 使用中条目是 NeverRemove；tab 关闭 → High；路由离开 → Normal（内存压力可逐出）。
+    /// </summary>
+    void SetStatisticPriority(string slug, Microsoft.Extensions.Caching.Memory.CacheItemPriority priority);
+
     /// <summary>基础参考价</summary>
     double? GetReferencePrice(Statistic? stat);
 
@@ -61,4 +67,7 @@ public interface IArcanePackService
 
     /// <summary>物品日均交易量（90 天，按合成消耗折算）</summary>
     double GetDailyVolume(Statistic? stat);
+
+    /// <summary>页面关闭时批量降级本次用过的统计条目优先级（路由离开 → Normal 可逐出）</summary>
+    void SetStatisticsPriority(Microsoft.Extensions.Caching.Memory.CacheItemPriority priority);
 }
