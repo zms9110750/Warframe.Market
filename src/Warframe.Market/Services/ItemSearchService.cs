@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
+using ZiggyCreatures.Caching.Fusion;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -13,6 +15,7 @@ public class ItemSearchService : IItemSearchService
 {
     private readonly WarframeMarketClient _wfm;
     private readonly Func<IEnumerable<string>>? _extraLanguagesProvider;
+    private readonly IFusionCache? _statCache;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     private Trie? _trie;
@@ -21,11 +24,16 @@ public class ItemSearchService : IItemSearchService
     private Dictionary<string, ItemShort>? _byName;
     private bool _loaded;
 
-    /// <summary>extraLanguagesProvider：返回需要合并 i18n 的额外语言代码列表（来自设置页勾选的"下载语言包"）</summary>
-    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null)
+    /// <summary>
+    /// statCache：统计的内存缓存（FusionCache，key 前缀 "stat:" 与 HTTP 缓存隔离）。
+    /// 提供 per-slug 并发去重 + 跨天刷新（TTL 到 UTC0）+ 优先级生命周期（使用中 NeverRemove）。
+    /// 不传时回退为直接请求（测试场景）。
+    /// </summary>
+    public ItemSearchService(WarframeMarketClient wfm, Func<IEnumerable<string>>? extraLanguagesProvider = null, IFusionCache? statCache = null)
     {
         _wfm = wfm;
         _extraLanguagesProvider = extraLanguagesProvider;
+        _statCache = statCache;
     }
 
     public void Invalidate()
@@ -210,14 +218,31 @@ public class ItemSearchService : IItemSearchService
 
     public Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
     {
-        // per-slug 并发去重（照旧版 CacheService._pendingStats 模式）：
-        // 同 slug 并发请求只发一次（赋能包 45 任务 × 每包物品会重复请求同一物品），
-        // 其余调用共享同一 Task——把网络请求从 ~585 降到 ~146，配合限流让"逐格动态"可感知
-        return _statTasks.GetOrAdd(slug, s => FetchStatisticAsync(s, ct));
+        if (_statCache == null)
+        {
+            return FetchStatisticAsync(slug, ct); // 测试场景：无缓存直接请求
+        }
+
+        // FusionCache 内存缓存（key "stat:{slug}" 与 HTTP 缓存隔离）：
+        // 1. per-slug 并发去重（同 slug 只执行一次 factory）
+        // 2. TTL 到下一个 UTC0（统计每天刷新，不再永久缓存跨天陈旧）
+        // 3. 优先级 NeverRemove：使用中的统计在内存压力下不被回收
+        //    （页面生命周期降级：tag 关闭 → SetPriority(High)，页面关闭 → SetPriority(Normal)，由 UI 层调用）
+        return _statCache.GetOrSetAsync<Statistic?>(
+            $"stat:{slug}",
+            _ => FetchStatisticAsync(slug, ct),
+            new FusionCacheEntryOptions {
+                Priority = CacheItemPriority.NeverRemove,
+                Duration = TimeUntilNextUtcMidnight(),
+            }).AsTask();
     }
 
-    /// <summary>去重字典：slug → 进行中/已完成的统计请求（完成保留，后续直接命中）</summary>
-    private readonly ConcurrentDictionary<string, Task<Statistic?>> _statTasks = new();
+    /// <summary>到下一个 UTC 0 的剩余时长（与 HTTP 缓存策略一致：统计每天刷新）</summary>
+    private static TimeSpan TimeUntilNextUtcMidnight()
+    {
+        var now = DateTime.UtcNow;
+        return now.Date.AddDays(1) - now;
+    }
 
     private async Task<Statistic?> FetchStatisticAsync(string slug, CancellationToken ct)
     {

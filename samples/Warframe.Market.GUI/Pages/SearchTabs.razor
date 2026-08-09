@@ -7,23 +7,19 @@
         var isWelcome = tab == "欢迎";
         <MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
             <MChip Label Class="mr-1" OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))"
-                   Close="@(!isWelcome && pin && !isPinned)"
+                   Close="@(!isWelcome && !pin && !isPinned)"
                    OnCloseClick="@(() => CloseTab.InvokeAsync(idx))">
                 @tab
-                @if (!isWelcome && pin && isPinned)
+                @if (!isWelcome && pin)
                 {
-                    @* 钉住的标签：pin-off 图标（点击取消钉住）；关闭走不了 MChip x *@
+                    @* 图钉模式：所有 tab 显示 pin 图标（已钉住=橙 pin-off 取消，未钉住=灰 pin-outline 钉住）——JM 式 *@
                     <span @onclick:stopPropagation
                           @onclick="@(() => TogglePin.InvokeAsync(tab))"
-                          style="display:inline-flex;cursor:pointer;">
-                        <MIcon XSmall Color="orange">mdi-pin-off</MIcon>
-                    </span>
-                }
-                else if (!isWelcome && !pin)
-                {
-                    @* 图钉开关关闭：占位保持宽度，不显示任何操作 *@
-                    <span style="display:inline-flex;visibility:hidden;">
-                        <MIcon XSmall>mdi-pin-outline</MIcon>
+                          style="display:inline-flex;cursor:pointer;"
+                          title="@(isPinned ? "取消钉住" : "钉住")">
+                        <MIcon XSmall Color="@(isPinned ? "orange" : "grey")">
+                            @(isPinned ? "mdi-pin-off" : "mdi-pin-outline")
+                        </MIcon>
                     </span>
                 }
             </MChip>

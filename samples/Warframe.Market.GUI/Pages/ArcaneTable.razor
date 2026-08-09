@@ -88,6 +88,10 @@
 
             _data[itemName] = (prob, price, price * prob, dailyVol);
         }
-        catch { }
+        catch
+        {
+            // 不吞异常：让 Masa MErrorHandler（MainLayout 包裹）捕获并在页面下方显示错误
+            throw;
+        }
     }
 }

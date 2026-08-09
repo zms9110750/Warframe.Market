@@ -111,7 +111,8 @@ class Program
         appBuilder.Services.AddSingleton<UpdateService>();
         appBuilder.Services.AddSingleton<IItemSearchService>(sp => new ItemSearchService(
             sp.GetRequiredService<WarframeMarketClient>(),
-            () => sp.GetRequiredService<ConfigService>().LoadAppConfig().DownloadedLanguages));
+            () => sp.GetRequiredService<ConfigService>().LoadAppConfig().DownloadedLanguages,
+            sp.GetRequiredService<IFusionCache>()));
         appBuilder.Services.AddSingleton<IUserOrderService, UserOrderService>();
         appBuilder.Services.AddSingleton<IArcanePackService, ArcanePackService>();
         appBuilder.Services.AddSingleton<IOrderService, OrderService>();
