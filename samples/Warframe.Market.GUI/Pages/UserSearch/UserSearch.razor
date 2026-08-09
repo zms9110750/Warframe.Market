@@ -53,10 +53,9 @@
     [Inject] private PersistentStorage Storage { get; set; } = null!;
     [Inject] private AppState State { get; set; } = null!;
     [Inject] private ZiggyCreatures.Caching.Fusion.IFusionCache Cache { get; set; } = null!;
-    [CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
 
     /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
-    private const string WelcomeTab = "欢迎";
+    private const string WelcomeTab = NavTexts.Welcome;
 
     protected string slug = "";
     /// <summary>全部用户标签（含钉住），按创建顺序；首个为欢迎 tab</summary>

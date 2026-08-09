@@ -9,7 +9,7 @@
     如果某列期望值暴跌 → 开出的赋能比市场流通量还多，按成交量封顶。
 </text>
 
-<MDataTable Items="Pack" Headers="_headers" Dense Loading="@(Pack.Length == 0)"
+<MDataTable Items="Pack" Headers="_headers" Dense Loading="@(_tasks.Values.Any(t => !t.IsCompleted))"
             ShowExpand ItemKey="r => r.Name" HideDefaultFooter
             MustSort SortBy="@nameof(ArcanePackConfig.Name)"  @* 必选排序（单选），默认按包名 *@
             Class="elevation-1 mt-2" ItemsPerPage="-1">
@@ -26,7 +26,9 @@
         else if (int.TryParse(context.Header.Text, out var count)
             && _tasks.TryGetValue((context.Item.Name, count), out var task))
         {
-            @(task.IsCompleted ? $"{task.Result,-6:f1}" : "加载中")
+            @(task.IsCompleted
+                ? (task.Result.HasValue ? $"{task.Result.Value,-6:f1}" : "-") // 计算失败 → -（非 0.0 假数值）
+                : "加载中")
         }
         else
         {
@@ -43,7 +45,7 @@
 
     protected ArcanePackConfig[] Pack = [];
     protected List<DataTableHeader<ArcanePackConfig>> _headers = new();
-    internal Dictionary<(string PackName, int Purchase), Task<double>> _tasks = new();
+    internal Dictionary<(string PackName, int Purchase), Task<double?>> _tasks = new();
 
     protected override Task OnInitializedAsync()
     {
@@ -71,8 +73,8 @@
             {
                 Align = DataTableHeaderAlign.End,
                 ValueExpression = (Func<ArcanePackConfig, object?>)(pack =>
-                    _tasks.TryGetValue((pack.Name, c), out var task) && task.IsCompleted
-                        ? (float?)task.Result // float? 自动装箱为 object?（未完成 → null，排最后）
+                    _tasks.TryGetValue((pack.Name, c), out var task) && task.IsCompleted && task.Result.HasValue
+                        ? (float?)task.Result.Value // float? 自动装箱为 object?（未完成/失败 → null，排最后）
                         : null),
             });
         }
@@ -109,9 +111,9 @@
         }
     }
 
-    private async Task<double> ComputeAsync(ArcanePackConfig pack, int count, string packName)
+    private async Task<double?> ComputeAsync(ArcanePackConfig pack, int count, string packName)
     {
-        double value = 0;
+        double? value = null;
         try
         {
             value = await Arcane.GetReferencePriceAsync(pack, count);
@@ -119,7 +121,7 @@
         catch (Exception ex)
         {
             Log.Error(ex, "赋能包计算失败: {Pack} x{Count}", packName, count);
-            value = 0;
+            value = null; // 失败 → null（渲染为 "-"，不显示 0.0 假数值）
         }
         finally
         {

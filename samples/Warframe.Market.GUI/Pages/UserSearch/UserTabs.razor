@@ -4,7 +4,7 @@
     @foreach (var (name, idx) in _activeUsers.Select((t, i) => (t, i)))
     {
         var isPinned = pinned.Contains(name);
-        var isWelcome = name == "欢迎";
+        var isWelcome = name == NavTexts.Welcome;
         <MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
             <MChip Label Class="mr-1" OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))"
                    Close="@(!isWelcome && !pin && !isPinned)"

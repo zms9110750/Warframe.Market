@@ -103,7 +103,11 @@
     </ItemColContent>
 </MDataTable>
 
-@if (!loading && !FilteredOrders.Any())
+@if (_error != null)
+{
+    <MAlert Dense Type="@AlertTypes.Error">订单加载失败：@_error</MAlert>
+}
+else if (!loading && !FilteredOrders.Any())
 {
     <p class="text-caption" style="color:#999;">当前筛选下无订单（可切换购/售或调整等级滑块）</p>
 }
@@ -128,6 +132,8 @@
     protected int _selectedRank = 0;
     protected int _maxRankValue = 0;
     private int _priceMin, _priceMax, _minQuantity;
+    /// <summary>订单加载失败信息（区分"加载失败"与"筛选后无订单"）</summary>
+    private string? _error;
 
     protected Order[] TopOrder = Array.Empty<Order>();
 
@@ -145,8 +151,8 @@
             Log.Information("OrderTop 初始化: {Slug}", TargetItem.Slug);
             loading = true;
 
-            // 表头由 OrderService.BuildColumns 定义（可单测；价格列 Sortable + Value=Platinum 等）
-            // 表头构建（与可打开的旧版一致；GetOrders/Filter 走 IOrderService 接口）
+            // 表头构建（联系/卖家/声誉/语言/价格/数量 + 按物品子类型加动态列）。
+            // 注意：与 OrderService.BuildColumns 逻辑同源但含"语言"列与排序配置，此处为实际使用的版本
             var baseHeaders = new List<DataTableHeader<Order>>
             {
                 new("联系", nameof(Order.Id)) { Sortable = false, ValueExpression = (Func<Order, object?>)(_ => null) },
@@ -185,7 +191,11 @@
         {
             // 收起子面板/切换标签/路由离开时取消，忽略
         }
-        catch (Exception ex) { Log.Error(ex, "OrderTop 加载失败"); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "OrderTop 加载失败");
+            _error = ex.Message; // 失败不伪装成"无订单"
+        }
         finally { loading = false; }
     }
 

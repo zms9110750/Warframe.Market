@@ -53,10 +53,9 @@
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
     [Inject] private PersistentStorage Storage { get; set; } = null!;
-    [CascadingParameter(Name = "CanWrite")] public bool canWrite { get; set; }
 
     /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
-    internal const string WelcomeTab = "欢迎";
+    internal const string WelcomeTab = NavTexts.Welcome;
 
     /// <summary>全部结果标签（含钉住），按创建顺序；首个为欢迎 tab</summary>
     protected List<string> _tabs = new();

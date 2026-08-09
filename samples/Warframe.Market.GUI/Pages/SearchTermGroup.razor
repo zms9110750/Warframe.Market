@@ -13,7 +13,14 @@
 @for (int ti = 0; ti < termResults.Count; ti++)
 {
     var results = termResults[ti];
-    @if (results.Count > 0) { <SearchResultTable Tab="@terms[ti]" results="@results" @key="@($"{Query}_{ti}")" CancelToken="@CancelToken" /> }
+    if (results.Count > 0)
+    {
+        <SearchResultTable Tab="@terms[ti]" results="@results" @key="@($"{Query}_{ti}")" CancelToken="@CancelToken" />
+    }
+    else
+    {
+        <p class="text-caption" style="color:#999;">「@terms[ti]」无匹配结果</p>
+    }
 }
 
 @code {

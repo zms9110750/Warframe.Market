@@ -18,13 +18,16 @@
         <MSwitch @bind-Value="clickLink" Dense Inset HideDetails="true">
             <LabelContent>打开链接</LabelContent>
         </MSwitch>
+        @* 打开链接开关说明 *@
+        <span class="text-caption" style="color:#888;margin-left:2px;">将物品名/价格显示为可点击的网页链接</span>
     </MAppBar>
 
     <MNavigationDrawer App Permanent MiniVariant>
         <MList Nav Routable>
             @foreach (var navItem in navItems)
             {
-                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="@(() => currentTitle = navItem.Title)">
+                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="@(() => currentTitle = navItem.Title)"
+                           Title="@navItem.Title">
                     <MListItemIcon>
                         <MIcon>@navItem.Icon</MIcon>
                     </MListItemIcon>

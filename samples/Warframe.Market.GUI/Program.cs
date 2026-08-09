@@ -88,7 +88,7 @@ class Program
                         args.Outcome.Exception is RateLimiterRejectedException
                         || args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
                     MaxRetryAttempts = 3,
-                    DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromMilliseconds((limiter.GetStatistics().CurrentQueuedCount * 333) + 300)),
+                    DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromMilliseconds(((limiter.GetStatistics()?.CurrentQueuedCount ?? 0) * 333) + 300)),
                 });
 
                 pipeline.AddRateLimiter(limiter);
