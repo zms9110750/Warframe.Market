@@ -13,7 +13,7 @@
 {
     @if (ClickLink)
     {
-        <a href="@asset.BrowserDownloadUrl" class="mr-2">@asset.Name</a>
+        <a href="@asset.BrowserDownloadUrl" class="mr-2" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(asset.BrowserDownloadUrl))">@asset.Name</a>
     }
     else
     {

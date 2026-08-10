@@ -70,14 +70,22 @@
             var msg = OrderMessageFormatter.BuildMessage(
                 locale, type, context.Item.User?.IngameName ?? "", enName, localizedName,
                 context.Item.PerTrade, context.Item.Subtype, context.Item.Rank, null, context.Item.Platinum);
-            <MButton Small Outlined Color="primary" OnClick="@(() => _ = CopyAsync(msg))">私信</MButton>
+            @* 私信：复制到剪贴板，按钮变"已经复制"（视觉禁用），失去焦点还原 *@
+            var isCopied = _copiedOrderId == context.Item.Id;
+            <button type="button" class="m-btn m-btn--small m-btn--outlined primary--text"
+                    style="@(isCopied ? "opacity:0.5;cursor:default;" : "")"
+                    @onclick="@(() => CopyPrivateMessage(context.Item, msg))"
+                    @onblur="@(() => ResetCopy(context.Item.Id))">
+                @(isCopied ? "已经复制" : "私信")
+            </button>
         }
         else if (context.Header.Text == "卖家")
         {
             var nameStr = context.Item.User?.IngameName ?? "";
             if (ClickLink)
             {
-                <a href="@($"https://warframe.market/zh-hans/profile/{nameStr}")">@nameStr</a>
+                var profileUrl = $"https://warframe.market/zh-hans/profile/{nameStr}";
+                <a href="@profileUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(profileUrl))">@nameStr</a>
             }
             else
             {
@@ -197,6 +205,29 @@ else if (!loading && !FilteredOrders.Any())
             _error = ex.Message; // 失败不伪装成"无订单"
         }
         finally { loading = false; }
+    }
+
+    /// <summary>私信：复制到剪贴板 + 按钮变"已经复制"（视觉禁用），失去焦点还原</summary>
+    private string? _copiedOrderId;
+
+    private void CopyPrivateMessage(Order order, string msg)
+    {
+        if (_copiedOrderId == order.Id)
+        {
+            return; // 已复制：不再动作
+        }
+        _copiedOrderId = order.Id;
+        _ = CopyAsync(msg);
+        StateHasChanged();
+    }
+
+    private void ResetCopy(string orderId)
+    {
+        if (_copiedOrderId == orderId)
+        {
+            _copiedOrderId = null;
+            StateHasChanged();
+        }
     }
 
     protected async Task CopyAsync(string text)

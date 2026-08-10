@@ -27,7 +27,6 @@ else
         @if (!_collapsed)
         {
             <div style="margin-top:4px;">
-            <p class="text-caption">@(result.LoadingPrices ? " — 加载中..." : "")</p>
             <MDataTable Items="result.Orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" Loading="@result.Loading" MustSort
                         ItemKey="r => r.Id" ShowExpand
                         GroupBy="nameof(Order.Type)" GroupDesc="[true]">
@@ -176,7 +175,7 @@ else
     protected string GetItemName(UserSearchResult r, Order o)
     {
         var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
-        if (item == null) return "加载中...";
+        if (item == null) return "-"; // 物品补全失败/不存在：显示 -（不再永久"加载中"）
         return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
              : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
              : item.Slug;

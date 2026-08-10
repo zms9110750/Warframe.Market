@@ -25,7 +25,8 @@
                 <MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
                 if (ClickLink)
                 {
-                    <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
+                    var zhUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}";
+                    <a href="@zhUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(zhUrl))">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
                 }
                 else { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
             }
@@ -34,7 +35,8 @@
                 <MButton Small Icon OnClick="@(() => _ = CopyText(TrimSuffix(context.Item)))" Class="mr-1"><MIcon Small>mdi-content-copy</MIcon></MButton>
                 if (ClickLink)
                 {
-                    <a href="@($"https://warframe.market/items/{context.Item.Slug}")">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
+                    var enUrl = $"https://warframe.market/items/{context.Item.Slug}";
+                    <a href="@enUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(enUrl))">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
                 }
                 else { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
             }
@@ -46,7 +48,8 @@
                 {
                     if (ClickLink)
                     {
-                        <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{p:F1}")</a>
+                        var statUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics";
+                        <a href="@statUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(statUrl))">@($"{p:F1}")</a>
                     }
                     else { @($"{p:F1}") }
                 }
@@ -68,7 +71,8 @@
                     {
                         if (ClickLink)
                         {
-                            <a href="@($"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics")">@($"{mp:F1}")</a>
+                            var maxStatUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics";
+                            <a href="@maxStatUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(maxStatUrl))">@($"{mp:F1}")</a>
                         }
                         else { @($"{mp:F1}") }
                     }
@@ -155,7 +159,9 @@
         }
         catch (OperationCanceledException)
         {
-            // 标签切换/路由离开取消，忽略
+            // 标签切换/路由离开取消：写 null（显示 "-"）——否则切回 tab 永久"加载中"
+            _prices[slug] = null;
+            _maxPrices[slug] = null;
         }
         catch (Exception ex)
         {
