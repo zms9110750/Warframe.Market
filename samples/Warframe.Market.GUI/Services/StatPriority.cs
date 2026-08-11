@@ -1,3 +1,5 @@
+using zms9110750.WarframeMarketApi.Services;
+
 namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>统计缓存优先级降级公共 helper（物品搜索/用户搜索共用）：
