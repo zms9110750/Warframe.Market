@@ -42,16 +42,18 @@
         _headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End,
             ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.DailyVol : null) });
 
-        // 分批加载（每批 3 个，对齐 API 限流 3/s）：45 物品全并发会挤爆限流队列导致挂起 → 明细显示 -
+        // 分批加载（每批 2 个 + 批间 500ms，远低于 API 限流 3/s）：
+        // 45 物品全并发/每批 3 会触发 wfmarket 429 限流（空响应 → JSON 反序列化失败）→ 明细显示 -
         var batch = new List<Task>();
         foreach (var itemName in Pack.Items.SelectMany(q => q.Items))
         {
             var prob = Pack.GetProbability(itemName);
             batch.Add(LoadItemDataAsync(itemName, prob));
-            if (batch.Count >= 3)
+            if (batch.Count >= 2)
             {
                 await Task.WhenAll(batch);
                 batch.Clear();
+                await Task.Delay(500);
             }
         }
         await Task.WhenAll(batch);

@@ -287,7 +287,8 @@ public class ItemSearchService : IItemSearchService
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "统计请求异常: {Slug}", slug);
+            // 429 限流空响应 → Refit 反序列化 JsonException（"input does not contain any JSON tokens"）是常见情况
+            Log.Warning(ex, "统计请求异常: {Slug}（若为 JSON 空输入，通常是 429 限流空响应）", slug);
             return null;
         }
         finally { StatThrottle.Release(); }

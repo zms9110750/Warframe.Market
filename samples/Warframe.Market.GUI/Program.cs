@@ -88,7 +88,7 @@ class Program
                     ShouldHandle = args => ValueTask.FromResult(
                         args.Outcome.Exception is RateLimiterRejectedException
                         || args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
-                    MaxRetryAttempts = 3,
+                    MaxRetryAttempts = 5, // 429 限流：多给重试机会（wfmarket 限流严格，3 次易耗尽）
                     DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromMilliseconds(((limiter.GetStatistics()?.CurrentQueuedCount ?? 0) * 333) + 300)),
                 });
 
