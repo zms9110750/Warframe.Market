@@ -74,7 +74,7 @@ class Program
                             : CacheConfig.EntryOptionsProvider(pipelineCtx.GetRequestMessage()?.RequestUri?.LocalPath ?? "")),
                 });
 
-                // 共享限流器：retry 读取其队列数估算等待时间
+                // 共享限流器（并发限流 3/s）：外层限流重试读取其队列数估算等待时间
                 var limiter = new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions {
                     PermitLimit = 3,
                     SegmentsPerWindow = 1,
@@ -82,17 +82,24 @@ class Program
                     QueueLimit = 600,
                 });
 
-                // 限流感知重试（内层限流抛 RateLimiterRejectedException 或服务器 429 时重试）：
-                // 等待时间 = 当前限流队列中请求数 × 每请求所需时间（3/s → ~333ms）+ 余量
+                // ② 限流重试（外层）：本地并发限流拒绝（队列满）→ 重试，等队列腾出。
+                //    只处理 RateLimiterRejectedException；429 交给最内层消化。
                 pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage> {
-                    ShouldHandle = args => ValueTask.FromResult(
-                        args.Outcome.Exception is RateLimiterRejectedException
-                        || args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
-                    MaxRetryAttempts = 5, // 429 限流：多给重试机会（wfmarket 限流严格，3 次易耗尽）
+                    ShouldHandle = args => ValueTask.FromResult(args.Outcome.Exception is RateLimiterRejectedException),
+                    MaxRetryAttempts = 5,
                     DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromMilliseconds(((limiter.GetStatistics()?.CurrentQueuedCount ?? 0) * 333) + 300)),
                 });
 
+                // ③ 并发限流（3/s）：放行后的请求才可能被服务器限流
                 pipeline.AddRateLimiter(limiter);
+
+                // ④ 429 重试（最内）：服务器限流 → 内部消化。
+                //    Delay 等服务器限流窗口（3/s）重置；重试的请求在最内层，不重新经过并发限流。
+                pipeline.AddRetry(new RetryStrategyOptions<HttpResponseMessage> {
+                    ShouldHandle = args => ValueTask.FromResult(args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests),
+                    MaxRetryAttempts = 3,
+                    DelayGenerator = _ => new ValueTask<TimeSpan?>(TimeSpan.FromSeconds(1)),
+                });
             });
         appBuilder.Services.AddSingleton(sp => {
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("wfm");
