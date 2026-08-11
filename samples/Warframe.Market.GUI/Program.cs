@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Http.Resilience;
 using Polly.RateLimiting;
+using Polly.Telemetry;
 using Refit;
 using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Services;
@@ -61,6 +62,11 @@ class Program
         // HTTP 响应缓存键 = {method}/{scheme}/{host}{path}，GET 全自动缓存，无需业务层管缓存
         appBuilder.Services.AddHttpClient("wfm", c => c.BaseAddress = new Uri("https://api.warframe.market"))
             .AddResilienceHandler("wfm", (pipeline, ctx) => {
+                // Polly 遥测：策略事件经 ILoggerFactory（AddSerilog 提供）写进 Serilog。
+                // 事件：OnRetry（429/限流重试，含 AttemptNumber/Delay/Result 状态码）、
+                // OnRateLimiterRejected（本地队列满）、CacheMissed/CacheHit（缓存行为）——诊断 429 与限流用。
+                pipeline.ConfigureTelemetry(ctx.ServiceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
+
                 pipeline.AddCaching(new HttpCachingStrategyOptions {
                     HybridCache = ctx.ServiceProvider.GetRequiredService<HybridCache>(),
                     CacheKeyProvider = CacheConfig.CacheKeyProvider,
