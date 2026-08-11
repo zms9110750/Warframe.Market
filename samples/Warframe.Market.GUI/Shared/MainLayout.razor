@@ -20,8 +20,7 @@
         <MList Nav Routable>
             @foreach (var navItem in navItems)
             {
-                <MListItem Href="@navItem.Route" ActiveClass="primary--text" OnClick="@(() => currentTitle = navItem.Title)"
-                           Title="@navItem.Title">
+                <MListItem Href="@navItem.Route" OnClick="@(() => currentTitle = navItem.Title)">
                     <MListItemIcon>
                         <MIcon>@navItem.Icon</MIcon>
                     </MListItemIcon>
