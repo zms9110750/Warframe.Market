@@ -20,7 +20,6 @@ public partial class MainLayout : LayoutComponentBase
 
     private string currentTitle = "";
     protected bool canWrite => State.CanWrite;
-    protected bool clickLink;
     private List<NavItemInfo> navItems = new();
 
     protected override void OnInitialized()

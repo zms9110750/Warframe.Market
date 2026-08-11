@@ -9,9 +9,10 @@
     如果某列期望值暴跌 → 开出的赋能比市场流通量还多，按成交量封顶。
 </text>
 
+@* 必选排序（单选），默认按包名 *@
 <MDataTable Items="Pack" Headers="_headers" Dense Loading="@(_tasks.Values.Any(t => !t.IsCompleted))"
             ShowExpand ItemKey="r => r.Name" HideDefaultFooter
-            MustSort SortBy="@nameof(ArcanePackConfig.Name)"  @* 必选排序（单选），默认按包名 *@
+            MustSort SortBy="@nameof(ArcanePackConfig.Name)"
             Class="elevation-1 mt-2" ItemsPerPage="-1">
     <ExpandedItemContent>
         <td colspan="9999" @key="@context.Item.Name">

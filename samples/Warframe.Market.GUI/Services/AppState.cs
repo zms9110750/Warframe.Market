@@ -18,6 +18,10 @@ public class AppState
 
     public WarframeMarketClient Client => _wfm;
 
+    /// <summary>打开链接模式（物品名/价格渲染为可点击链接，点击在系统浏览器打开）。
+    /// 开关在物品搜索/用户搜索页搜索栏右侧（顶部栏已移除）。</summary>
+    public bool ClickLink { get; set; }
+
     public Language Language
     {
         get => _wfm.Language;

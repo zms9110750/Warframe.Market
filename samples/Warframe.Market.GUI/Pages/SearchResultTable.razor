@@ -87,10 +87,12 @@
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
     [Inject] private IJSRuntime Js { get; set; } = null!;
+    [Inject] private AppState State { get; set; } = null!;
 
     [Parameter] public string Tab { get; set; } = "";
     [Parameter] public List<ItemShort> results { get; set; } = new();
-    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+    /// <summary>打开链接模式：直接读 AppState（级联已移除——AppState 无变更通知，级联不传播）</summary>
+    private bool ClickLink => State.ClickLink;
 
     private bool _collapsed;
 

@@ -2,8 +2,16 @@
 @using Microsoft.Extensions.Caching.Memory
 @attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
 
-@* 搜索框 + 图钉开关（独立于 tab） *@
-<SearchBox OnSearch="@OnSearch" pin="@pin" pinChanged="@((v) => pin = v)" />
+@* 搜索框 + 图钉开关 + 打开链接开关（独立于 tab） *@
+<div class="d-flex align-center" style="gap:8px;margin-bottom:8px;">
+    <div style="flex:1;min-width:0;">
+        <SearchBox OnSearch="@OnSearch" pin="@pin" pinChanged="@((v) => pin = v)" />
+    </div>
+    <MSwitch Value="@State.ClickLink" ValueChanged="@((bool v) => { State.ClickLink = v; StateHasChanged(); })"
+             Dense Inset HideDetails="true" style="flex-shrink:0;">
+        <LabelContent>链接</LabelContent>
+    </MSwitch>
+</div>
 
 @* 结果标签栏（首个为"欢迎"tab，不触发网络；钉住的搜索词初始化即显示但不自动搜索） *@
 @if (_tabs.Count > 0)
@@ -53,6 +61,7 @@
 
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private AppState State { get; set; } = null!;
     [Inject] private PersistentStorage Storage { get; set; } = null!;
 
     /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>

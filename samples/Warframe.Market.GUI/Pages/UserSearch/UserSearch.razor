@@ -14,6 +14,10 @@
             @(pin ? "mdi-pin" : "mdi-pin-outline")
         </MIcon>
     </MButton>
+    <MSwitch Value="@State.ClickLink" ValueChanged="@((bool v) => { State.ClickLink = v; StateHasChanged(); })"
+             Dense Inset HideDetails="true" style="flex-shrink:0;">
+        <LabelContent>链接</LabelContent>
+    </MSwitch>
 </div>
 
 @* 用户结果标签栏（首个为"欢迎"tab，不触发网络；钉住用户初始化显示但不自动查询） *@

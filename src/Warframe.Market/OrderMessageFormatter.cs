@@ -204,8 +204,9 @@ public static class OrderMessageFormatter
         var values = new Dictionary<string, string> {
             ["ingameName"] = ingameName,
             ["action"] = action, // buy/sell
-            // 模板的 select 用 "undefined" 分支表示"无值"（如 undefined {} 空分支）
-            ["perTrade"] = perTrade?.ToString() ?? "undefined",
+            // 模板的 select 用 "undefined" 分支表示"无值"（如 undefined {} 空分支）。
+            // perTrade=1（默认）不显示 x1：数量未必是 1（对方库存更多就买更多），x1 无信息量
+            ["perTrade"] = perTrade is > 1 ? perTrade.ToString() : "undefined",
             ["subtype"] = subtype ?? "undefined",
             ["itemName"] = itemName,
             ["modRank"] = modRank?.ToString() ?? "undefined",
@@ -213,14 +214,6 @@ public static class OrderMessageFormatter
             ["price"] = price.ToString(),
         };
 
-        var msg = Format(tpl, values).Trim();
-
-        // 非中文目标：末尾追加对方语言的物品名 <=> 价格（若有该语言 i18n）
-        if (!isZh && !string.IsNullOrEmpty(itemNameLocalized))
-        {
-            msg += $" {itemNameLocalized} <=> {price}";
-        }
-
-        return msg;
+        return Format(tpl, values).Trim();
     }
 }

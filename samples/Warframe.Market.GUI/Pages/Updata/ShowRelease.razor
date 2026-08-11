@@ -22,6 +22,9 @@
 }
 
 @code {
-    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+    [Inject] private AppState State { get; set; } = null!;
     [Parameter] public GiteeRelease Release { get; set; } = default!;
+
+    /// <summary>打开链接模式：直接读 AppState（级联已移除）</summary>
+    private bool ClickLink => State.ClickLink;
 }

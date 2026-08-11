@@ -73,7 +73,7 @@
             @* 私信：复制到剪贴板，按钮变"已经复制"（视觉禁用），失去焦点还原 *@
             var isCopied = _copiedOrderId == context.Item.Id;
             <button type="button" class="m-btn m-btn--small m-btn--outlined primary--text"
-                    style="@(isCopied ? "opacity:0.5;cursor:default;" : "")"
+                    style="@(isCopied ? "opacity:0.5;cursor:default;min-width:5.5em;" : "min-width:5.5em;")"
                     @onclick="@(() => CopyPrivateMessage(context.Item, msg))"
                     @onblur="@(() => ResetCopy(context.Item.Id))">
                 @(isCopied ? "已经复制" : "私信")
@@ -123,8 +123,10 @@ else if (!loading && !FilteredOrders.Any())
 @code {
     [Inject] private IJSRuntime Js { get; set; } = null!;
     [Inject] private IOrderService OrderSvc { get; set; } = null!;
+    [Inject] private AppState State { get; set; } = null!;
 
-    [CascadingParameter(Name = "ClickLink")] public bool ClickLink { get; set; }
+    /// <summary>打开链接模式：直接读 AppState（级联已移除）</summary>
+    private bool ClickLink => State.ClickLink;
     [Parameter] public ItemShort? TargetItem { get; set; }
     /// <summary>用户订单展开时传入的确认等级，等级滑块默认选中该等级</summary>
     [Parameter] public int? InitialRank { get; set; }

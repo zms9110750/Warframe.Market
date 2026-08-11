@@ -7,6 +7,7 @@ using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
 using zms9110750.WarframeMarketApi.Models.Users;
 using zms9110750.WarframeMarketApi.Services;
+using zms9110750.Warframe.Market.GUI.Services;
 using OrderTopPanel = zms9110750.Warframe.Market.GUI.Pages.OrderTop;
 
 namespace zms9110750.Warframe.Market.Tests;
@@ -46,6 +47,7 @@ public class OrderTopInteractionTests
         var ctx = new BunitContext();
         ctx.Services.AddMasaBlazor();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.Services.AddSingleton<AppState>(_ => new AppState(new WarframeMarketClient(new HttpClient())));
         ctx.Services.AddSingleton<IOrderService>(new FakeOrderService(orders));
         return ctx;
     }

@@ -59,14 +59,33 @@ public class OrderMessageFormatterTests
     }
 
     [Fact]
-    public void BuildMessage_english_target_appends_localized_name_and_price()
+    public void BuildMessage_english_target_uses_trading_emoji_no_arrow()
     {
+        // 非中文目标：英文模板 + :trading:/:platinum: 表情段（不再追加 <=> 格式）
         var msg = OrderMessageFormatter.BuildMessage(
             locale: "fr", action: "sell", ingameName: "Vendeur",
             itemName: "Rhino Prime Set", itemNameLocalized: "Ensemble Rhino Prime",
             perTrade: 2, subtype: null, modRank: null, ayatan: null, price: 200);
         Assert.Contains("Hi!", msg);
-        Assert.Contains("Ensemble Rhino Prime <=> 200", msg);
+        Assert.Contains("Rhino Prime Set :trading: 200 :platinum:", msg);
+        Assert.DoesNotContain("<=>", msg);
+    }
+
+    [Fact]
+    public void BuildMessage_perTrade_one_is_omitted_but_greater_than_one_shown()
+    {
+        // x1（默认）不显示；x2+ 显示（对方库存更多则买更多，数量未必）
+        var m1 = OrderMessageFormatter.BuildMessage(
+            locale: "en", action: "buy", ingameName: "Buyer",
+            itemName: "Wisp Prime Chassis Blueprint", itemNameLocalized: null,
+            perTrade: 1, subtype: null, modRank: null, ayatan: null, price: 13);
+        Assert.DoesNotContain("x1", m1);
+
+        var m2 = OrderMessageFormatter.BuildMessage(
+            locale: "en", action: "buy", ingameName: "Buyer",
+            itemName: "Wisp Prime Chassis Blueprint", itemNameLocalized: null,
+            perTrade: 2, subtype: null, modRank: null, ayatan: null, price: 13);
+        Assert.Contains("x2", m2);
     }
 
     [Fact]
