@@ -44,6 +44,20 @@ public class MasaComponentBehaviorTests
     }
 
     [Fact]
+    public async Task MIcon_renders_mdi_class_and_content()
+    {
+        // 左侧抽屉图标显示为文字的问题：先确认 MIcon 渲染的 class 是否正确。
+        // 正确应渲染 <i class="mdi mdi-xxx">mdi-xxx</i>（:before 由 mdi 字体 css 提供 glyph）。
+        // 若 class 正确 → 问题在 PhotinoX 下 mdi css/字体加载；若 class 缺失 → MasaBlazor Icons 配置。
+        await using var ctx = CreateCtx();
+        var cut = ctx.Render<MIcon>(p => p.AddChildContent("mdi-account-search"));
+
+        _output.WriteLine("MIcon markup: " + cut.Markup);
+        Assert.Contains("mdi-account-search", cut.Markup);
+        Assert.Contains("mdi ", cut.Markup); // class 应含 "mdi " 前缀（mdi mdi-account-search）
+    }
+
+    [Fact]
     public async Task MButton_OnClick_fires_via_standard_blazor_event()
     {
         await using var ctx = CreateCtx();
