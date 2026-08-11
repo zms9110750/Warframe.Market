@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
@@ -266,9 +267,29 @@ public class ItemSearchService : IItemSearchService
         await StatThrottle.WaitAsync(ct);
         try
         {
-            return await _wfm.GetStatisticsAsync(slug, ct);
+            var stat = await _wfm.GetStatisticsAsync(slug, ct);
+
+            // 详细日志：请求结果非预期（null / 缺字段 / 无交易数据）也记录，便于定位"界面显示 -"的根因
+            if (stat == null)
+            {
+                Log.Warning("统计请求无数据(响应 null): {Slug}", slug);
+            }
+            else if (stat.Payload?.StatisticsClosed == null)
+            {
+                Log.Warning("统计响应缺 statistics_closed: {Slug}", slug);
+            }
+            else if (stat.Payload.StatisticsClosed.Day90 is not { Length: > 0 })
+            {
+                Log.Warning("统计 90 天无交易数据(冷门物品): {Slug}", slug);
+            }
+
+            return stat;
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "统计请求异常: {Slug}", slug);
+            return null;
+        }
         finally { StatThrottle.Release(); }
     }
 

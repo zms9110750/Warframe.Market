@@ -42,22 +42,19 @@
         _headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End,
             ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.DailyVol : null) });
 
-        // 逐条异步加载，收集任务用于渐进刷新
-        var geting = new HashSet<Task>();
+        // 分批加载（每批 3 个，对齐 API 限流 3/s）：45 物品全并发会挤爆限流队列导致挂起 → 明细显示 -
+        var batch = new List<Task>();
         foreach (var itemName in Pack.Items.SelectMany(q => q.Items))
         {
             var prob = Pack.GetProbability(itemName);
-            var loadTask = LoadItemDataAsync(itemName, prob);
-            if (!loadTask.IsCompleted)
-                geting.Add(loadTask);
+            batch.Add(LoadItemDataAsync(itemName, prob));
+            if (batch.Count >= 3)
+            {
+                await Task.WhenAll(batch);
+                batch.Clear();
+            }
         }
-
-        var allTasks = Task.WhenAll(geting);
-        do
-        {
-            StateHasChanged();
-            await Task.Delay(200);
-        } while (!allTasks.IsCompleted);
+        await Task.WhenAll(batch);
         StateHasChanged();
     }
 
@@ -82,16 +79,26 @@
                     var syn = rank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[rank] : 1;
                     price = maxPrice / syn;
                 }
+                else
+                {
+                    Log.Warning("赋能明细无满级价(统计无 rank 数据): {Item}", itemName);
+                }
                 dailyVol = stat.Payload?.StatisticsClosed?.Day90
                     ?.Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0;
+            }
+            else
+            {
+                Log.Warning("赋能明细统计为空: {Item}", itemName);
             }
 
             _data[itemName] = (prob, price, price * prob, dailyVol);
         }
-        catch
+        catch (Exception ex)
         {
-            // 不吞异常：让 Masa MErrorHandler（MainLayout 包裹）捕获并在页面下方显示错误
-            throw;
+            // 单个物品失败：写 null（渲染 "-"，不伪装 0）并记录日志——不重抛，
+            // 否则 45 个物品中一个失败会让整页走 MErrorHandler 报错
+            Log.Error(ex, "赋能明细加载失败: {Item}", itemName);
+            _data[itemName] = (prob, null, null, null);
         }
     }
 }
