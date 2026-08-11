@@ -7,9 +7,8 @@
     <base href="/" />
     <link href="_content/Masa.Blazor/css/masa-blazor.min.css" rel="stylesheet">
     <link href="css/app.css" rel="stylesheet" />
-    <!-- mdi 图标字体本地化：放 _content/mdi（Blazor 静态资产标准路径，PhotinoX 必服务）；
-         外链 cdn.masastack.com 在 PhotinoX 下加载失败 → 图标显示为文字 -->
-    <link href="_content/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <!-- mdi 图标字体（外链 cdn：与原始实现 WarframeMarketQueryWPF 一致，WebView2 允许远程） -->
+    <link href="https://cdn.masastack.com/npm/@mdi/font@7.1.96/css/materialdesignicons.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="status-bar-safe-area"></div>
