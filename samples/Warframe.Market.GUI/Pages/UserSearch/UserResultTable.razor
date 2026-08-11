@@ -189,9 +189,9 @@ else
     {
         var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
         if (item == null) return "-";
-        // 价格未加载（Prices 无该 slug）→ 加载中；加载完成但无数据（stat null）→ 不存在
+        // 价格未加载（Prices 无该 slug）→ 加载中；加载完成但失败（stat null）→ 加载失败
         if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
-        if (stat == null) return "-";
+        if (stat == null) return "加载失败";
         var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
         return p?.ToString("F1") ?? "-";
     }
@@ -200,7 +200,7 @@ else
         var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
         if (item == null) return "";
         if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
-        if (stat == null) return "";
+        if (stat == null) return "加载失败";
         var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
         if (refP == null || refP <= 0) return "";
         var diff = refP.Value - o.Platinum;

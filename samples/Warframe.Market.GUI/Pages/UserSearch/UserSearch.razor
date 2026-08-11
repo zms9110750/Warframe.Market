@@ -9,9 +9,9 @@
            placeholder="输入用户名（/分隔多用户）"
            style="flex:1;border:1px solid #ccc;border-radius:4px;padding:6px 10px;font-size:14px;" />
     <MButton OnClick="SearchAsync" Color="primary">查询</MButton>
-    <MButton Icon OnClick="@(() => pin = !pin)" Title="固定此用户" Class="mt-1">
-        <MIcon Color="@(pin ? "primary" : "grey")">
-            @(pin ? "mdi-pin" : "mdi-pin-outline")
+    <MButton Icon OnClick="@(() => _state.PinMode = !_state.PinMode)" Title="固定此用户" Class="mt-1">
+        <MIcon Color="@(_state.PinMode ? "primary" : "grey")">
+            @(_state.PinMode ? "mdi-pin" : "mdi-pin-outline")
         </MIcon>
     </MButton>
     <MSwitch Value="@State.ClickLink" ValueChanged="@((bool v) => { State.ClickLink = v; StateHasChanged(); })"
@@ -21,18 +21,18 @@
 </div>
 
 @* 用户结果标签栏（首个为"欢迎"tab，不触发网络；钉住用户初始化显示但不自动查询） *@
-@if (_users.Count > 0)
+@if (_state.Tabs.Count > 0)
 {
-    <UserTabs activeTabIndex="@activeTabIndex" activeTabIndexChanged="@((int v) => OnTabChanged(v))"
-              _activeUsers="@_users" pinned="@_pinned" pin="@pin"
-              TogglePin="@((string n) => TogglePin(n))" CloseTab="@((int i) => CloseTab(i))" />
+    <PinnedTabs ActiveIndex="@_state.ActiveIndex" ActiveIndexChanged="@((int v) => OnTabChanged(v))"
+                Tabs="@_state.Tabs" Pinned="@_state.Pinned" PinMode="@_state.PinMode"
+                TogglePin="@((string n) => TogglePin(n))" CloseTab="@((int i) => CloseTab(i))" />
 }
 
 @* 所有用户 tab 内容常驻渲染（display 控制显隐）——切换 tab 时组件不销毁，结果保留 *@
-@for (var i = 0; i < _users.Count; i++)
+@for (var i = 0; i < _state.Tabs.Count; i++)
 {
-    var name = _users[i];
-    var isActive = i == activeTabIndex;
+    var name = _state.Tabs[i];
+    var isActive = i == _state.ActiveIndex;
     <div style="display:@(isActive ? "" : "none");">
         @if (name == WelcomeTab)
         {
@@ -45,7 +45,7 @@
         else if (_userResults.TryGetValue(name, out var result))
         {
             <UserResultTable UserName="@name" result="result" OnRefresh="@((string n) => RefreshUserAsync(n))"
-                             CancelToken="@(_userCts.GetValueOrDefault(name)?.Token ?? CancellationToken.None)" />
+                             CancelToken="@(_state.Cts.GetValueOrDefault(name)?.Token ?? CancellationToken.None)" />
         }
         else if (_searchingUsers.Contains(name)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
         else { <p class="text-caption" style="color:#999;margin-top:8px;">点击标签开始查询</p> }
@@ -64,28 +64,22 @@
     private const string WelcomeTab = NavTexts.Welcome;
 
     protected string slug = "";
-    /// <summary>全部用户标签（含钉住），按创建顺序；首个为欢迎 tab</summary>
-    protected List<string> _users = new();
-    /// <summary>钉住的用户名</summary>
-    protected HashSet<string> _pinned = new();
-    /// <summary>全局图钉开关</summary>
-    protected bool pin;
 
-    protected int activeTabIndex;
+    /// <summary>标签会话状态（tabs/钉住/取消令牌/图钉模式）——与 ItemSearch 共用 TabSessionState</summary>
+    private readonly TabSessionState<string> _state = new();
+
     protected HashSet<string> _searchingUsers = new();
     protected Dictionary<string, UserSearchResult> _userResults = new();
-
-    /// <summary>每个用户标签一个取消源：切换标签/关闭标签/离开路由时取消未完成的任务</summary>
-    private readonly Dictionary<string, CancellationTokenSource> _userCts = new();
 
     protected override void OnInitialized()
     {
         Log.Information("UserSearch 初始化");
-        _users.Add(WelcomeTab);
-        _pinned = Storage.Load().PinnedUsers.ToHashSet();
-        // 钉住用户显示为标签（不自动查询——避免一进来就发网络请求，点击后才加载）
-        _users.AddRange(_pinned);
-        activeTabIndex = 0;
+        _state.Add(WelcomeTab);
+        foreach (var p in Storage.Load().PinnedUsers)
+        {
+            _state.Add(p, pinned: true); // 钉住用户显示为标签（不自动查询——避免一进来就发网络请求，点击后才加载）
+        }
+        _state.ActiveIndex = 0;
     }
 
     protected async Task SearchAsync()
@@ -97,24 +91,26 @@
         foreach (var name in names)
         {
             if (name == WelcomeTab) continue;
-            if (_pinned.Contains(name))
+            if (_state.Pinned.Contains(name))
             {
-                activeTabIndex = _users.IndexOf(name);
-                if (activeTabIndex < 0)
+                var idx = _state.Tabs.IndexOf(name);
+                if (idx < 0)
                 {
-                    _users.Add(name);
-                    activeTabIndex = _users.Count - 1;
+                    _state.Add(name);
+                }
+                else
+                {
+                    _state.ActiveIndex = idx;
                 }
                 continue;
             }
-            if (!_users.Contains(name))
+            if (!_state.Tabs.Contains(name))
             {
-                _users.Add(name);
-                activeTabIndex = _users.Count - 1;
+                _state.Add(name);
             }
             else
             {
-                activeTabIndex = _users.IndexOf(name);
+                _state.ActiveIndex = _state.Tabs.IndexOf(name);
             }
             _ = SearchUserAsync(name);
         }
@@ -128,10 +124,9 @@
             Log.Information("UserSearch 重复搜索跳过: {Name}", name);
             return;
         }
-        if (!_userCts.TryGetValue(name, out var cts))
+        if (!_state.Cts.TryGetValue(name, out var cts))
         {
-            cts = new CancellationTokenSource();
-            _userCts[name] = cts;
+            cts = _state.GetOrCreateCts(name);
         }
 
         _searchingUsers.Add(name);
@@ -158,19 +153,18 @@
     /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始查询</summary>
     private void OnTabChanged(int idx)
     {
-        if (idx < 0 || idx >= _users.Count || idx == activeTabIndex) return;
-        var old = _users[activeTabIndex];
-        if (old != WelcomeTab && _userCts.TryGetValue(old, out var cts))
+        if (idx < 0 || idx >= _state.Tabs.Count || idx == _state.ActiveIndex) return;
+        var old = _state.Tabs[_state.ActiveIndex];
+        if (old != WelcomeTab)
         {
             Log.Information("UserSearch 取消用户标签任务: {Name}", old);
-            cts.Cancel();
-            _userCts.Remove(old); // 移除已取消的 CTS——切回该标签时重建，避免复用已取消令牌导致永远搜不出
+            _state.CancelAndRemove(old); // 取消 + 移除 CTS——切回该标签时重建，避免复用已取消令牌导致永远搜不出
         }
-        Log.Information("UserSearch 切换标签: {Old} -> {New}", old, _users[idx]);
-        activeTabIndex = idx;
+        Log.Information("UserSearch 切换标签: {Old} -> {New}", old, _state.Tabs[idx]);
+        _state.ActiveIndex = idx;
 
         // 点击标签即开始查询（钉住用户初始化仅显示，点击才加载）
-        var name = _users[idx];
+        var name = _state.Tabs[idx];
         if (name != WelcomeTab && !_userResults.ContainsKey(name) && !_searchingUsers.Contains(name))
         {
             _ = SearchUserAsync(name);
@@ -180,33 +174,32 @@
     protected void TogglePin(string name)
     {
         if (name == WelcomeTab) return;
-        if (!_pinned.Add(name))
+        if (_state.Pinned.Contains(name))
         {
-            _pinned.Remove(name);
+            _state.Pinned.Remove(name);
             Storage.UnpinUser(name);
         }
         else
         {
+            _state.Pinned.Add(name);
             Storage.PinUser(name);
         }
     }
 
     protected void CloseTab(int idx)
     {
-        if (idx <= 0 || idx >= _users.Count) return; // 欢迎 tab 不可关
-        var name = _users[idx];
-        if (_pinned.Contains(name)) return;
-        if (_userCts.TryGetValue(name, out var cts)) { Log.Information("UserSearch 关闭用户标签并取消: {Name}", name); cts.Cancel(); }
-        _userCts.Remove(name);
+        if (idx <= 0 || idx >= _state.Tabs.Count) return; // 欢迎 tab 不可关
+        var name = _state.Tabs[idx];
+        if (_state.Pinned.Contains(name)) return;
+
+        Log.Information("UserSearch 关闭用户标签并取消: {Name}", name);
+        _state.RemoveAt(idx); // 取消 + 移除
 
         // tab 关闭 → 该用户价格统计降级为 High（内存压力可逐出）
         DemoteUserStatistics(name, CacheItemPriority.High);
 
-        _users.RemoveAt(idx);
         _userResults.Remove(name);
         _searchingUsers.Remove(name);
-        if (activeTabIndex >= _users.Count)
-            activeTabIndex = Math.Max(0, _users.Count - 1);
     }
 
     /// <summary>把某用户结果加载过的价格统计 slug 批量降级</summary>
@@ -214,10 +207,7 @@
     {
         if (_userResults.TryGetValue(name, out var result) && result.Prices != null)
         {
-            foreach (var slug in result.Prices.Keys)
-            {
-                ItemSvc.SetStatisticPriority(slug, priority);
-            }
+            StatPriority.Demote(ItemSvc, result.Prices.Keys, priority);
         }
     }
 
@@ -229,9 +219,8 @@
         Cache.Remove($"get/https/api.warframe.market/v2/user/{name}|lang={lang}");
         Cache.Remove($"get/https/api.warframe.market/v2/orders/user/{name}|lang={lang}");
 
-        if (_userCts.TryGetValue(name, out var old)) old.Cancel();
-        var cts = new CancellationTokenSource();
-        _userCts[name] = cts;
+        if (_state.Cts.TryGetValue(name, out var old)) old.Cancel();
+        var cts = _state.GetOrCreateCts(name);
 
         _userResults.Remove(name);
         _searchingUsers.Remove(name);
@@ -242,9 +231,8 @@
     /// <summary>离开路由时取消本页所有标签未完成的请求，并降级所有价格统计（Normal 可逐出）</summary>
     public void Dispose()
     {
-        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务，降级统计", _userCts.Count);
-        foreach (var cts in _userCts.Values) cts.Cancel();
-        _userCts.Clear();
+        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务，降级统计", _state.Cts.Count);
+        _state.CancelAll();
 
         foreach (var name in _userResults.Keys)
         {

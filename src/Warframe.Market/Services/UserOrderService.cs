@@ -125,11 +125,13 @@ public class UserOrderService : IUserOrderService
         try
         {
             var stat = await _items.GetStatisticAsync(slug, ct);
-            if (stat != null)
-            {
-                result.Prices[slug] = stat;
-            }
+            // null 也写入（失败/无数据标记）：不写会导致 Prices 无键 → 界面永久"加载中"。
+            // 有键但 null → 渲染"加载失败"，用户能区分 加载中/失败/无数据。
+            result.Prices[slug] = stat;
         }
-        catch { }
+        catch
+        {
+            result.Prices[slug] = null; // 请求异常 → 失败标记
+        }
     }
 }

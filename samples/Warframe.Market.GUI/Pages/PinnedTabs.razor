@@ -1,16 +1,16 @@
-@* 搜索结果标签栏（无"搜索"tab；图钉开关开启时：钉住的显示 pin-off、未钉住的显示 MChip 原生 x 可关闭） *@
+@* 结果标签栏（物品搜索/用户搜索共用）：首个为"欢迎"tab（不触发网络）；图钉模式开启时标签显示 pin 图标（已钉=橙 pin-off 取消，未钉=灰 pin-outline 钉住），关闭时显示 x *@
 
-<MTabs Value="@activeTabIndex">
-    @foreach (var (tab, idx) in _activeTabs.Select((t, i) => (t, i)))
+<MTabs Value="@ActiveIndex">
+    @foreach (var (tab, idx) in Tabs.Select((t, i) => (t, i)))
     {
-        var isPinned = pinned.Contains(tab);
+        var isPinned = Pinned.Contains(tab);
         var isWelcome = tab == NavTexts.Welcome;
-        <MTab OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
-            <MChip Label Class="mr-1" OnClick="@(() => activeTabIndexChanged.InvokeAsync(idx))"
-                   Close="@(!isWelcome && !pin && !isPinned)"
+        <MTab OnClick="@(() => ActiveIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
+            <MChip Label Class="mr-1" OnClick="@(() => ActiveIndexChanged.InvokeAsync(idx))"
+                   Close="@(!isWelcome && !PinMode && !isPinned)"
                    OnCloseClick="@(() => CloseTab.InvokeAsync(idx))">
                 @tab
-                @if (!isWelcome && pin)
+                @if (!isWelcome && PinMode)
                 {
                     @* 图钉模式：所有 tab 显示 pin 图标（已钉住=橙 pin-off 取消，未钉住=灰 pin-outline 钉住）——JM 式 *@
                     <span @onclick:stopPropagation
@@ -28,11 +28,11 @@
 </MTabs>
 
 @code {
-    [Parameter] public int activeTabIndex { get; set; }
-    [Parameter] public EventCallback<int> activeTabIndexChanged { get; set; }
-    [Parameter] public List<string> _activeTabs { get; set; } = new();
-    [Parameter] public HashSet<string> pinned { get; set; } = new();
-    [Parameter] public bool pin { get; set; }
+    [Parameter] public int ActiveIndex { get; set; }
+    [Parameter] public EventCallback<int> ActiveIndexChanged { get; set; }
+    [Parameter] public List<string> Tabs { get; set; } = new();
+    [Parameter] public HashSet<string> Pinned { get; set; } = new();
+    [Parameter] public bool PinMode { get; set; }
     [Parameter] public EventCallback<string> TogglePin { get; set; }
     [Parameter] public EventCallback<int> CloseTab { get; set; }
 }

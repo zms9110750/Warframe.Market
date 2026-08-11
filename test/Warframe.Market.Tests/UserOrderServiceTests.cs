@@ -45,6 +45,9 @@ public class UserOrderServiceTests
     {
         public Statistic? Stat { get; set; }
 
+        /// <summary>为 true 时 GetStatisticAsync 抛异常（模拟请求失败）</summary>
+        public bool Throw { get; set; }
+
         public Task<List<ItemShort>> SearchAsync(string query, CancellationToken ct = default)
         {
             return Task.FromResult(new List<ItemShort>());
@@ -58,6 +61,10 @@ public class UserOrderServiceTests
         public Task<Statistic?> GetStatisticAsync(string slug, CancellationToken ct = default)
         {
             Interlocked.Increment(ref _calls);
+            if (Throw)
+            {
+                throw new HttpRequestException("模拟统计请求失败");
+            }
             return Task.FromResult(Stat);
         }
         private int _calls;
@@ -140,6 +147,44 @@ public class UserOrderServiceTests
 
         Assert.Single(result.Prices);
         Assert.Equal(1, items.Calls); // 去重：只请求一次
+        Assert.False(result.LoadingPrices);
+    }
+
+    [Fact]
+    public async Task LoadPricesAsync_stat_null_writes_null_marker()
+    {
+        // 统计返回 null（无数据/失败）：也写入 Prices[slug]=null（失败标记——渲染"加载失败"，不再永久"加载中"）
+        var items = new CountingItemSearch { Stat = null };
+        var svc = CreateService(items);
+
+        var result = new UserSearchResult {
+            Orders = new List<Order> { MakeOrder("o1", "item1", 50) },
+            ItemCache = new Dictionary<string, ItemShort?> { ["item1"] = MakeItem("slug1", "item1") },
+        };
+
+        await svc.LoadPricesAsync(result);
+
+        Assert.True(result.Prices.ContainsKey("slug1")); // 有键（标记写入）
+        Assert.Null(result.Prices["slug1"]);             // 值为 null（失败标记）
+        Assert.False(result.LoadingPrices);
+    }
+
+    [Fact]
+    public async Task LoadPricesAsync_exception_writes_null_marker()
+    {
+        // 统计请求异常：catch 后写 null 失败标记（不是静默不写——不写会导致永久"加载中"）
+        var items = new CountingItemSearch { Throw = true };
+        var svc = CreateService(items);
+
+        var result = new UserSearchResult {
+            Orders = new List<Order> { MakeOrder("o1", "item1", 50) },
+            ItemCache = new Dictionary<string, ItemShort?> { ["item1"] = MakeItem("slug1", "item1") },
+        };
+
+        await svc.LoadPricesAsync(result); // 不应抛
+
+        Assert.True(result.Prices.ContainsKey("slug1"));
+        Assert.Null(result.Prices["slug1"]);
         Assert.False(result.LoadingPrices);
     }
 

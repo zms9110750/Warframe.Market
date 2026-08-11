@@ -140,12 +140,12 @@ public class UserResultTableTests
     }
 
     [Fact]
-    public async Task Ref_price_shows_dash_when_loaded_but_no_data()
+    public async Task Ref_price_shows_failed_when_loaded_but_failed()
     {
         await using var ctx = CreateCtx(null);
         var cut = Render(ctx, new Dictionary<string, Statistic?> { ["slug1"] = null });
 
-        Assert.Contains("-", FirstRowText(cut)); // 加载完成无数据 → -
+        Assert.Contains("加载失败", FirstRowText(cut)); // 加载完成但失败（null 标记）→ 加载失败
         Assert.DoesNotContain("加载中", FirstRowText(cut));
     }
 }

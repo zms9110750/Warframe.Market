@@ -9,7 +9,19 @@
 <MDataTable Items="@Pack.Items.SelectMany(q => q.Items)" Headers="_headersItem"
             Dense HideDefaultFooter Class="elevation-1" ItemsPerPage="-1" @key="Pack.Name">
     <ItemColContent>
-        @if (context.Header.Text == "名称") { @context.Item }
+        @if (context.Header.Text == "名称")
+        {
+            // 旧版语义：ClickLink 时赋能名可点链接到物品页（ExternalLink.Open 系统浏览器）
+            if (ClickLink && _slugs.TryGetValue(context.Item, out var slug))
+            {
+                var url = $"https://warframe.market/zh-hans/items/{slug}";
+                <a href="@url" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(url))">@context.Item</a>
+            }
+            else
+            {
+                @context.Item
+            }
+        }
         else if (context.Header.Text == "出货率%") { @($"{Pack.GetProbability(context.Item) * 100:F2}") }
         else if (_data.TryGetValue(context.Item, out var d))
         {
@@ -23,11 +35,16 @@
 
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private AppState State { get; set; } = null!;
 
     [Parameter] public ArcanePackConfig Pack { get; set; } = default!;
 
+    /// <summary>打开链接模式：直接读 AppState（级联已移除）</summary>
+    private bool ClickLink => State.ClickLink;
+
     private List<DataTableHeader<string>> _headersItem = [];
     private Dictionary<string, (double Prob, double? Price, double? Expected, double? DailyVol)> _data = new();
+    private readonly Dictionary<string, string> _slugs = new(); // 物品名 → slug（ClickLink 用）
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,6 +83,7 @@
         {
             var item = await ItemSvc.FindByKeyAsync(itemName);
             if (item == null) return;
+            _slugs[itemName] = item.Slug; // 存 slug（名称列 ClickLink 用）
 
             var stat = await ItemSvc.GetStatisticAsync(item.Slug);
             double? price = null;
@@ -85,8 +103,14 @@
                 {
                     Log.Warning("赋能明细无满级价(统计无 rank 数据): {Item}", itemName);
                 }
-                dailyVol = stat.Payload?.StatisticsClosed?.Day90
-                    ?.Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0;
+                // 日均交易量：Σ(Vol × 合成消耗[ModRank]) / 90 / 合成消耗[最大ModRank]（旧版语义——按最大等级合成消耗归一化）
+                var day90 = stat.Payload?.StatisticsClosed?.Day90;
+                if (day90 is { Length: > 0 })
+                {
+                    var maxRank = day90.Max(e => e.ModRank ?? 0);
+                    var synMax = maxRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[maxRank] : 1;
+                    dailyVol = day90.Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0 / synMax;
+                }
             }
             else
             {
