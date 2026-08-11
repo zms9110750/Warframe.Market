@@ -41,6 +41,18 @@
                     搜索框右侧图钉按钮开启后：钉住的标签显示 pin-off 图标（可取消钉住），
                     未钉住的标签显示 x（可关闭）。钉住的搜索词会在启动时显示为标签，点击后才开始搜索。
                 </p>
+
+                @* mdi 图标测试台（诊断 PhotinoX 下哪些组件/图标能显示）——临时，验证后移除 *@
+                <div style="margin-top:16px;border:1px dashed #999;padding:12px;border-radius:8px;max-width:560px;">
+                    <p class="text-caption" style="font-weight:600;">mdi 图标测试台（外链 cdn）</p>
+                    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+                        <MButton Small Color="primary"><MIcon Small Class="mr-1">mdi-magnify</MIcon>按钮</MButton>
+                        <MChip Small><MIcon Small Class="mr-1">mdi-star</MIcon>纸片</MChip>
+                        <MCard Flat Class="pa-2"><MIcon Small Class="mr-1">mdi-cards</MIcon>卡片</MCard>
+                        <MIcon Small Color="primary">mdi-account-search</MIcon>
+                        <MBadge Content="3" Color="red"><MIcon Small>mdi-bell</MIcon></MBadge>
+                    </div>
+                </div>
             </div>
         }
         else if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
