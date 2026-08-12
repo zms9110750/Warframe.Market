@@ -89,7 +89,14 @@ class Program
 
         // Warframe.Market HTTP 客户端：缓存(命中跳过后续策略) → 限流感知重试(本地限流异常/429) → 令牌桶限流 3/s
         // HTTP 响应缓存键 = {method}/{scheme}/{host}{path}，GET 全自动缓存，无需业务层管缓存
-        appBuilder.Services.AddHttpClient("wfm", c => c.BaseAddress = new Uri(config.ApiBaseAddress))
+        appBuilder.Services.AddHttpClient("wfm", c => {
+            c.BaseAddress = new Uri(config.ApiBaseAddress);
+            // User-Agent 自动取调用方程序集名和版本（warframe.market 要求 UA）
+            if (System.Reflection.Assembly.GetEntryAssembly()?.GetName() is { } an)
+            {
+                c.DefaultRequestHeaders.UserAgent.ParseAdd($"{an.Name}/{an.Version}");
+            }
+        })
             .AddResilienceHandler("wfm", (pipeline, ctx) => {
                 // Polly 遥测：策略事件经 ILoggerFactory（AddSerilog 提供）写进 Serilog。
                 // 事件：OnRetry（429/限流重试，含 AttemptNumber/Delay/Result 状态码）、
