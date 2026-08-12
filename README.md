@@ -60,7 +60,6 @@ src/Warframe.Market/    库（公开 NuGet 包）
 samples/Warframe.Market.GUI/  桌面 GUI
 test/Warframe.Market.Tests/   测试（166 用例：服务/算法/缓存/bUnit 页面交互）
 test/Resources/         API 数据备份（items/orders/statistics JSON）
-script/                 辅助脚本（统计参考价计算/物品结构分析等）
 docs/                   方案文档
 ```
 

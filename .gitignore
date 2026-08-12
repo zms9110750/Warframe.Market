@@ -372,3 +372,9 @@ FodyWeavers.xsd
 .reasonix/
 
 cache.db
+
+# 本地用户配置（快捷输入/钉住按钮）
+ui-config.yaml
+# 第三方字体（mdi，运行时从 NuGet 复制）
+samples/Warframe.Market.GUI/wwwroot/_content/
+samples/Warframe.Market.GUI/wwwroot/css/mdi/
