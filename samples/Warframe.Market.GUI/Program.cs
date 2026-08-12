@@ -226,7 +226,7 @@ class Program
         catch (Exception ex)
         {
             // 读 body 失败不重试（避免误伤正常响应）
-            Log.Debug("空 data 检查读 body 失败: {Url}", resp.RequestMessage?.RequestUri);
+            Log.Debug(ex, "空 data 检查读 body 失败: {Url}", resp.RequestMessage?.RequestUri);
         }
 
         return false;

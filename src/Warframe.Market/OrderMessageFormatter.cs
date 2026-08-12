@@ -191,7 +191,7 @@ public static class OrderMessageFormatter
 
     /// <summary>
     /// 构建私信文本（OrderTop"联系"列使用）。
-    /// 语言规则：目标语言为中文 → 中文模板；否则英文模板 + 末尾追加 "{对方语言物品名} <=> {价格}"（若有该语言 i18n）。
+    /// 语言规则：目标语言为中文 → 中文模板；否则英文模板 + 末尾追加 "{对方语言物品名} 与 {价格}"（若有该语言 i18n）。
     /// </summary>
     public static string BuildMessage(
         string locale, string action, string ingameName, string itemName, string? itemNameLocalized,
@@ -206,7 +206,7 @@ public static class OrderMessageFormatter
             ["action"] = action, // buy/sell
             // 模板的 select 用 "undefined" 分支表示"无值"（如 undefined {} 空分支）。
             // perTrade=1（默认）不显示 x1：数量未必是 1（对方库存更多就买更多），x1 无信息量
-            ["perTrade"] = perTrade is > 1 ? perTrade.ToString() : "undefined",
+            ["perTrade"] = perTrade is > 1 ? perTrade.ToString() ?? "undefined" : "undefined",
             ["subtype"] = subtype ?? "undefined",
             ["itemName"] = itemName,
             ["modRank"] = modRank?.ToString() ?? "undefined",
