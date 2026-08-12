@@ -27,8 +27,8 @@
 
   <PropertyGroup>
     <Authors>zms9110750</Authors>
-    <Version>0.2.0-a.0+v0.25.0</Version>
-    <RepositoryUrl>https://github.com/zms9110750/zms9110750Library</RepositoryUrl>
+    <Version>0.2.0-a.1+v0.25.0</Version>
+    <RepositoryUrl>https://github.com/zms9110750/Warframe.Market</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
