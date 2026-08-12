@@ -1,0 +1,131 @@
+﻿@* 赋能包展开明细：出货率（静态） + 价格（异步加载） *@
+
+@if (Pack == null)
+{
+    <MAlert Dense Type="@AlertTypes.Error">参数为 null</MAlert>
+    return;
+}
+
+<MDataTable Items="@Pack.Items.SelectMany(q => q.Items)" Headers="_headersItem"
+            Dense HideDefaultFooter Class="elevation-1" ItemsPerPage="-1" @key="Pack.Name">
+    <ItemColContent>
+        @if (context.Header.Text == "名称")
+        {
+            // 旧版语义：ClickLink 时赋能名可点链接到物品页（Links.Open 系统浏览器）
+            if (ClickLink && _slugs.TryGetValue(context.Item, out var slug))
+            {
+                var url = $"https://warframe.market/zh-hans/items/{slug}";
+                <a href="@url" @onclick:preventDefault @onclick="@(() => Links.Open(url))">@context.Item</a>
+            }
+            else
+            {
+                @context.Item
+            }
+        }
+        else if (context.Header.Text == "出货率%") { @($"{Pack.GetProbability(context.Item) * 100:F2}") }
+        else if (_data.TryGetValue(context.Item, out var d))
+        {
+            if (context.Header.Text == "参考价") { @(d.Price?.ToString("F2") ?? "-") }
+            else if (context.Header.Text == "出货率×价") { @(d.Expected?.ToString("F2") ?? "-") }
+            else if (context.Header.Text == "日均交易量") { @(d.DailyVol?.ToString("F1") ?? "-") }
+        }
+        else { @("加载中") }
+    </ItemColContent>
+</MDataTable>
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IExternalLinkService Links { get; set; } = null!;
+
+    [Parameter] public ArcanePackConfig Pack { get; set; } = default!;
+
+    /// <summary>打开链接模式：直接读 AppState（级联已移除）</summary>
+    private bool ClickLink => State.ClickLink;
+
+    private List<DataTableHeader<string>> _headersItem = [];
+    private Dictionary<string, (double Prob, double? Price, double? Expected, double? DailyVol)> _data = new();
+    private readonly Dictionary<string, string> _slugs = new(); // 物品名 → slug（ClickLink 用）
+
+    protected override async Task OnInitializedAsync()
+    {
+        Log.Information("ArcaneTable 初始化: {Pack}", Pack.Name);
+        _headersItem.Add(new("名称", "名称") { ValueExpression = (Func<string, object?>)(t => t) });
+        _headersItem.Add(new("出货率%", "rate") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => Pack.GetProbability(t) * 100) });
+        _headersItem.Add(new("参考价", "price") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Price : null) });
+        _headersItem.Add(new("出货率×价", "expected") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.Expected : null) });
+        _headersItem.Add(new("日均交易量", "daily") { Align = DataTableHeaderAlign.End,
+            ValueExpression = (Func<string, object?>)(t => _data.TryGetValue(t, out var d) ? d.DailyVol : null) });
+
+        // 分批加载（每批 2 个 + 批间 500ms，远低于 API 限流 3/s）：
+        // 45 物品全并发/每批 3 会触发 wfmarket 429 限流（空响应 → JSON 反序列化失败）→ 明细显示 -
+        var batch = new List<Task>();
+        foreach (var itemName in Pack.Items.SelectMany(q => q.Items))
+        {
+            var prob = Pack.GetProbability(itemName);
+            batch.Add(LoadItemDataAsync(itemName, prob));
+            if (batch.Count >= 2)
+            {
+                await Task.WhenAll(batch);
+                batch.Clear();
+                await Task.Delay(500);
+            }
+        }
+        await Task.WhenAll(batch);
+        StateHasChanged();
+    }
+
+    private async Task LoadItemDataAsync(string itemName, double prob)
+    {
+        try
+        {
+            var item = await ItemSvc.FindByKeyAsync(itemName);
+            if (item == null) return;
+            _slugs[itemName] = item.Slug; // 存 slug（名称列 ClickLink 用）
+
+            var stat = await ItemSvc.GetStatisticAsync(item.Slug);
+            double? price = null;
+            double? dailyVol = null;
+
+            if (stat != null)
+            {
+                var maxPrice = stat.GetMaxReferencePrice();
+                if (maxPrice != null)
+                {
+                    var firstRanked = stat.Payload?.StatisticsClosed?.Day90?.FirstOrDefault(e => e.ModRank > 0);
+                    var rank = firstRanked?.ModRank ?? 0;
+                    var syn = rank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[rank] : 1;
+                    price = maxPrice / syn;
+                }
+                else
+                {
+                    Log.Warning("赋能明细无满级价(统计无 rank 数据): {Item}", itemName);
+                }
+                // 日均交易量：Σ(Vol × 合成消耗[ModRank]) / 90 / 合成消耗[最大ModRank]（旧版语义——按最大等级合成消耗归一化）
+                var day90 = stat.Payload?.StatisticsClosed?.Day90;
+                if (day90 is { Length: > 0 })
+                {
+                    var maxRank = day90.Max(e => e.ModRank ?? 0);
+                    var synMax = maxRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[maxRank] : 1;
+                    dailyVol = day90.Sum(e => e.Volume * (e.ModRank is > 0 and <= 5 ? StatisticPrice.SyntheticConsumption[e.ModRank.Value] : 1)) / 90.0 / synMax;
+                }
+            }
+            else
+            {
+                Log.Warning("赋能明细统计为空: {Item}", itemName);
+            }
+
+            _data[itemName] = (prob, price, price * prob, dailyVol);
+        }
+        catch (Exception ex)
+        {
+            // 单个物品失败：写 null（渲染 "-"，不伪装 0）并记录日志——不重抛，
+            // 否则 45 个物品中一个失败会让整页走 MErrorHandler 报错
+            Log.Error(ex, "赋能明细加载失败: {Item}", itemName);
+            _data[itemName] = (prob, null, null, null);
+        }
+    }
+}

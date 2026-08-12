@@ -1,0 +1,114 @@
+﻿@page "/reply"
+@attribute [NavItem("快捷回复", "mdi-chat-processing-outline", Order = 3)]
+
+<h3>快捷回复</h3>
+
+@* 可编辑开关（原顶部 AppBar 开关移到这里） *@
+<MButton Small Outlined="@(!canWrite)" Color="@(canWrite ? "primary" : "")" Class="mb-2"
+         OnClick="@(() => { State.CanWrite = !State.CanWrite; StateHasChanged(); })">
+    <MIcon Small Class="mr-1">@(canWrite ? "mdi-pencil-off" : "mdi-pencil")</MIcon>@(canWrite ? "完成编辑" : "编辑")
+</MButton>
+
+@for (int i = 0; i < Tags.Count; i++)
+{
+    var idx = i;
+    var oldText = Tags[i];
+    <div style="display:flex;gap:6px;align-items:center;max-width:600px;margin-bottom:4px;">
+        <input @bind-Value="Tags[idx]" @bind-Value:event="oninput"
+               readonly="@(!canWrite)"
+               style="flex:1;border:1px solid #ccc;padding:4px 8px;border-radius:4px;"
+               @onblur="@(() => SaveOnBlur(oldText, Tags[idx]))" @key="@i" />
+        @if (canWrite)
+        {
+            <MIcon OnClick="@(() => Remove(Tags[idx]))" Style="cursor:pointer;color:#c62828;">mdi-minus</MIcon>
+        }
+        else
+        {
+            <MButton Small Outlined Color="primary" OnClick="@(() => Copy(Tags[idx]))">复制</MButton>
+        }
+    </div>
+}
+
+@if (canWrite)
+{
+    <div class="mt-2" style="display:flex;gap:8px;max-width:600px;">
+        <input @bind-Value="newItem" @bind-Value:event="oninput" @key="@_inputKey"
+               placeholder="添加新回复（失焦保存）"
+               style="flex:1;border:1px solid #ccc;padding:4px 8px;border-radius:4px;"
+               @onblur="@(() => AddNew())" />
+    </div>
+}
+else if (Tags.Count == 0)
+{
+    <p class="text-caption mt-4">点击上方『编辑』按钮后添加条目</p>
+}
+
+@if (copied != null)
+{
+    <MAlert Dense Class="mt-2" Type="@AlertTypes.Success" Style="max-width:600px;">已复制: @copied</MAlert>
+}
+
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+    [Inject] private IPersistentStorage Storage { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+
+    // 可编辑开关状态直接读 AppState（不用 CascadingParameter：AppState 无变更通知，
+    // 级联值不刷新 → 按钮切换"无事发生"）
+    private bool canWrite => State.CanWrite;
+
+    protected string newItem = "";
+    private int _inputKey;
+    protected string? copied;
+    protected List<string> Tags = new();
+
+    protected override void OnInitialized()
+    {
+        Log.Information("QuickReply 初始化");
+        Tags = Storage.Load().QuickReplies;
+    }
+
+    protected async Task Copy(string text)
+    {
+        Log.Information("QuickReply 复制: {Text}", text.Length > 30 ? text[..30] + "..." : text);
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            copied = text.Length > 40 ? text[..40] + "..." : text;
+        }
+        catch { }
+    }
+
+    protected async Task AddNew()
+    {
+        if (string.IsNullOrWhiteSpace(newItem)) return;
+        Tags.Add(newItem.Trim());
+        Storage.AddQuickReply(newItem.Trim());
+        newItem = "";
+        _inputKey++;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected void Remove(string text)
+    {
+        Tags.Remove(text);
+        Storage.RemoveQuickReply(text);
+    }
+
+    protected void SaveOnBlur(string oldText, string newText)
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+        {
+            Tags.Remove(oldText);
+            Storage.RemoveQuickReply(oldText);
+            return;
+        }
+        if (oldText != newText)
+        {
+            var idx = Tags.IndexOf(oldText);
+            if (idx >= 0) Tags[idx] = newText;
+            Storage.RemoveQuickReply(oldText);
+            Storage.AddQuickReply(newText);
+        }
+    }
+}

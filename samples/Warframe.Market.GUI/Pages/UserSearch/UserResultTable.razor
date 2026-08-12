@@ -1,0 +1,215 @@
+@* 用户订单结果：折叠面板（Header=用户名-订单-平台+刷新，Content=订单表）+ 自定义订单子面板 *@
+
+@if (result == null) { return; }
+
+@if (result.Error != null) { <p style="color:#c62828;">@result.Error</p> }
+else if (result.NotFound) { <MAlert Dense Type="@AlertTypes.Error">未找到该用户：@UserName</MAlert> }
+else
+{
+    @if (result.Orders != null)
+    {
+        @* 折叠按钮：用户名+订单数+声望+平台 都写在按钮里（上方不再单独一行用户信息） *@
+        <MButton Small Text OnClick="@(() => _collapsed = !_collapsed)" Class="mb-1" style="cursor:pointer;text-transform:none;">
+            <MIcon Small>@(_collapsed ? "mdi-chevron-right" : "mdi-chevron-down")</MIcon>
+            @result.User?.IngameName — @result.Orders.Count 个订单 — 声望 @result.User?.Reputation — @result.User?.Platform
+            <span @onclick:stopPropagation style="margin-left:12px;">
+                <MButton Small Outlined Color="primary" OnClick="@(() => _ = DoRefresh())">
+                    <MIcon Small Class="mr-1">mdi-refresh</MIcon>刷新@(_lastRefreshed.HasValue ? $" ({RelativeText()})" : "")
+                </MButton>
+            </span>
+        </MButton>
+        @if (!_collapsed)
+        {
+            <div style="margin-top:4px;">
+            <MDataTable Items="result.Orders" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1" Loading="@result.Loading" MustSort
+                        ItemKey="r => r.Id" ShowExpand
+                        GroupBy="nameof(Order.Type)" GroupDesc="[true]">
+                    <GroupHeaderContent>
+                        <td colspan="@_headers.Count">
+                            @if (context.Group is "buy" or "Buy") { @("购") } else { @("售") }
+                        </td>
+                    </GroupHeaderContent>
+                    <ExpandedItemContent>
+                        <td colspan="9999">
+                            @* 用户订单展开：买卖方向/子类型/等级 初始匹配该订单（razor 属性不用内联双引号字符串，避免解析错） *@
+                            <OrderTop TargetItem="@GetItemShort(result, context.Item)" InitialRank="@(context.Item.Rank)"
+                                      InitialShowBuy="@IsBuyOrder(context.Item)" InitialSubtype="@context.Item.Subtype"
+                                      CancelToken="@CancelToken" />
+                        </td>
+                    </ExpandedItemContent>
+                    <ItemColContent>
+                        @if (context.Header.Text == "物品") { @GetItemName(result, context.Item) }
+                        else if (context.Header.Text == "英文名称") { @GetEnName(result, context.Item) }
+                        else if (context.Header.Text == "等级/品质") { @(context.Item.Rank?.ToString() ?? "-") }
+                        else if (context.Header.Text == "参考价") { @GetRef(result, context.Item) }
+                        else if (context.Header.Text == "差价") { @GetDiff(result, context.Item) }
+                        else { @context.Value?.ToString() }
+                    </ItemColContent>
+                </MDataTable>
+            </div>
+            } @* 21 行 @if (!_collapsed) 结束 *@
+        } @* 9 行 @if (result.Orders != null) 结束 *@
+        else if (!result.Loading) { <p>无公开订单</p> } @* 9 的 else：订单为空时显示 *@
+    } @* 7 行 else 结束 *@
+}
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IUserOrderService UserSvc { get; set; } = null!;
+
+    [Parameter] public string UserName { get; set; } = "";
+    [Parameter] public UserSearchResult? result { get; set; }
+    [Parameter] public EventCallback<string> OnRefresh { get; set; }
+    /// <summary>所属标签/页面的取消令牌（切换用户标签/路由离开时由父级取消，透传给 OrderTop）</summary>
+    [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
+
+    private bool _collapsed;
+    private DateTime? _lastRefreshed;
+    private List<DataTableHeader<Order>> _headers = new();
+
+    /// <summary>
+    /// 异步刷新核心：订单列表由 SearchUserAsync 立即提供（表格先展示），
+    /// 价格在这里后台分批加载（fire-and-forget），每批完成即刷新界面——不阻塞列表展示。
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (result is { Loading: false } && result.Orders is { Count: > 0 })
+        {
+            _ = LoadPricesAsync();
+        }
+    }
+
+    private async Task LoadPricesAsync()
+    {
+        try
+        {
+            Log.Information("UserResultTable 开始后台加载价格: {UserName}", UserName);
+            var task = UserSvc.LoadPricesAsync(result!, CancelToken);
+            // 渐进刷新：加载期间每 200ms 刷新界面（价格列"加载中"逐个变为数值）
+            // 注意：此循环在独立 fire-and-forget 任务中（组件已渲染），StateHasChanged 有效
+            while (!task.IsCompleted)
+            {
+                await Task.Delay(200, CancelToken); // 切换标签/路由离开时立即跳出
+                await InvokeAsync(StateHasChanged);
+            }
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消，忽略
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "UserResultTable 价格加载失败: {UserName}", UserName);
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task DoRefresh()
+    {
+        _lastRefreshed = DateTime.Now;
+        // 通知 UserSearch 刷新（清缓存重查）
+        if (OnRefresh.HasDelegate)
+            await OnRefresh.InvokeAsync(UserName);
+    }
+
+    /// <summary>上次刷新后的相对时间（x 秒/分钟前）</summary>
+    private string RelativeText()
+    {
+        if (_lastRefreshed is not { } t) return "";
+        var d = DateTime.Now - t;
+        if (d.TotalSeconds < 60) return $"{(int)Math.Max(1, d.TotalSeconds)} 秒前";
+        return $"{d.TotalMinutes:0} 分钟前";
+    }
+
+    protected override void OnInitialized()
+    {
+        Log.Information("UserResultTable 初始化: {UserName}", UserName);
+        _headers = new()
+        {
+            new("物品", nameof(Order.Id)) { ValueExpression = (Func<Order, object?>)(o => SortName(o)) },
+            new("英文名称", "en-name") { ValueExpression = (Func<Order, object?>)(o => SortEn(o)) },
+            new("类型", nameof(Order.Type)) { ValueExpression = (Func<Order, object?>)(o => o.Type is "buy" or "Buy" ? "购" : "售") },
+            new("铂金", nameof(Order.Platinum)),
+            new("数量", nameof(Order.Quantity)),
+            new("等级/品质", nameof(Order.Rank)),
+            new("参考价", "ref") { ValueExpression = (Func<Order, object?>)(o => SortRef(o)) },
+            new("差价", "diff") { ValueExpression = (Func<Order, object?>)(o => SortDiff(o)) },
+        };
+    }
+
+    private object? SortName(Order o)
+    {
+        var item = result?.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null) return "~";
+        return item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : item.Slug;
+    }
+    private object? SortEn(Order o)
+    {
+        var item = result?.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        return item?.I18n.TryGetValue(Language.En, out var en) == true ? en.Name : "";
+    }
+    private object? SortRef(Order o)
+    {
+        var item = result?.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null || result?.Prices.TryGetValue(item.Slug, out var stat) != true || stat == null) return null;
+        return o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
+    }
+    private object? SortDiff(Order o)
+    {
+        var item = result?.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null || result?.Prices.TryGetValue(item.Slug, out var stat) != true || stat == null) return null;
+        var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
+        return refP.HasValue ? (object?)(refP.Value - o.Platinum) : null;
+    }
+
+    // ─── 显示用（与排序逻辑一致） ───
+    protected string GetItemName(UserSearchResult r, Order o)
+    {
+        var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null) return "-"; // 物品补全失败/不存在：显示 -（不再永久"加载中"）
+        return item.I18n.TryGetValue(Language.ZhHans, out var zh) ? zh.Name
+             : item.I18n.TryGetValue(Language.En, out var en) ? en.Name
+             : item.Slug;
+    }
+    protected string GetEnName(UserSearchResult r, Order o)
+    {
+        var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        return item?.I18n.TryGetValue(Language.En, out var en) == true ? en.Name : "";
+    }
+    protected string GetRef(UserSearchResult r, Order o)
+    {
+        var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null) return "-";
+        // 价格未加载（Prices 无该 slug）→ 加载中；加载完成但失败（stat null）→ 加载失败
+        if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
+        if (stat == null) return "加载失败";
+        var p = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
+        return p?.ToString("F1") ?? "-";
+    }
+    protected string GetDiff(UserSearchResult r, Order o)
+    {
+        var item = r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+        if (item == null) return "";
+        if (!r.Prices.TryGetValue(item.Slug, out var stat)) return "加载中";
+        if (stat == null) return "加载失败";
+        var refP = o.Rank > 0 ? ItemSvc.GetMaxReferencePrice(stat) : ItemSvc.GetReferencePrice(stat);
+        if (refP == null || refP <= 0) return "";
+        var diff = refP.Value - o.Platinum;
+        return diff >= 0 ? $"+{diff:F1}" : $"{diff:F1}";
+    }
+    protected ItemShort? GetItemShort(UserSearchResult r, Order o)
+    {
+        return r.ItemCache.GetValueOrDefault(o.ItemId ?? "");
+    }
+
+    /// <summary>订单是否为买单（买卖方向，OrderTop 初始匹配用）</summary>
+    protected static bool IsBuyOrder(Order o)
+    {
+        return o.Type is "buy" or "Buy";
+    }
+}

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Auto-generated GUI sample</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <UseDI>true</UseDI>
+    <DefineConstants>$(DefineConstants);IS_GUI</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PhotinoX.Blazor" Version="4.3.2" />
+    <PackageReference Include="Masa.Blazor" Version="1.11.9" />
+    <PackageReference Include="Refit.HttpClientFactory" Version="12.0.0" />
+    <PackageReference Include="zms9110750.TreeCollection" Version="1.1.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="Humanizer.Core.zh-Hans" Version="3.0.10" />
+  </ItemGroup>
+
+  <Target Name="CheckPhotinoFramework" BeforeTargets="CoreCompile"
+          Condition="'$(TargetFramework)' != 'net8.0' And '$(TargetFramework)' != 'net9.0' And '$(TargetFramework)' != 'net10.0'">
+    <Error Text="PhotinoX.Blazor 当前仅支持 net8.0/net9.0/net10.0。当前目标: $(TargetFramework)。请调整 TargetFramework 或更新 PhotinoX.Blazor。" />
+  </Target>
+
+  <ItemGroup>
+    <Content Update="wwwroot\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Update="ui-config.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="赋能包配置.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- 官方 wfm-localization 中文本地化（子类别翻译）——始终复制到输出目录 -->
+    <Content Update="Resources\i18n\zh-hans.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsLib)' == 'true'">
+    <ProjectReference Include="..\..\src\Warframe.Market\Warframe.Market.csproj" />
+  </ItemGroup>
+
+</Project>

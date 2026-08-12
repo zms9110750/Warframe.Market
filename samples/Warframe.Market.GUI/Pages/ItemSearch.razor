@@ -1,0 +1,233 @@
+﻿@page "/"
+@using Microsoft.Extensions.Caching.Memory
+@attribute [NavItem("物品搜索", "mdi-magnify", Order = 0)]
+
+@* 搜索框 + 图钉开关 + 打开链接开关（独立于 tab） *@
+<div class="d-flex align-center" style="gap:8px;margin-bottom:8px;">
+    <div style="flex:1;min-width:0;">
+        <SearchBox OnSearch="@OnSearch" pin="@_state.PinMode" pinChanged="@((v) => _state.PinMode = v)" />
+    </div>
+    <MSwitch Value="@State.ClickLink" ValueChanged="@((bool v) => { State.ClickLink = v; StateHasChanged(); })"
+             Dense Inset HideDetails="true" style="flex-shrink:0;">
+        <LabelContent>链接</LabelContent>
+    </MSwitch>
+</div>
+
+@* 结果标签栏（首个为"欢迎"tab，不触发网络；钉住的搜索词初始化即显示但不自动搜索） *@
+@if (_state.Tabs.Count > 0)
+{
+    <PinnedTabs ActiveIndex="@_state.ActiveIndex" ActiveIndexChanged="@((int v) => OnTabChanged(v))"
+                Tabs="@_state.Tabs" Pinned="@_state.Pinned" PinMode="@_state.PinMode"
+                TogglePin="@((string t) => TogglePin(t))" CloseTab="@((int i) => CloseTab(i))" />
+}
+
+@* 所有 tab 内容常驻渲染（display 控制显隐）——切换 tab 时组件不销毁，价格/统计结果保留 *@
+@for (var i = 0; i < _state.Tabs.Count; i++)
+{
+    var tab = _state.Tabs[i];
+    var isActive = i == _state.ActiveIndex;
+    <div style="display:@(isActive ? "" : "none");">
+        @if (tab == WelcomeTab)
+        {
+            <div style="margin-top:12px;max-width:720px;line-height:1.8;">
+                <h4>Warframe.Market 物品搜索</h4>
+                <p class="text-caption">
+                    在顶部搜索框输入物品名称（支持中/英文，多个词用 / 分隔）后回车或点搜索。
+                    结果按词分组展示：中文名 / 英文名 / 参考价（90 天成交量加权中位数）/ 满级参考价。
+                    满级价格列按结果动态出现——没有满级概念的物品（普通武器/蓝图等）不显示该列；
+                    虚空遗物的"满级"取光辉（radiant）成交价、"参考"取完整（intact）成交价。
+                </p>
+                <p class="text-caption">
+                    点击行首箭头展开该物品的 Top 买卖订单；订单面板支持购/售、在线筛选、等级滑块（mod/赋能）、
+                    遗物精炼度滑块、塑像豆子滑块（含每 p 豆子）、子类型按钮组（多选默认全开）、批量交易列、
+                    价格区间与最少数量筛选，表头可排序。
+                </p>
+                <p class="text-caption">
+                    搜索框右侧图钉按钮开启后：钉住的标签显示 pin-off 图标（可取消钉住），
+                    未钉住的标签显示 x（可关闭）。钉住的搜索词会在启动时显示为标签，点击后才开始搜索；
+                    已钉住的标签在非图钉模式下右侧有复制图标（复制标签文字）。
+                </p>
+            </div>
+        }
+        else if (tabTermResults.TryGetValue(tab, out var termResults) && termResults.Count > 0)
+        {
+            <SearchTermGroup Query="@tab" TermResults="@tabTermResults" TermTerms="@tabTerms"
+                             CancelToken="@(_state.Cts.GetValueOrDefault(tab)?.Token ?? CancellationToken.None)" />
+        }
+        else if (searchingTabs.Contains(tab))
+        {
+            <div class="d-flex align-center" style="gap:10px;margin-top:8px;">
+                <MProgressCircular Indeterminate Size="20" Width="2" />
+                <span class="text-caption">正在搜索「@tab」…（首次需加载物品索引，可能数秒）</span>
+            </div>
+        }
+        else { <p class="text-caption" style="color:#999;margin-top:8px;">点击标签开始搜索</p> }
+    </div>
+}
+
+@code {
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IPersistentStorage Storage { get; set; } = null!;
+
+    /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
+    internal const string WelcomeTab = NavTexts.Welcome;
+
+    /// <summary>标签会话状态（tabs/钉住/取消令牌/图钉模式）——与 UserSearch 共用 TabSessionState</summary>
+    private readonly TabSessionState<string> _state = new();
+
+    protected HashSet<string> searchingTabs = new();
+    protected Dictionary<string, List<List<ItemShort>>> tabTermResults = new();
+    protected Dictionary<string, List<string>> tabTerms = new();
+
+    protected override Task OnInitializedAsync()
+    {
+        Log.Information("ItemSearch 初始化");
+        _state.Add(WelcomeTab);
+        foreach (var p in Storage.Load().PinnedSearches)
+        {
+            _state.Add(p, pinned: true); // 钉住的搜索词显示为标签（不自动搜索——避免一进来就发网络请求，点击后才加载）
+        }
+        _state.ActiveIndex = 0;
+        return Task.CompletedTask;
+    }
+
+    protected async Task OnSearch(string query)
+    {
+        Log.Information("ItemSearch 搜索: {Query}", query);
+        if (string.IsNullOrWhiteSpace(query)) return;
+
+        if (_state.Pinned.Contains(query))
+        {
+            // 已钉住：只切换标签，不重复搜索
+            var idx = _state.Tabs.IndexOf(query);
+            if (idx < 0)
+            {
+                _state.Add(query);
+            }
+            else
+            {
+                _state.ActiveIndex = idx;
+            }
+            return;
+        }
+
+        if (!_state.Tabs.Contains(query))
+        {
+            _state.Add(query);
+        }
+        else
+        {
+            _state.ActiveIndex = _state.Tabs.IndexOf(query);
+        }
+
+        if (!tabTermResults.ContainsKey(query))
+            await DoSearchTab(query);
+    }
+
+    private async Task DoSearchTab(string tab)
+    {
+        if (tabTermResults.ContainsKey(tab)) return; // 已加载
+
+        var cts = _state.GetOrCreateCts(tab);
+
+        searchingTabs.Add(tab);
+        var terms = tab.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        tabTerms[tab] = terms;
+
+        // 各词并行搜索（保持顺序）；首次搜索含物品索引下载 + Trie 构建，可能需数秒
+        var tasks = terms.Select(t => ItemSvc.SearchAsync(t, cts.Token)).ToArray();
+        try
+        {
+            var results = await Task.WhenAll(tasks);
+            tabTermResults[tab] = results.ToList();
+            Log.Information("ItemSearch 标签 {Tab}: {Terms} 个词，{Count} 个结果", tab, terms.Count, results.Sum(r => r.Count));
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消：清理搜索中状态，避免转圈残留
+            Log.Information("ItemSearch 搜索取消: {Tab}", tab);
+        }
+        finally
+        {
+            searchingTabs.Remove(tab);
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始搜索</summary>
+    private void OnTabChanged(int idx)
+    {
+        if (idx < 0 || idx >= _state.Tabs.Count || idx == _state.ActiveIndex) return;
+        var old = _state.Tabs[_state.ActiveIndex];
+        if (old != WelcomeTab)
+        {
+            Log.Information("ItemSearch 取消标签任务: {Tab}", old);
+            _state.CancelAndRemove(old); // 取消 + 移除 CTS——切回时重建，避免复用已取消令牌
+        }
+        Log.Information("ItemSearch 切换标签: {Old} -> {New}", old, _state.Tabs[idx]);
+        _state.ActiveIndex = idx;
+
+        // 点击标签即开始加载（钉住标签初始化仅显示，点击才搜索）
+        var tab = _state.Tabs[idx];
+        if (tab != WelcomeTab && !tabTermResults.ContainsKey(tab) && !searchingTabs.Contains(tab))
+        {
+            _ = DoSearchTab(tab);
+        }
+    }
+
+    protected void TogglePin(string tab)
+    {
+        if (tab == WelcomeTab) return;
+        if (_state.Pinned.Contains(tab))
+        {
+            _state.Pinned.Remove(tab);
+            Storage.UnpinSearch(tab);
+        }
+        else
+        {
+            _state.Pinned.Add(tab);
+            Storage.PinSearch(tab);
+        }
+    }
+
+    protected void CloseTab(int idx)
+    {
+        if (idx <= 0 || idx >= _state.Tabs.Count) return; // 欢迎 tab 不可关
+        var tab = _state.Tabs[idx];
+        if (_state.Pinned.Contains(tab)) return; // 钉住的不能关（MChip 不显示 x）
+
+        Log.Information("ItemSearch 关闭标签并取消: {Tab}", tab);
+        _state.RemoveAt(idx); // 取消 + 移除
+
+        // tab 关闭 → 该 tab 用过的统计降级为 High（内存压力可逐出）
+        DemoteTabStatistics(tab, CacheItemPriority.High);
+
+        tabTermResults.Remove(tab);
+        tabTerms.Remove(tab);
+        searchingTabs.Remove(tab);
+    }
+
+    /// <summary>把某 tab 搜索结果用过的统计 slug 批量降级</summary>
+    private void DemoteTabStatistics(string tab, CacheItemPriority priority)
+    {
+        if (!tabTermResults.TryGetValue(tab, out var groups))
+        {
+            return;
+        }
+
+        StatPriority.Demote(ItemSvc, groups.SelectMany(g => g).Select(i => i.Slug), priority);
+    }
+
+    /// <summary>离开路由时取消本页所有标签未完成的请求，并降级所有统计（Normal 可逐出）</summary>
+    public void Dispose()
+    {
+        Log.Information("ItemSearch 离开路由，取消 {Count} 个标签任务，降级统计", _state.Cts.Count);
+        _state.CancelAll();
+
+        foreach (var tab in tabTermResults.Keys)
+        {
+            DemoteTabStatistics(tab, CacheItemPriority.Normal);
+        }
+    }
+}

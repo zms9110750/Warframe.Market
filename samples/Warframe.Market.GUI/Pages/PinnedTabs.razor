@@ -1,0 +1,62 @@
+@* 结果标签栏（物品搜索/用户搜索共用）：首个为"欢迎"tab（不触发网络）；图钉模式开启时标签显示 pin 图标（已钉=橙 pin-off 取消，未钉=灰 pin-outline 钉住），关闭时显示 x *@
+
+<MTabs Value="@ActiveIndex">
+    @foreach (var (tab, idx) in Tabs.Select((t, i) => (t, i)))
+    {
+        var isPinned = Pinned.Contains(tab);
+        var isWelcome = tab == NavTexts.Welcome;
+        <MTab OnClick="@(() => ActiveIndexChanged.InvokeAsync(idx))" Style="min-width:120px;">
+            <MChip Label Class="mr-1" OnClick="@(() => ActiveIndexChanged.InvokeAsync(idx))"
+                   Close="@(!isWelcome && !PinMode && !isPinned)"
+                   OnCloseClick="@(() => CloseTab.InvokeAsync(idx))">
+                @tab
+                @if (!isWelcome && PinMode)
+                {
+                    @* 图钉模式：所有 tab 显示 pin 图标（已钉住=橙 pin-off 取消，未钉住=灰 pin-outline 钉住）——JM 式 *@
+                    <span @onclick:stopPropagation
+                          @onclick="@(() => TogglePin.InvokeAsync(tab))"
+                          style="display:inline-flex;cursor:pointer;"
+                          title="@(isPinned ? "取消钉住" : "钉住")">
+                        <MIcon XSmall Color="@(isPinned ? "orange" : "grey")">
+                            @(isPinned ? "mdi-pin-off" : "mdi-pin-outline")
+                        </MIcon>
+                    </span>
+                }
+                @if (!PinMode && isPinned)
+                {
+                    @* PinMode 关闭时已钉住的标签右侧既不显示 pin 也不显示 x（防空白）——复制图标走 MChip 的 Right 插槽（跟文字一起） *@
+                    <span @onclick:stopPropagation
+                          @onclick="@(() => _ = CopyTab(tab))"
+                          style="display:inline-flex;cursor:pointer;"
+                          title="复制标签文字">
+                        <MIcon Right XSmall>mdi-content-copy</MIcon>
+                    </span>
+                }
+            </MChip>
+        </MTab>
+    }
+</MTabs>
+
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = null!;
+
+    [Parameter] public int ActiveIndex { get; set; }
+    [Parameter] public EventCallback<int> ActiveIndexChanged { get; set; }
+    [Parameter] public List<string> Tabs { get; set; } = new();
+    [Parameter] public HashSet<string> Pinned { get; set; } = new();
+    [Parameter] public bool PinMode { get; set; }
+    [Parameter] public EventCallback<string> TogglePin { get; set; }
+    [Parameter] public EventCallback<int> CloseTab { get; set; }
+
+    private async Task CopyTab(string text)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "复制标签文字失败");
+        }
+    }
+}

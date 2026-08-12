@@ -361,3 +361,14 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# 确保 Commands/ 下所有内容不被 gitignore 误伤
+!Commands/
+
+# 下载目录（仅限根目录）
+/download/
+
+# Reasonix 本地工作目录
+.reasonix/
+
+cache.db

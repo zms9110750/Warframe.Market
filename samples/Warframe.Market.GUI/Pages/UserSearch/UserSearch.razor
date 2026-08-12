@@ -1,0 +1,255 @@
+﻿@page "/user"
+@using Microsoft.Extensions.Caching.Memory
+@attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
+
+@* 搜索框 + 查询 + 图钉开关（独立于 tab） *@
+<div class="d-flex align-center" style="gap:8px;margin-bottom:8px;">
+    <input @bind-Value="slug" @bind-Value:event="oninput"
+           @onkeydown="@(e => { if (e.Key == "Enter") _ = SearchAsync(); })"
+           placeholder="输入用户名（/分隔多用户）"
+           style="flex:1;border:1px solid #ccc;border-radius:4px;padding:6px 10px;font-size:14px;" />
+    <MButton OnClick="SearchAsync" Color="primary">查询</MButton>
+    <MButton Icon OnClick="@(() => _state.PinMode = !_state.PinMode)" Title="固定此用户" Class="mt-1">
+        <MIcon Color="@(_state.PinMode ? "primary" : "grey")">
+            @(_state.PinMode ? "mdi-pin" : "mdi-pin-outline")
+        </MIcon>
+    </MButton>
+    <MSwitch Value="@State.ClickLink" ValueChanged="@((bool v) => { State.ClickLink = v; StateHasChanged(); })"
+             Dense Inset HideDetails="true" style="flex-shrink:0;">
+        <LabelContent>链接</LabelContent>
+    </MSwitch>
+</div>
+
+@* 用户结果标签栏（首个为"欢迎"tab，不触发网络；钉住用户初始化显示但不自动查询） *@
+@if (_state.Tabs.Count > 0)
+{
+    <PinnedTabs ActiveIndex="@_state.ActiveIndex" ActiveIndexChanged="@((int v) => OnTabChanged(v))"
+                Tabs="@_state.Tabs" Pinned="@_state.Pinned" PinMode="@_state.PinMode"
+                TogglePin="@((string n) => TogglePin(n))" CloseTab="@((int i) => CloseTab(i))" />
+}
+
+@* 所有用户 tab 内容常驻渲染（display 控制显隐）——切换 tab 时组件不销毁，结果保留 *@
+@for (var i = 0; i < _state.Tabs.Count; i++)
+{
+    var name = _state.Tabs[i];
+    var isActive = i == _state.ActiveIndex;
+    <div style="display:@(isActive ? "" : "none");">
+        @if (name == WelcomeTab)
+        {
+            <p class="text-caption" style="margin-top:12px;max-width:640px;line-height:1.8;">
+                在顶部输入框输入 Warframe Market 用户名（多个用户用 / 分隔）后回车或点查询。
+                结果展示用户信息、平台、声望与订单列表；订单按买/卖分组，价格后台分批加载（列表先展示）。
+                行首箭头可展开单个订单的 Top 明细——买卖方向、等级、子类型会**初始匹配该订单**。
+                搜索框右侧图钉按钮开启后：钉住的用户显示 pin-off 图标（可取消钉住），未钉住的显示 x（可关闭）；
+                已钉住的用户标签在非图钉模式下右侧有复制图标。
+            </p>
+        }
+        else if (_userResults.TryGetValue(name, out var result))
+        {
+            <UserResultTable UserName="@name" result="result" OnRefresh="@((string n) => RefreshUserAsync(n))"
+                             CancelToken="@(_state.Cts.GetValueOrDefault(name)?.Token ?? CancellationToken.None)" />
+        }
+        else if (_searchingUsers.Contains(name)) { <MProgressCircular Indeterminate Size="20" Width="2" Class="mt-4" /> }
+        else { <p class="text-caption" style="color:#999;margin-top:8px;">点击标签开始查询</p> }
+    </div>
+}
+
+@code {
+    [Inject] private WarframeMarketClient Wfm { get; set; } = null!;
+    [Inject] private IUserOrderService UserSvc { get; set; } = null!;
+    [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
+    [Inject] private IPersistentStorage Storage { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private ZiggyCreatures.Caching.Fusion.IFusionCache Cache { get; set; } = null!;
+
+    /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
+    private const string WelcomeTab = NavTexts.Welcome;
+
+    protected string slug = "";
+
+    /// <summary>标签会话状态（tabs/钉住/取消令牌/图钉模式）——与 ItemSearch 共用 TabSessionState</summary>
+    private readonly TabSessionState<string> _state = new();
+
+    protected HashSet<string> _searchingUsers = new();
+    protected Dictionary<string, UserSearchResult> _userResults = new();
+
+    protected override void OnInitialized()
+    {
+        Log.Information("UserSearch 初始化");
+        _state.Add(WelcomeTab);
+        foreach (var p in Storage.Load().PinnedUsers)
+        {
+            _state.Add(p, pinned: true); // 钉住用户显示为标签（不自动查询——避免一进来就发网络请求，点击后才加载）
+        }
+        _state.ActiveIndex = 0;
+    }
+
+    protected async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(slug)) return;
+        Log.Information("UserSearch 查询按钮点击: {Slug}", slug);
+
+        var names = slug.Split('/', '\\', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var name in names)
+        {
+            if (name == WelcomeTab) continue;
+            if (_state.Pinned.Contains(name))
+            {
+                var idx = _state.Tabs.IndexOf(name);
+                if (idx < 0)
+                {
+                    _state.Add(name);
+                }
+                else
+                {
+                    _state.ActiveIndex = idx;
+                }
+                continue;
+            }
+            if (!_state.Tabs.Contains(name))
+            {
+                _state.Add(name);
+            }
+            else
+            {
+                _state.ActiveIndex = _state.Tabs.IndexOf(name);
+            }
+            _ = SearchUserAsync(name);
+        }
+        StateHasChanged();
+    }
+
+    private async Task SearchUserAsync(string name)
+    {
+        if (_userResults.ContainsKey(name))
+        {
+            Log.Information("UserSearch 重复搜索跳过: {Name}", name);
+            return;
+        }
+        if (!_state.Cts.TryGetValue(name, out var cts))
+        {
+            cts = _state.GetOrCreateCts(name);
+        }
+
+        _searchingUsers.Add(name);
+        Log.Information("UserSearch 开始搜索用户: {Name}", name);
+
+        try
+        {
+            var result = await UserSvc.SearchUserAsync(name, cts.Token);
+            // API 偶发返回 200 + 空 data（User=null）会被 /v2/user/ 的 10 分钟 HTTP 缓存写死 →
+            // 清该用户缓存键后重试一次，避免切回时命中空缓存误报"找不到用户"
+            if (result.NotFound && !cts.IsCancellationRequested)
+            {
+                var lang = State.LangToStr(State.Language);
+                Cache.Remove($"get/https/api.warframe.market/v2/user/{name}|lang={lang}");
+                Log.Warning("UserSearch 用户空结果，清除缓存键重试: {Name}", name);
+                result = await UserSvc.SearchUserAsync(name, cts.Token);
+            }
+            if (cts.IsCancellationRequested) return; // 切页/关标签后结果才到（如竞态 404）：丢弃，避免回来误用
+            _userResults[name] = result;
+            Log.Information("UserSearch 搜索完成: {Name}, NotFound={NotFound}", name, result.NotFound);
+        }
+        catch (OperationCanceledException)
+        {
+            // 切换标签/路由离开取消：清理搜索中状态，避免转圈残留
+            Log.Information("UserSearch 搜索取消: {Name}", name);
+        }
+        finally
+        {
+            _searchingUsers.Remove(name);
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>切换标签：取消旧标签未完成的任务；新标签未加载时立即开始查询</summary>
+    private void OnTabChanged(int idx)
+    {
+        if (idx < 0 || idx >= _state.Tabs.Count || idx == _state.ActiveIndex) return;
+        var old = _state.Tabs[_state.ActiveIndex];
+        if (old != WelcomeTab)
+        {
+            Log.Information("UserSearch 取消用户标签任务: {Name}", old);
+            _state.CancelAndRemove(old); // 取消 + 移除 CTS——切回该标签时重建，避免复用已取消令牌导致永远搜不出
+        }
+        Log.Information("UserSearch 切换标签: {Old} -> {New}", old, _state.Tabs[idx]);
+        _state.ActiveIndex = idx;
+
+        // 点击标签即开始查询（钉住用户初始化仅显示，点击才加载）
+        var name = _state.Tabs[idx];
+        if (name != WelcomeTab && !_userResults.ContainsKey(name) && !_searchingUsers.Contains(name))
+        {
+            _ = SearchUserAsync(name);
+        }
+    }
+
+    protected void TogglePin(string name)
+    {
+        if (name == WelcomeTab) return;
+        if (_state.Pinned.Contains(name))
+        {
+            _state.Pinned.Remove(name);
+            Storage.UnpinUser(name);
+        }
+        else
+        {
+            _state.Pinned.Add(name);
+            Storage.PinUser(name);
+        }
+    }
+
+    protected void CloseTab(int idx)
+    {
+        if (idx <= 0 || idx >= _state.Tabs.Count) return; // 欢迎 tab 不可关
+        var name = _state.Tabs[idx];
+        if (_state.Pinned.Contains(name)) return;
+
+        Log.Information("UserSearch 关闭用户标签并取消: {Name}", name);
+        _state.RemoveAt(idx); // 取消 + 移除
+
+        // tab 关闭 → 该用户价格统计降级为 High（内存压力可逐出）
+        DemoteUserStatistics(name, CacheItemPriority.High);
+
+        _userResults.Remove(name);
+        _searchingUsers.Remove(name);
+    }
+
+    /// <summary>把某用户结果加载过的价格统计 slug 批量降级</summary>
+    private void DemoteUserStatistics(string name, CacheItemPriority priority)
+    {
+        if (_userResults.TryGetValue(name, out var result) && result.Prices != null)
+        {
+            StatPriority.Demote(ItemSvc, result.Prices.Keys, priority);
+        }
+    }
+
+    /// <summary>手动刷新：清除该用户的 HTTP 缓存键（user + orders），重置结果后重新查询</summary>
+    protected async Task RefreshUserAsync(string name)
+    {
+        Log.Information("UserSearch 手动刷新: {Name}", name);
+        var lang = State.LangToStr(State.Language);
+        Cache.Remove($"get/https/api.warframe.market/v2/user/{name}|lang={lang}");
+        Cache.Remove($"get/https/api.warframe.market/v2/orders/user/{name}|lang={lang}");
+
+        // 取消 + 移除旧 CTS——重建新 token，避免复用已取消令牌导致永远搜不出（同 OnTabChanged:161 语义）
+        _state.CancelAndRemove(name);
+        var cts = _state.GetOrCreateCts(name);
+
+        _userResults.Remove(name);
+        _searchingUsers.Remove(name);
+        _ = SearchUserAsync(name);
+        StateHasChanged();
+    }
+
+    /// <summary>离开路由时取消本页所有标签未完成的请求，并降级所有价格统计（Normal 可逐出）</summary>
+    public void Dispose()
+    {
+        Log.Information("UserSearch 离开路由，取消 {Count} 个用户标签任务，降级统计", _state.Cts.Count);
+        _state.CancelAll();
+
+        foreach (var name in _userResults.Keys)
+        {
+            DemoteUserStatistics(name, CacheItemPriority.Normal);
+        }
+    }
+}

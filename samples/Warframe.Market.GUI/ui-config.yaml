@@ -1,0 +1,19 @@
+# UI 配置
+QuickInputs:
+  - Label: 盲怒
+    Query: Blind Rage
+  - Label: 充沛
+    Query: Arcane Energize
+  - Label: Wisp Prime
+    Query: Wisp Prime
+
+PinnedButtons:
+  - Label: 物品搜索
+    Route: /
+    Icon: mdi-magnify
+  - Label: 用户订单
+    Route: /user
+    Icon: mdi-account-search
+  - Label: 赋能包
+    Route: /arcane
+    Icon: mdi-package-variant
