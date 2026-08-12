@@ -370,3 +370,5 @@ FodyWeavers.xsd
 
 # Reasonix 本地工作目录
 .reasonix/
+
+cache.db

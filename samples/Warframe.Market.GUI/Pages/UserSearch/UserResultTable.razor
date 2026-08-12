@@ -47,9 +47,10 @@ else
                     </ItemColContent>
                 </MDataTable>
             </div>
-            } @* 9 行 @if (result.Orders != null) 结束——else if 接无公开订单分支 *@
-            else if (!result.Loading) { <p>无公开订单</p> }
-        } @* 7 行 else 结束 *@
+            } @* 21 行 @if (!_collapsed) 结束 *@
+        } @* 9 行 @if (result.Orders != null) 结束 *@
+        else if (!result.Loading) { <p>无公开订单</p> } @* 9 的 else：订单为空时显示 *@
+    } @* 7 行 else 结束 *@
 }
 
 @code {
