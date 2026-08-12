@@ -12,9 +12,10 @@ namespace zms9110750.Warframe.Market.GUI.Shared;
 
 public partial class MainLayout : LayoutComponentBase
 {
-    [Inject] private AppState State { get; set; } = null!;
-    [Inject] private ConfigService Config { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IConfigService Config { get; set; } = null!;
     [Inject] private IItemSearchService Items { get; set; } = null!;
+    [Inject] private IVersionService Versions { get; set; } = null!;
     [Inject] private IFusionCache Cache { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
@@ -33,8 +34,8 @@ public partial class MainLayout : LayoutComponentBase
 
         // 从 config.yaml 初始化语言/平台/跨平台
         var cfg = Config.LoadAppConfig();
-        State.Language = AppState.StrToLang(cfg.DefaultLanguage);
-        State.Platform = AppState.StrToPlat(cfg.DefaultPlatform);
+        State.Language = State.StrToLang(cfg.DefaultLanguage);
+        State.Platform = State.StrToPlat(cfg.DefaultPlatform);
         State.Crossplay = cfg.DefaultCrossplay;
 
         _ = LoadVersionAsync();
@@ -42,26 +43,8 @@ public partial class MainLayout : LayoutComponentBase
 
     private async Task LoadVersionAsync()
     {
-        try
-        {
-            var resp = await State.Client.GetVersionsAsync();
-            var updatedAt = resp?.Content?.Data?.UpdatedAt;
-            // 语义化版本无可读性，显示数据更新日期（UTC → 本地）
-            if (DateTime.TryParse(updatedAt, out var dt))
-            {
-                State.VersionText = $"数据日期 {dt.ToLocalTime():yyyy-MM-dd}";
-            }
-            else
-            {
-                State.VersionText = $"数据日期 {updatedAt?[..Math.Min(10, updatedAt.Length)] ?? "?"}";
-            }
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "获取版本失败");
-            State.VersionText = "数据日期获取失败";
-        }
+        await Versions.RefreshDataVersionAsync();
+        StateHasChanged();
     }
 
     private async Task OnVersionClick()

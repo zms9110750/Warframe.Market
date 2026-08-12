@@ -1,4 +1,4 @@
-@page "/user"
+﻿@page "/user"
 @using Microsoft.Extensions.Caching.Memory
 @attribute [NavItem("用户订单", "mdi-account-search", Order = 1)]
 
@@ -56,8 +56,8 @@
     [Inject] private WarframeMarketClient Wfm { get; set; } = null!;
     [Inject] private IUserOrderService UserSvc { get; set; } = null!;
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
-    [Inject] private PersistentStorage Storage { get; set; } = null!;
-    [Inject] private AppState State { get; set; } = null!;
+    [Inject] private IPersistentStorage Storage { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
     [Inject] private ZiggyCreatures.Caching.Fusion.IFusionCache Cache { get; set; } = null!;
 
     /// <summary>欢迎 tab：防止一进入页面就发起网络请求</summary>
@@ -135,6 +135,16 @@
         try
         {
             var result = await UserSvc.SearchUserAsync(name, cts.Token);
+            // API 偶发返回 200 + 空 data（User=null）会被 /v2/user/ 的 10 分钟 HTTP 缓存写死 →
+            // 清该用户缓存键后重试一次，避免切回时命中空缓存误报"找不到用户"
+            if (result.NotFound && !cts.IsCancellationRequested)
+            {
+                var lang = State.LangToStr(State.Language);
+                Cache.Remove($"get/https/api.warframe.market/v2/user/{name}|lang={lang}");
+                Log.Warning("UserSearch 用户空结果，清除缓存键重试: {Name}", name);
+                result = await UserSvc.SearchUserAsync(name, cts.Token);
+            }
+            if (cts.IsCancellationRequested) return; // 切页/关标签后结果才到（如竞态 404）：丢弃，避免回来误用
             _userResults[name] = result;
             Log.Information("UserSearch 搜索完成: {Name}, NotFound={NotFound}", name, result.NotFound);
         }
@@ -215,11 +225,12 @@
     protected async Task RefreshUserAsync(string name)
     {
         Log.Information("UserSearch 手动刷新: {Name}", name);
-        var lang = AppState.LangToStr(State.Language);
+        var lang = State.LangToStr(State.Language);
         Cache.Remove($"get/https/api.warframe.market/v2/user/{name}|lang={lang}");
         Cache.Remove($"get/https/api.warframe.market/v2/orders/user/{name}|lang={lang}");
 
-        if (_state.Cts.TryGetValue(name, out var old)) old.Cancel();
+        // 取消 + 移除旧 CTS——重建新 token，避免复用已取消令牌导致永远搜不出（同 OnTabChanged:161 语义）
+        _state.CancelAndRemove(name);
         var cts = _state.GetOrCreateCts(name);
 
         _userResults.Remove(name);

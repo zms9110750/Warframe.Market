@@ -15,6 +15,17 @@ namespace zms9110750.Warframe.Market.Tests;
 /// </summary>
 public class ArcaneFailureTests
 {
+    private sealed class FakeExternalLink : zms9110750.Warframe.Market.GUI.Services.IExternalLinkService
+    {
+        public void Open(string url) { }
+    }
+
+    /// <summary>测试专用配置目录（临时，不触碰真实 %LocalAppData%\WarframeMarket）</summary>
+    private static string TestConfigDir()
+    {
+        return Path.Combine(Path.GetTempPath(), $"wm-config-test-{Guid.NewGuid():N}");
+    }
+
     /// <summary>假 IArcanePackService：GetReferencePriceAsync 抛异常（模拟统计失败）</summary>
     private sealed class ThrowingArcanePack : IArcanePackService
     {
@@ -91,7 +102,10 @@ public class ArcaneFailureTests
         await using var ctx = new BunitContext();
         ctx.Services.AddMasaBlazor();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        ctx.Services.AddSingleton(new zms9110750.Warframe.Market.GUI.Services.ConfigService()); // 真（测试 bin 有 赋能包配置.yaml）
+        // 注入临时目录的 ConfigService——测试不触碰真实 %LocalAppData%\WarframeMarket
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IConfigService>(new zms9110750.Warframe.Market.GUI.Services.ConfigService(TestConfigDir()));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IAppStateService>(_ => new zms9110750.Warframe.Market.GUI.Services.AppState(new zms9110750.WarframeMarketApi.WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IExternalLinkService>(_ => new FakeExternalLink()); // 真（测试 bin 有 赋能包配置.yaml）
         ctx.Services.AddSingleton<IArcanePackService>(new ThrowingArcanePack());
 
         var cut = ctx.Render<ArcanePacksPanel>();
@@ -110,7 +124,8 @@ public class ArcaneFailureTests
         await using var ctx = new BunitContext();
         ctx.Services.AddMasaBlazor();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        ctx.Services.AddSingleton<AppState>(_ => new AppState(new zms9110750.WarframeMarketApi.WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IAppStateService>(_ => new zms9110750.Warframe.Market.GUI.Services.AppState(new zms9110750.WarframeMarketApi.WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IExternalLinkService>(_ => new FakeExternalLink());
         ctx.Services.AddSingleton<IItemSearchService>(new ThrowingItemSearch());
 
         var cut = ctx.Render<ArcaneTablePanel>(p => p.Add(m => m.Pack, MakePack()));
@@ -127,7 +142,9 @@ public class ArcaneFailureTests
         await using var ctx = new BunitContext();
         ctx.Services.AddMasaBlazor();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        ctx.Services.AddSingleton(new zms9110750.Warframe.Market.GUI.Services.ConfigService());
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IConfigService>(new zms9110750.Warframe.Market.GUI.Services.ConfigService(TestConfigDir()));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IAppStateService>(_ => new zms9110750.Warframe.Market.GUI.Services.AppState(new zms9110750.WarframeMarketApi.WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IExternalLinkService>(_ => new FakeExternalLink());
         var recording = new RecordingArcanePack();
         ctx.Services.AddSingleton<IArcanePackService>(recording);
 

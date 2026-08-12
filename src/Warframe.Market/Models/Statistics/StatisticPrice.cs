@@ -54,6 +54,28 @@ public static class StatisticPrice
         return max;
     }
 
+    /// <summary>遗物"满级价"：光辉（radiant，精炼度最高档）成交加权中位数</summary>
+    public static double? GetRelicRadiantPrice(this Statistic? stat)
+    {
+        return CalcWeightedMedianFor(stat, "radiant");
+    }
+
+    /// <summary>遗物参考价：完整（intact，精炼度最低档）成交加权中位数</summary>
+    public static double? GetRelicIntactPrice(this Statistic? stat)
+    {
+        return CalcWeightedMedianFor(stat, "intact");
+    }
+
+    private static double? CalcWeightedMedianFor(Statistic? stat, string subtype)
+    {
+        if (stat?.Payload?.StatisticsClosed?.Day90 == null)
+        {
+            return null;
+        }
+
+        return CalcWeightedMedian(stat.Payload.StatisticsClosed.Day90, e => e.Subtype == subtype);
+    }
+
     private static double? CalcWeightedMedian(Entry[] day90, Func<Entry, bool> filter)
     {
         var entries = day90

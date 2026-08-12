@@ -6,7 +6,7 @@ using zms9110750.WarframeMarketApi.Models.Users;
 namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>应用全局状态：语言/平台/跨平台直接写 API 客户端请求头，另含数据版本状态</summary>
-public class AppState
+public class AppState : IAppStateService
 {
     private readonly WarframeMarketClient _wfm;
 
@@ -15,8 +15,6 @@ public class AppState
         _wfm = wfm;
         _wfm.Crossplay = true;
     }
-
-    public WarframeMarketClient Client => _wfm;
 
     /// <summary>打开链接模式（物品名/价格渲染为可点击链接，点击在系统浏览器打开）。
     /// 开关在物品搜索/用户搜索页搜索栏右侧（顶部栏已移除）。</summary>
@@ -48,12 +46,12 @@ public class AppState
     public bool ShowRefreshPrompt { get; set; }
     public string? StatusMessage { get; set; }
 
-    public static string LangToStr(Language lang)
+    public string LangToStr(Language lang)
     {
         return JsonNamingPolicy.KebabCaseLower.ConvertName(lang.ToString());
     }
 
-    public static Language StrToLang(string s)
+    public Language StrToLang(string s)
     {
         foreach (var l in Enum.GetValues<Language>())
         {
@@ -65,12 +63,12 @@ public class AppState
         return Language.En;
     }
 
-    public static string PlatToStr(Platform p)
+    public string PlatToStr(Platform p)
     {
         return JsonNamingPolicy.KebabCaseLower.ConvertName(p.ToString());
     }
 
-    public static Platform StrToPlat(string s)
+    public Platform StrToPlat(string s)
     {
         foreach (var p in Enum.GetValues<Platform>())
         {

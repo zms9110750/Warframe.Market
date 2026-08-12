@@ -8,7 +8,7 @@ namespace zms9110750.Warframe.Market.GUI.Services;
 /// <summary>
 /// 用户数据持久化：快捷回复 + 钉住的搜索 + 钉住的用户，存 %LocalAppData%\WarframeMarket\persistent.yaml
 /// </summary>
-public class PersistentStorage
+public class PersistentStorage : IPersistentStorage
 {
     private readonly string _path;
     private static readonly IDeserializer YamlDeser = new DeserializerBuilder()
@@ -21,9 +21,9 @@ public class PersistentStorage
 
     private PersistentData? _cache;
 
-    public PersistentStorage()
+    public PersistentStorage(string? baseDir = null)
     {
-        var dir = Path.Combine(
+        var dir = baseDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "WarframeMarket");
         Directory.CreateDirectory(dir);
@@ -46,7 +46,11 @@ public class PersistentStorage
         {
             _cache = YamlDeser.Deserialize<PersistentData>(File.ReadAllText(_path)) ?? new PersistentData();
         }
-        catch { _cache = new PersistentData(); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "PersistentStorage 加载失败（已重置为空数据）: {Path}", _path);
+            _cache = new PersistentData();
+        }
         return _cache;
     }
 
@@ -58,7 +62,7 @@ public class PersistentStorage
         }
 
         try { File.WriteAllText(_path, YamlSer.Serialize(_cache)); }
-        catch { }
+        catch (Exception ex) { Log.Error(ex, "PersistentStorage 保存失败: {Path}", _path); }
     }
 
     public void AddQuickReply(string text)

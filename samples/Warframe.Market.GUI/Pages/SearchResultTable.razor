@@ -1,4 +1,4 @@
-@* 每个搜索词的结果表，可折叠 *@
+﻿@* 每个搜索词的结果表，可折叠 *@
 
 @if (results.Count == 0) { return; }
 
@@ -26,7 +26,7 @@
                 if (ClickLink)
                 {
                     var zhUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}";
-                    <a href="@zhUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(zhUrl))">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
+                    <a href="@zhUrl" @onclick:preventDefault @onclick="@(() => Links.Open(zhUrl))">@(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug)</a>
                 }
                 else { @(context.Item.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : context.Item.Slug) }
             }
@@ -36,7 +36,7 @@
                 if (ClickLink)
                 {
                     var enUrl = $"https://warframe.market/items/{context.Item.Slug}";
-                    <a href="@enUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(enUrl))">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
+                    <a href="@enUrl" @onclick:preventDefault @onclick="@(() => Links.Open(enUrl))">@(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "")</a>
                 }
                 else { @(context.Item.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") }
             }
@@ -49,7 +49,7 @@
                     if (ClickLink)
                     {
                         var statUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics";
-                        <a href="@statUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(statUrl))">@($"{p:F1}")</a>
+                        <a href="@statUrl" @onclick:preventDefault @onclick="@(() => Links.Open(statUrl))">@($"{p:F1}")</a>
                     }
                     else { @($"{p:F1}") }
                 }
@@ -58,8 +58,9 @@
             }
             else if (context.Header.Text == "满级价格")
             {
-                // 无等级/类别的物品（MaxRank 为空，如普通武器/蓝图）没有"满级价格"概念 → 显示 -
-                if (context.Item.MaxRank is not > 0)
+                // 遗物：满级价=光辉（radiant）；其他无等级/类别的物品（普通武器/蓝图）没有"满级价格"概念 → -
+                var isRelic = context.Item.Tags.Contains("relic");
+                if (!isRelic && context.Item.MaxRank is not > 0)
                 {
                     @("-")
                 }
@@ -72,7 +73,7 @@
                         if (ClickLink)
                         {
                             var maxStatUrl = $"https://warframe.market/zh-hans/items/{context.Item.Slug}/statistics";
-                            <a href="@maxStatUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(maxStatUrl))">@($"{mp:F1}")</a>
+                            <a href="@maxStatUrl" @onclick:preventDefault @onclick="@(() => Links.Open(maxStatUrl))">@($"{mp:F1}")</a>
                         }
                         else { @($"{mp:F1}") }
                     }
@@ -87,7 +88,8 @@
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
     [Inject] private IJSRuntime Js { get; set; } = null!;
-    [Inject] private AppState State { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IExternalLinkService Links { get; set; } = null!;
 
     [Parameter] public string Tab { get; set; } = "";
     [Parameter] public List<ItemShort> results { get; set; } = new();
@@ -104,6 +106,24 @@
     private List<DataTableHeader<ItemShort>> _headers = new();
     private Dictionary<string, double?> _prices = new();
     private Dictionary<string, double?> _maxPrices = new();
+    /// <summary>结果中是否存在有"满级价格"概念的物品（mod/赋能/遗物）——无则隐藏满级列</summary>
+    private bool _showMaxPrice;
+
+    /// <summary>列定义：满级价格列按 _showMaxPrice 动态出现/隐藏</summary>
+    private List<DataTableHeader<ItemShort>> BuildHeaders()
+    {
+        var h = new List<DataTableHeader<ItemShort>>
+        {
+            new("中文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug) },
+            new("英文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") },
+            new("价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "") },
+        };
+        if (_showMaxPrice)
+        {
+            h.Add(new("满级价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "") });
+        }
+        return h;
+    }
 
     /// <summary>所属标签的取消令牌（切换标签/关闭标签/离开路由时由父级取消）</summary>
     [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
@@ -113,22 +133,27 @@
         await base.OnInitializedAsync();
         Log.Information("SearchResultTable 初始化: {Tab}, {Count} 物品", Tab, results.Count);
 
-        _headers = new()
-        {
-            new("中文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.ZhHans, out var z) ? z.Name : r.Slug) },
-            new("英文名称", nameof(ItemShort.Slug)) { ValueExpression = (Func<ItemShort, object?>)(r => r.I18n.TryGetValue(Language.En, out var e) ? e.Name : "") },
-            new("价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _prices.TryGetValue(r.Slug, out var p) && p.HasValue ? (object)p.Value : "") },
-            new("满级价格", nameof(ItemShort.Slug)) { Align = DataTableHeaderAlign.End, ValueExpression = (Func<ItemShort, object?>)(r => _maxPrices.TryGetValue(r.Slug, out var mp) && mp.HasValue ? (object)mp.Value : "") },
-        };
+        _headers = BuildHeaders();
 
         // 统计后台加载：不阻塞组件初始化/渲染。每个统计完成立即刷新 + 200ms 轮询兜底
         // （轮询在独立 fire-and-forget 任务中，组件已渲染，StateHasChanged 有效）
         foreach (var item in results)
         {
-            var slug = item.Slug;
-            _statTasks.Add(LoadStatAsync(slug));
+            _statTasks.Add(LoadStatAsync(item));
         }
         _ = PollUntilLoadedAsync();
+    }
+
+    /// <summary>满级列动态出现/隐藏：结果中任一物品有满级价（mod/赋能/遗物）才保留该列</summary>
+    private void UpdateMaxPriceColumn()
+    {
+        var hasAny = _maxPrices.Values.Any(v => v.HasValue);
+        if (hasAny != _showMaxPrice)
+        {
+            _showMaxPrice = hasAny;
+            _headers = BuildHeaders();
+            StateHasChanged();
+        }
     }
 
     /// <summary>每个 slug 一个统计任务（用于轮询判断是否全部完成）</summary>
@@ -151,13 +176,24 @@
         }
     }
 
-    private async Task LoadStatAsync(string slug)
+    private async Task LoadStatAsync(ItemShort item)
     {
+        var slug = item.Slug;
         try
         {
             var stat = await ItemSvc.GetStatisticAsync(slug, CancelToken);
-            _prices[slug] = stat != null ? stat.GetReferencePrice() : null;
-            _maxPrices[slug] = stat != null ? stat.GetMaxReferencePrice() : null;
+            if (item.Tags.Contains("relic"))
+            {
+                // 遗物："满级价"=光辉（radiant）精炼度、参考价=完整（intact）精炼度
+                _prices[slug] = stat != null ? stat.GetRelicIntactPrice() : null;
+                _maxPrices[slug] = stat != null ? stat.GetRelicRadiantPrice() : null;
+            }
+            else
+            {
+                _prices[slug] = stat != null ? stat.GetReferencePrice() : null;
+                _maxPrices[slug] = stat != null ? stat.GetMaxReferencePrice() : null;
+            }
+            UpdateMaxPriceColumn(); // 满级列动态：任一结果有满级价才显示
         }
         catch (OperationCanceledException)
         {

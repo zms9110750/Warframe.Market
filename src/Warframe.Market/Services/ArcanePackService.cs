@@ -32,6 +32,7 @@ public class ArcanePackService : IArcanePackService
                 var item = await _items.FindByKeyAsync(itemName);
                 if (item == null)
                 {
+                    Log.Warning("赋能包物品未命中索引: {Pack}/{Item}", pack.Name, itemName);
                     continue;
                 }
 
@@ -47,12 +48,14 @@ public class ArcanePackService : IArcanePackService
                 var stat = await _items.GetStatisticAsync(slug);
                 if (stat == null)
                 {
+                    Log.Warning("赋能包物品统计为空: {Pack}/{Item}", pack.Name, itemName);
                     continue;
                 }
 
                 var maxPrice = _items.GetMaxReferencePrice(stat);
                 if (maxPrice == null)
                 {
+                    Log.Warning("赋能包物品无最大参考价: {Pack}/{Item}", pack.Name, itemName);
                     continue;
                 }
 

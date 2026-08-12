@@ -1,10 +1,10 @@
-@page "/settings"
+﻿@page "/settings"
 @attribute [NavItem("设置", "mdi-cog-outline", Order = 4)]
 
 <h3>设置</h3>
 
 <MAlert Dense Type="@AlertTypes.Info">
-    数据版本：@State.VersionText。缓存按数据分档：物品索引长期缓存、统计当日有效、其余 30 秒、订单实时。点顶栏版本按钮（显示"再次点击强制刷新"后）可清缓存并重建物品索引。
+    数据版本：@State.VersionText。缓存按数据分档：物品索引长期缓存、统计当日有效、其余 30 秒、订单实时。订单不落盘——纯内存、每次实时拉取；持久化落盘的只有统计数据。点顶栏版本按钮（显示"再次点击强制刷新"后）可清缓存并重建物品索引。
 </MAlert>
 
 <h4 class="mt-4">语言 / 平台 / 跨平台</h4>
@@ -25,7 +25,7 @@
     @foreach (var li in langItems)
     {
         var isCore = li is "zh-hans" or "en";
-        var fileExists = LocalizationDownloadService.IsDownloaded(li);
+        var fileExists = Localizations.IsDownloaded(li);
         var inConfig = _downloadedLangs.Contains(li);
         var isReadOnly = isCore || fileExists;                  // 核心语言 / 已下载完成 → 只读
         var isIndeterminate = !isReadOnly && inConfig;          // 配置标记但文件缺失 → 半选（可重新下载）
@@ -52,51 +52,51 @@
     @foreach (var p in platItems)
     {
         <MButton Small Outlined="@(plat != p)" Color="@(plat == p ? "primary" : "")"
-                 OnClick="@(() => { plat = p; State.Platform = AppState.StrToPlat(p); })">@p</MButton>
+                 OnClick="@(() => { plat = p; State.Platform = State.StrToPlat(p); })">@p</MButton>
     }
     <MSwitch @bind-Value="crossplay" @bind-Value:after="@(() => State.Crossplay = crossplay)" Dense Inset HideDetails="true">
         <LabelContent>跨平台</LabelContent>
     </MSwitch>
     <MButton Small Color="primary" OnClick="Save">保存为默认</MButton>
 </div>
+<text class="text-caption" style="color:#888;">
+    切换平台/跨平台需重启应用生效（平台头不参与缓存键，重启后按新平台拉取）。
+</text>
 
-<h4 class="mt-4">检查更新</h4>
+<h4 class="mt-4">更新</h4>
 
 <text class="text-caption">
-    更新源：gitee.com/@(UpdateService.Owner)/@(UpdateService.Repo)。<br />
-    .tgz / .tar.gz 文件下载后自动解压到程序目录；其他文件直接保存。
-    打开上方"打开链接"开关可跳转浏览器下载。
+    程序版本：@ProgramVersion（数据日期 @State.VersionText）。<br />
+    请到发布地址自行比较版本并下载（程序内不做检查/解压）：
 </text>
-<br /><br />
-<MButton Small Color="primary" Outlined OnClick="LoadReleases">
-    <MIcon Small Class="mr-1">mdi-update</MIcon>检查更新
+<br />
+<MButton Small Color="primary" Outlined OnClick="@(() => Links.Open(ReleaseUrl))">
+    <MIcon Small Class="mr-1">mdi-open-in-new</MIcon>打开发布地址
 </MButton>
-
-@if (Releases != null)
-{
-    if (Releases.Length == 0) { <p class="text-caption mt-2">无发布版本</p> }
-    @foreach (var r in Releases)
-    {
-        <ShowRelease Release="r" />
-    }
-}
+<text class="text-caption">　@ReleaseUrl</text>
 
 @code {
-    [Inject] private AppState State { get; set; } = null!;
-    [Inject] private ConfigService Config { get; set; } = null!;
-    [Inject] private UpdateService Updates { get; set; } = null!;
-    [Inject] private LocalizationDownloadService Localizations { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IExternalLinkService Links { get; set; } = null!;
+    [Inject] private IConfigService Config { get; set; } = null!;
+    [Inject] private IVersionService Versions { get; set; } = null!;
+    [Inject] private ILocalizationDownloadService Localizations { get; set; } = null!;
+
+    /// <summary>发布地址（Gitee Releases）——程序不做检查/解压，用户自行比较版本</summary>
+    private const string ReleaseUrl = "https://gitee.com/zms9110750/Warframe.Market/releases";
+
+    /// <summary>程序版本（appsettings.json 的 Version:Program）</summary>
+    private string ProgramVersion => Versions.ProgramVersion;
 
     private string plat = "pc";
     private bool crossplay = true;
     private HashSet<string> _downloadedLangs = new();
-    private GiteeRelease[]? Releases;
 
     private List<string> langItems => Enum.GetValues<Language>()
         .Where(l => l != Language.Node)
-        .Select(l => AppState.LangToStr(l)).ToList();
+        .Select(l => State.LangToStr(l)).ToList();
     private List<string> platItems => Enum.GetValues<Platform>()
-        .Select(p => AppState.PlatToStr(p)).ToList();
+        .Select(p => State.PlatToStr(p)).ToList();
 
     protected override void OnInitialized()
     {
@@ -105,7 +105,7 @@
         crossplay = cfg.DefaultCrossplay;
         // 已下载的语言包：配置列表 + 本地已存在的 + 强制核心语言（zh-hans/en 只读勾选）
         _downloadedLangs = cfg.DownloadedLanguages
-            .Concat(langItems.Where(LocalizationDownloadService.IsDownloaded))
+            .Concat(langItems.Where(Localizations.IsDownloaded))
             .ToHashSet();
         _downloadedLangs.Add("zh-hans");
         _downloadedLangs.Add("en");
@@ -119,6 +119,7 @@
         {
             _downloadedLangs.Add(li);
             Log.Information("Settings 语言包已下载: {Lang}", li);
+            StateHasChanged(); // 刷新复选框/状态列（已下载/需重新下载）
         }
     }
 
@@ -134,12 +135,5 @@
         });
         Log.Information("Settings 保存默认配置: {Plat}/crossplay={Cross}, 语言包={Langs}",
             plat, crossplay, string.Join(",", _downloadedLangs));
-    }
-
-    private async Task LoadReleases()
-    {
-        Log.Information("Settings 检查更新");
-        Releases = await Updates.GetReleasesAsync();
-        StateHasChanged();
     }
 }

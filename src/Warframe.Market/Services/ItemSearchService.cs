@@ -61,7 +61,7 @@ public class ItemSearchService : IItemSearchService
 
             var resp = await _wfm.GetItemsAsync();
             var items = resp?.Content?.Data ?? [];
-            System.Diagnostics.Debug.WriteLine($"ItemsService 索引构建：{items.Length} 个物品");
+            Log.Information("ItemsService 索引构建：{Count} 个物品", items.Length);
 
             var trie = new Trie(['_', ' ', '·']);
             var byId = new Dictionary<string, ItemShort>(items.Length);
@@ -99,7 +99,7 @@ public class ItemSearchService : IItemSearchService
                 {
                     var langResp = await _wfm.GetItemsAsync(ct, lang);
                     var langItems = langResp?.Content?.Data ?? [];
-                    System.Diagnostics.Debug.WriteLine($"ItemsService 合并语言 {lang}: {langItems.Length} 个物品");
+                    Log.Information("ItemsService 合并语言 {Lang}: {Count} 个物品", lang, langItems.Length);
                     foreach (var it in langItems)
                     {
                         if (!bySlug.TryGetValue(it.Slug, out var main))
@@ -130,7 +130,7 @@ public class ItemSearchService : IItemSearchService
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"ItemsService 合并语言 {lang} 失败: {ex.Message}");
+                    Log.Warning(ex, "ItemsService 合并语言 {Lang} 失败", lang);
                 }
             }
 
@@ -284,6 +284,11 @@ public class ItemSearchService : IItemSearchService
             }
 
             return stat;
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户取消（切 tab/关标签/路由离开）：预期路径，不记 Warning（避免每次切换刷假异常）
+            return null;
         }
         catch (Exception ex)
         {

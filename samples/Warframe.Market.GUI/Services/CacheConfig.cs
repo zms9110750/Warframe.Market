@@ -13,6 +13,9 @@ public static class CacheConfig
     /// <summary>其他端点的默认缓存有效期（半分钟）</summary>
     public static TimeSpan Ttl { get; set; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>用户信息端点缓存有效期（10 分钟，仅内存）——Program 从 AppConfig 同步</summary>
+    public static TimeSpan UserTtl { get; set; } = TimeSpan.FromMinutes(10);
+
     /// <summary>缓存键生成器（可整体替换）</summary>
     public static ValueTask<string> CacheKeyProvider(Polly.ResilienceContext context)
     {
@@ -68,7 +71,7 @@ public static class CacheConfig
         if (localPath.StartsWith("/v2/user/", StringComparison.Ordinal))
         {
             return new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions {
-                Expiration = TimeSpan.FromMinutes(10),
+                Expiration = UserTtl,
                 Flags = Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryFlags.DisableDistributedCache,
             };
         }

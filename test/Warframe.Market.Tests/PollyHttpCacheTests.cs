@@ -165,6 +165,43 @@ public class PollyHttpCacheTests
         Assert.Equal(2, handler.Calls); // 隔离成功
     }
 
+    [Fact]
+    public async Task Non_200_responses_are_not_cached()
+    {
+        // 与 GUI CacheConfig 同款：非 200（404/429/5xx）禁止写缓存——避免"未找到"被缓存后长期命中
+        var services = new ServiceCollection();
+        services.AddSqliteCache("httpcache-test.db")
+            .AddFusionCache()
+            .WithRegisteredDistributedCache()
+            .WithSerializer(new FusionCacheSystemTextJsonSerializer())
+            .AsHybridCache();
+
+        var handler = new CountingHandler("", HttpStatusCode.NotFound);
+        services.AddHttpClient("t", c => c.BaseAddress = new Uri("https://api.warframe.market"))
+            .ConfigurePrimaryHttpMessageHandler(() => handler)
+            .AddResilienceHandler("h", (pipeline, ctx) => {
+                pipeline.AddCaching(new HttpCachingStrategyOptions {
+                    HybridCache = ctx.ServiceProvider.GetRequiredService<HybridCache>(),
+                    CacheKeyProvider = QueryAwareCacheKeyProvider,
+                    HybridCacheSetEntryOptionsProvider = (pipelineCtx, response) => new ValueTask<HybridCacheEntryOptions?>(
+                        response.StatusCode != HttpStatusCode.OK
+                            ? new HybridCacheEntryOptions {
+                                Flags = HybridCacheEntryFlags.DisableLocalCacheWrite
+                                      | HybridCacheEntryFlags.DisableDistributedCacheWrite,
+                            }
+                            : null),
+                });
+            });
+
+        await using var sp = services.BuildServiceProvider();
+        var client = sp.GetRequiredService<IHttpClientFactory>().CreateClient("t");
+
+        await client.GetAsync("/v2/user/definitely_not_exists");
+        await client.GetAsync("/v2/user/definitely_not_exists");
+
+        Assert.Equal(2, handler.Calls); // 404 未写缓存：第二次仍走网络
+    }
+
     private static ValueTask<string> QueryAwareCacheKeyProvider(Polly.ResilienceContext context)
     {
         var message = context.GetRequestMessage() ?? throw new InvalidOperationException();

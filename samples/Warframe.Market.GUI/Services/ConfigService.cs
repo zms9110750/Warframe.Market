@@ -9,7 +9,7 @@ namespace zms9110750.Warframe.Market.GUI.Services;
 /// <summary>
 /// 配置管理：config.yaml（应用配置）/ 赋能包配置.yaml（业务数据源）/ ui-config.yaml（UI 定制）
 /// </summary>
-public class ConfigService
+public class ConfigService : IConfigService
 {
     private readonly string _appDir;
     private readonly string _appConfigPath;
@@ -24,9 +24,9 @@ public class ConfigService
         .WithNamingConvention(NullNamingConvention.Instance)
         .Build();
 
-    public ConfigService()
+    public ConfigService(string? baseDir = null)
     {
-        _appDir = Path.Combine(
+        _appDir = baseDir ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "WarframeMarket");
         Directory.CreateDirectory(_appDir);
@@ -39,11 +39,20 @@ public class ConfigService
     {
         if (!File.Exists(_appConfigPath))
         {
+            Log.Information("ConfigService 首次创建默认配置: {Path}", _appConfigPath);
             var def = new AppConfig();
             SaveAppConfig(def);
             return def;
         }
-        return YamlDeser.Deserialize<AppConfig>(File.ReadAllText(_appConfigPath)) ?? new AppConfig();
+        try
+        {
+            return YamlDeser.Deserialize<AppConfig>(File.ReadAllText(_appConfigPath)) ?? new AppConfig();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ConfigService 配置解析失败，使用默认值: {Path}", _appConfigPath);
+            return new AppConfig();
+        }
     }
 
     public void SaveAppConfig(AppConfig config)
@@ -55,11 +64,20 @@ public class ConfigService
     {
         if (!File.Exists(_arcaneConfigPath))
         {
+            Log.Information("ConfigService 首次写入赋能包默认配置: {Path}", _arcaneConfigPath);
             WriteDefaultArcaneConfig();
         }
 
-        var yaml = File.ReadAllText(_arcaneConfigPath);
-        return YamlDeser.Deserialize<ArcaneConfigRoot>(yaml)?.赋能包配置 ?? [];
+        try
+        {
+            var yaml = File.ReadAllText(_arcaneConfigPath);
+            return YamlDeser.Deserialize<ArcaneConfigRoot>(yaml)?.赋能包配置 ?? [];
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ConfigService 赋能包配置解析失败，返回空包列表: {Path}", _arcaneConfigPath);
+            return [];
+        }
     }
 
     private void WriteDefaultArcaneConfig()

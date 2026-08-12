@@ -1,4 +1,4 @@
-@* 赋能包展开明细：出货率（静态） + 价格（异步加载） *@
+﻿@* 赋能包展开明细：出货率（静态） + 价格（异步加载） *@
 
 @if (Pack == null)
 {
@@ -11,11 +11,11 @@
     <ItemColContent>
         @if (context.Header.Text == "名称")
         {
-            // 旧版语义：ClickLink 时赋能名可点链接到物品页（ExternalLink.Open 系统浏览器）
+            // 旧版语义：ClickLink 时赋能名可点链接到物品页（Links.Open 系统浏览器）
             if (ClickLink && _slugs.TryGetValue(context.Item, out var slug))
             {
                 var url = $"https://warframe.market/zh-hans/items/{slug}";
-                <a href="@url" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(url))">@context.Item</a>
+                <a href="@url" @onclick:preventDefault @onclick="@(() => Links.Open(url))">@context.Item</a>
             }
             else
             {
@@ -35,7 +35,8 @@
 
 @code {
     [Inject] private IItemSearchService ItemSvc { get; set; } = null!;
-    [Inject] private AppState State { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IExternalLinkService Links { get; set; } = null!;
 
     [Parameter] public ArcanePackConfig Pack { get; set; } = default!;
 

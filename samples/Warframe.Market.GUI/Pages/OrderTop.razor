@@ -1,4 +1,4 @@
-@* Top 买卖单子面板：拉取全部订单，本地筛选（购/售 + 用户状态 + 等级滑块 + 价格区间 + 最少数量） *@
+﻿@* Top 买卖单子面板：拉取全部订单，本地筛选（购/售 + 用户状态 + 等级滑块 + 价格区间 + 最少数量） *@
 
 @if (TargetItem == null) { <MAlert Dense Type="@AlertTypes.Warning">没有必需参数</MAlert> return; }
 
@@ -32,7 +32,33 @@
         <MButton Small Outlined="@(_userStatus == "online")" Color="@(_userStatus == "online" ? "primary" : "")" OnClick="@(() => { _userStatus = "online"; StateHasChanged(); })">在线</MButton>
         <MButton Small Outlined="@(_userStatus == "ingame")" Color="@(_userStatus == "ingame" ? "primary" : "")" OnClick="@(() => { _userStatus = "ingame"; StateHasChanged(); })">游戏中</MButton>
     </div>
-    @if (_maxRankValue > 0)
+    @if (_isRelic)
+    {
+        // 遗物：精炼度滑块（完整→优良→无暇→光辉，单选档位筛选）
+        var pctR = (int)Math.Round(_relicSubtypeIdx * 100.0 / 3);
+        var gradR = _showBuy
+            ? $"linear-gradient(to right, #1867c0 0%, #1867c0 {pctR}%, #ddd {pctR}%, #ddd 100%)"
+            : $"linear-gradient(to left, #1867c0 0%, #1867c0 {100 - pctR}%, #ddd {100 - pctR}%, #ddd 100%)";
+        <input type="range" class="rank-range" min="0" max="3" value="@_relicSubtypeIdx" step="1"
+               title="精炼度筛选（完整/优良/无暇/光辉）"
+               @onchange="@((ChangeEventArgs e) => { _relicSubtypeIdx = int.TryParse(e.Value?.ToString(), out var n) ? n : 0; StateHasChanged(); })"
+               style="max-width:150px;margin:0 12px;width:150px;background:@gradR;" />
+        <span>精炼度 @SubtypeLocalization.Get(RelicSubtypes[_relicSubtypeIdx])</span>
+    }
+    else if (_endoMax > _endoMin)
+    {
+        // 塑像：豆子滑块（最小值=无星豆子，最大值=满星豆子）；购左填充/售右填充同等级滑块
+        var pct = (int)Math.Round((_selectedEndo - _endoMin) * 100.0 / (_endoMax - _endoMin));
+        var gradEndo = _showBuy
+            ? $"linear-gradient(to right, #1867c0 0%, #1867c0 {pct}%, #ddd {pct}%, #ddd 100%)"
+            : $"linear-gradient(to left, #1867c0 0%, #1867c0 {100 - pct}%, #ddd {100 - pct}%, #ddd 100%)";
+        <input type="range" class="rank-range" min="@_endoMin" max="@_endoMax" value="@_selectedEndo" step="@AyatanEndo.GetStep(TargetItem.Slug)"
+               title="@(_showBuy ? $"{_selectedEndo} 豆子及以下（购）" : $"{_selectedEndo} 豆子及以上（售）")"
+               @onchange="@((ChangeEventArgs e) => { _selectedEndo = int.TryParse(e.Value?.ToString(), out var n) ? n : _endoMin; StateHasChanged(); })"
+               style="max-width:150px;margin:0 12px;width:150px;background:@gradEndo;" />
+        <span>豆子 @_selectedEndo@(_showBuy ? "-" : "+")</span>
+    }
+    else if (_maxRankValue > 0)
     {
         var pct = (int)Math.Round(_selectedRank * 100.0 / _maxRankValue);
         // 购：左半边填充（4 = 4-，想买低价）；售：右半边填充（4 = 4+，想卖高价）
@@ -52,6 +78,20 @@
            @onchange="@((ChangeEventArgs e) => { _priceMax = ParseInt(e.Value); StateHasChanged(); })" />
     <input type="number" placeholder="最少数量" min="0" style="width:80px;border:1px solid #ccc;border-radius:4px;padding:4px 6px;font-size:14px;background:#fff;"
            @onchange="@((ChangeEventArgs e) => { _minQuantity = ParseInt(e.Value); StateHasChanged(); })" />
+    @if (_subtypeOptions.Count > 0 && !_isRelic)
+    {
+        @* 子类型按钮组：多选，默认全开（鱼品质/prime 蓝图成品/裂罅等）——遗物用精炼度滑块 *@
+        <div class="d-flex" style="gap:4px;flex-wrap:wrap;">
+            @foreach (var sub in _subtypeOptions)
+            {
+                var on = _selectedSubtypes.Contains(sub);
+                <MButton Small Outlined="@(!on)" Color="@(on ? "primary" : "")"
+                         OnClick="@(() => { if (on) _selectedSubtypes.Remove(sub); else _selectedSubtypes.Add(sub); StateHasChanged(); })">
+                    @SubtypeLabel(sub)
+                </MButton>
+            }
+        </div>
+    }
 </div>
 
 <MDataTable Items="@FilteredOrders.ToList()" Headers="_headers" Dense HideDefaultFooter ItemsPerPage="-1"
@@ -85,12 +125,45 @@
             if (ClickLink)
             {
                 var profileUrl = $"https://warframe.market/zh-hans/profile/{nameStr}";
-                <a href="@profileUrl" @onclick:preventDefault @onclick="@(() => ExternalLink.Open(profileUrl))">@nameStr</a>
+                <a href="@profileUrl" @onclick:preventDefault @onclick="@(() => Links.Open(profileUrl))">@nameStr</a>
             }
             else
             {
                 <text>@nameStr</text>
             }
+        }
+        else if (context.Header.Text == "在线")
+        {
+            @* 在线状态：绿点=在线、黄点=游戏中、灰点=离线 *@
+            var st = context.Item.User?.Status;
+            <text>@(st switch
+            {
+                "online" => "● 在线",
+                "ingame" => "● 游戏中",
+                "offline" => "○ 离线",
+                _ => st ?? ""
+            })</text>
+        }
+        else if (context.Header.Text == "批量")
+        {
+            var pt = context.Item.PerTrade;
+            <text>@(pt is > 1 ? $"批量×{pt}" : "单件")</text>
+        }
+        else if (context.Header.Text == "豆子")
+        {
+            var e = AyatanEndo.FromSlug(TargetItem.Slug, context.Item.AmberStars ?? 0, context.Item.CyanStars ?? 0);
+            if (e is { } endoVal && context.Item.Platinum > 0)
+            {
+                <text>@endoVal（@($"{(double)endoVal / context.Item.Platinum:F1}")/p）</text>
+            }
+            else
+            {
+                <text>@(e?.ToString() ?? "")</text>
+            }
+        }
+        else if (context.Header.Text == "类型")
+        {
+            @SubtypeLabel(context.Value?.ToString())
         }
         else
         {
@@ -101,6 +174,7 @@
                 "intact" => "完整", "radiant" => "光辉",
                 "revealed" => "已揭示", "unrevealed" => "未揭示",
                 "exceptional" => "优良", "flawless" => "无暇",
+                "basic" => "基础", "adorned" => "装饰", "magnificent" => "卓越",
                 string s when s.StartsWith("zh-") => s == "zh-hans" ? "简体中文" : "繁体中文",
                 "en" => "英语", "ko" => "韩语", "ru" => "俄语", "de" => "德语",
                 "fr" => "法语", "pt" => "葡萄牙语", "es" => "西班牙语",
@@ -123,13 +197,18 @@ else if (!loading && !FilteredOrders.Any())
 @code {
     [Inject] private IJSRuntime Js { get; set; } = null!;
     [Inject] private IOrderService OrderSvc { get; set; } = null!;
-    [Inject] private AppState State { get; set; } = null!;
+    [Inject] private IAppStateService State { get; set; } = null!;
+    [Inject] private IExternalLinkService Links { get; set; } = null!;
 
     /// <summary>打开链接模式：直接读 AppState（级联已移除）</summary>
     private bool ClickLink => State.ClickLink;
     [Parameter] public ItemShort? TargetItem { get; set; }
     /// <summary>用户订单展开时传入的确认等级，等级滑块默认选中该等级</summary>
     [Parameter] public int? InitialRank { get; set; }
+    /// <summary>用户订单展开时传入的订单买卖方向（true=买）——初始匹配该订单</summary>
+    [Parameter] public bool? InitialShowBuy { get; set; }
+    /// <summary>用户订单展开时传入的订单子类型（精炼度/品质等）——初始匹配该订单</summary>
+    [Parameter] public string? InitialSubtype { get; set; }
     /// <summary>所属标签/页面的取消令牌（切换 tab/路由离开时由父级取消）</summary>
     [Parameter] public CancellationToken CancelToken { get; set; } = CancellationToken.None;
 
@@ -138,18 +217,64 @@ else if (!loading && !FilteredOrders.Any())
 
     protected bool loading = true;
     protected bool _showBuy = false;
-    protected string _userStatus = "all";
+    protected string _userStatus = "online";
     protected int _selectedRank = 0;
     protected int _maxRankValue = 0;
+    /// <summary>塑像豆子滑块：最小值=无星豆子，最大值=满星豆子（RangeFromSlug）</summary>
+    protected int _endoMin, _endoMax, _selectedEndo;
+    /// <summary>遗物：精炼度滑块档位</summary>
+    private bool _isRelic;
+    private int _relicSubtypeIdx;
+    private static readonly string[] RelicSubtypes = ["intact", "exceptional", "flawless", "radiant"];
+    /// <summary>子类型按钮组：订单出现的子类型值（鱼品质/prime 蓝图成品/裂罅等），默认全开</summary>
+    private List<string> _subtypeOptions = new();
+    private HashSet<string> _selectedSubtypes = new();
     private int _priceMin, _priceMax, _minQuantity;
     /// <summary>订单加载失败信息（区分"加载失败"与"筛选后无订单"）</summary>
     private string? _error;
 
     protected Order[] TopOrder = Array.Empty<Order>();
 
-    protected IEnumerable<Order> FilteredOrders =>
-        OrderSvc.FilterOrders(TopOrder ?? Array.Empty<Order>(), _showBuy, _userStatus, _selectedRank, _maxRankValue,
-            _priceMin, _priceMax, _minQuantity);
+    protected IEnumerable<Order> FilteredOrders
+    {
+        get
+        {
+            var q = OrderSvc.FilterOrders(TopOrder ?? Array.Empty<Order>(), _showBuy, _userStatus, _selectedRank, _maxRankValue,
+                _priceMin, _priceMax, _minQuantity);
+
+            // 遗物：精炼度滑块——与 mod 等级滑块同语义：购显示精炼度 <= 档位（买家求购低档、自己可提供更好）；
+            // 售显示精炼度 >= 档位（自己要低级、别人给高级也乐意）
+            if (_isRelic)
+            {
+                var idx = _relicSubtypeIdx;
+                q = q.Where(o =>
+                {
+                    var oi = o.Subtype switch
+                    {
+                        "intact" => 0, "exceptional" => 1, "flawless" => 2, "radiant" => 3,
+                        _ => 0, // 未知/空 subtype 按最低档
+                    };
+                    return _showBuy ? oi <= idx : oi >= idx;
+                });
+            }
+            // 子类型按钮组：部分取消时按选中集过滤（全选时不过滤，无子类型订单仍显示）
+            else if (_subtypeOptions.Count > 0 && _selectedSubtypes.Count != _subtypeOptions.Count)
+            {
+                q = q.Where(o => o.Subtype != null && _selectedSubtypes.Contains(o.Subtype));
+            }
+            // 塑像：豆子筛选（售显示豆子 >= 滑块值；购显示 <=；默认 min=全部）
+            if (_endoMax > _endoMin && _selectedEndo > _endoMin && TargetItem != null)
+            {
+                q = q.Where(o =>
+                {
+                    var e = AyatanEndo.FromSlug(TargetItem.Slug, o.AmberStars ?? 0, o.CyanStars ?? 0) ?? 0;
+                    return _showBuy ? e <= _selectedEndo : e >= _selectedEndo;
+                });
+            }
+
+            return q;
+        }
+    }
 
     protected List<DataTableHeader<Order>> _headers = new();
 
@@ -167,25 +292,36 @@ else if (!loading && !FilteredOrders.Any())
             {
                 new("联系", nameof(Order.Id)) { Sortable = false, ValueExpression = (Func<Order, object?>)(_ => null) },
                 new("卖家", nameof(Order.User), (Func<Order, object?>)(r => r.User?.IngameName)),
+                new("在线", nameof(Order.User), (Func<Order, object?>)(r => r.User?.Status)),
                 new("声誉", nameof(Order.User), (Func<Order, object?>)(r => (int?)r.User?.Reputation)),
                 new("语言", "locale", (Func<Order, object?>)(r => r.User?.Locale)),
                 new("价格", nameof(Order.Platinum)),
                 new("数量", nameof(Order.Quantity)),
+                new("批量", nameof(Order.PerTrade), (Func<Order, object?>)(r => r.PerTrade)),
             };
             var s = TargetItem.Subtypes ?? FallbackSubtypes(TargetItem.Tags);
             if (s is { IsMod: true } or { IsArcane: true })
                 baseHeaders.Add(new("等级", nameof(Order.Rank)));
             else if (s is { IsAyatan: true })
             {
-                baseHeaders.Add(new("琥珀星", nameof(Order.AmberStars)));
-                baseHeaders.Add(new("青蓝星", nameof(Order.CyanStars)));
+                // 塑像：不显示星数，显示按星组合换算的豆子（内融核心）数量
+                baseHeaders.Add(new("豆子", nameof(Order.AmberStars), (Func<Order, object?>)(r => AyatanEndo.FromSlug(TargetItem.Slug, r.AmberStars ?? 0, r.CyanStars ?? 0))));
             }
-            else if (s is { IsComponent: true } or { IsRelic: true } or { IsRiven: true })
-                baseHeaders.Add(new("类型", nameof(Order.Subtype)));
+            // 类型列不在此预加：加载订单后若存在子类型值（遗物/鱼/prime 部件/裂罅等）再动态添加
+            _isRelic = s is { IsRelic: true };
             _headers = baseHeaders;
             _maxRankValue = TargetItem.MaxRank ?? 0;
             _selectedRank = InitialRank ?? 0;
             if (_selectedRank > _maxRankValue) _selectedRank = _maxRankValue;
+
+            // 塑像：豆子滑块范围（无星 ~ 满星）；默认 min（售 >= min = 全部）
+            var endoRange = AyatanEndo.RangeFromSlug(TargetItem.Slug);
+            if (endoRange is { } r)
+            {
+                _endoMin = r.Min;
+                _endoMax = r.Max;
+                _selectedEndo = r.Min;
+            }
             StateHasChanged();
 
             var slug = TargetItem.Slug;
@@ -196,6 +332,35 @@ else if (!loading && !FilteredOrders.Any())
             var token = linked?.Token ?? _cts.Token;
             TopOrder = await OrderSvc.GetOrdersAsync(slug, token);
             Log.Information("OrderTop 初始化完成: {Slug}, count={Count}", slug, TopOrder.Length);
+
+            // 类型列动态：订单存在子类型值（遗物/鱼/prime 部件/裂罅等）才显示——通用判定，不按物品类型枚举
+            if (TopOrder.Any(o => o.Subtype != null) && _headers.All(h => h.Text != "类型"))
+            {
+                _headers.Add(new("类型", nameof(Order.Subtype)));
+            }
+            // 子类型按钮组（非遗物）：订单实际出现的子类型值；默认全开，若从用户订单进入则初始匹配该订单子类型。遗物用精炼度滑块
+            _isRelic = TargetItem.Tags.Contains("relic");
+            _showBuy = InitialShowBuy ?? _showBuy;
+            if (_isRelic)
+            {
+                // 遗物：初始精炼度档位匹配用户订单的子类型
+                var initIdx = InitialSubtype switch
+                {
+                    "exceptional" => 1, "flawless" => 2, "radiant" => 3,
+                    _ => 0,
+                };
+                _relicSubtypeIdx = initIdx;
+            }
+            else
+            {
+                _subtypeOptions = TopOrder.Select(o => o.Subtype).Where(s => s != null).Cast<string>().Distinct().ToList();
+                _selectedSubtypes = new HashSet<string>(_subtypeOptions);
+                if (!string.IsNullOrEmpty(InitialSubtype))
+                {
+                    _selectedSubtypes = new HashSet<string> { InitialSubtype }; // 从用户订单进入：初始只匹配该子类型
+                }
+            }
+            StateHasChanged();
         }
         catch (OperationCanceledException)
         {
@@ -255,5 +420,11 @@ else if (!loading && !FilteredOrders.Any())
         var result = new ItemSubtypeSet();
         foreach (var t in tags) result.Add(t);
         return result;
+    }
+
+    /// <summary>子类型中文名（按钮组/类型列共用）——来自官方 wfm-localization（不硬编码）</summary>
+    private static string SubtypeLabel(string? sub)
+    {
+        return SubtypeLocalization.Get(sub);
     }
 }

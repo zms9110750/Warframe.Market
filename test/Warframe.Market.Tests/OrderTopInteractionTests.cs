@@ -20,6 +20,11 @@ namespace zms9110750.Warframe.Market.Tests;
 /// </summary>
 public class OrderTopInteractionTests
 {
+    private sealed class FakeExternalLink : zms9110750.Warframe.Market.GUI.Services.IExternalLinkService
+    {
+        public void Open(string url) { }
+    }
+
     private readonly ITestOutputHelper _output;
 
     public OrderTopInteractionTests(ITestOutputHelper output)
@@ -42,12 +47,28 @@ public class OrderTopInteractionTests
             new Dictionary<Language, LanguagePake>());
     }
 
+    private static ItemShort MakeAyatanItem()
+    {
+        // Orta 塑像（目录内）：滑块范围 650~2700，列显示豆子（不显示星数）
+        return new ItemShort("id", "ayatan_orta_sculpture", "GameRef", new HashSet<string> { "ayatan_sculpture" }, 0,
+            null, null, null, null, null, null, null,
+            new Dictionary<Language, LanguagePake>());
+    }
+
+    private static Order MakeAyatanOrder(string id, int amber, int cyan, int? perTrade, int price, string type = "sell", string status = "online")
+    {
+        return new Order(id, type, price, perTrade ?? 1, perTrade ?? 1, null, null, null, amber, cyan, true,
+            "2026-08-01T00:00:00Z", "2026-08-01T00:00:00Z", "item1", null,
+            new UserShort(id + "u", $"User{id}", $"user{id}", null, 10, "pc", false, "en", status, null, "2026-08-01T00:00:00Z"));
+    }
+
     private static BunitContext CreateCtx(Order[] orders)
     {
         var ctx = new BunitContext();
         ctx.Services.AddMasaBlazor();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        ctx.Services.AddSingleton<AppState>(_ => new AppState(new WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IAppStateService>(_ => new AppState(new WarframeMarketClient(new HttpClient())));
+        ctx.Services.AddSingleton<zms9110750.Warframe.Market.GUI.Services.IExternalLinkService>(_ => new FakeExternalLink());
         ctx.Services.AddSingleton<IOrderService>(new FakeOrderService(orders));
         return ctx;
     }
@@ -225,5 +246,99 @@ public class OrderTopInteractionTests
     private static string FirstRowText(IRenderedComponent<OrderTopPanel> cut)
     {
         return cut.FindAll("tbody tr:not(.m-data-table__group-header)").First().TextContent;
+    }
+
+    [Fact]
+    public async Task Ayatan_renders_endo_slider_with_min_max()
+    {
+        var orders = new[]
+        {
+            MakeAyatanOrder("1", 1, 3, 1, 100), // 满星 → 2700
+            MakeAyatanOrder("2", 0, 0, 6, 50),  // 无星 → 650
+        };
+        await using var ctx = CreateCtx(orders);
+        var cut = ctx.Render<OrderTopPanel>(p => p.Add(m => m.TargetItem, MakeAyatanItem()));
+
+        // 塑像：豆子滑块 min=无星豆子 650，max=满星豆子 2700（不是等级 0~10）
+        var slider = cut.Find("input[type=range]");
+        Assert.Equal("650", slider.GetAttribute("min"));
+        Assert.Equal("2700", slider.GetAttribute("max"));
+    }
+
+    [Fact]
+    public async Task Ayatan_shows_endo_and_bulk_columns()
+    {
+        var orders = new[]
+        {
+            MakeAyatanOrder("1", 1, 3, 1, 100), // 满星 → 豆子 2700
+            MakeAyatanOrder("2", 0, 0, 6, 50),  // 无星 → 豆子 650，批量 perTrade=6
+        };
+        await using var ctx = CreateCtx(orders);
+        var cut = ctx.Render<OrderTopPanel>(p => p.Add(m => m.TargetItem, MakeAyatanItem()));
+
+        var text = cut.Markup;
+        Assert.Contains("2700", text);     // 满星订单显示豆子
+        Assert.Contains("650", text);      // 无星订单显示豆子
+        Assert.Contains("批量×6", text);   // 批量列（perTrade>1）
+        Assert.DoesNotContain("琥珀星", text); // 不再显示星数列
+    }
+
+    private static ItemShort MakeRelicItem()
+    {
+        return new ItemShort("id", "requiem_iv_relic", "GameRef", new HashSet<string> { "relic" }, 0,
+            null, null, null, null, null, null, null,
+            new Dictionary<Language, LanguagePake>());
+    }
+
+    private static Order MakeRelicOrder(string id, string subtype, int price, string type = "sell")
+    {
+        return new Order(id, type, price, 1, 1, subtype, null, null, null, null, true,
+            "2026-08-01T00:00:00Z", "2026-08-01T00:00:00Z", "item1", null,
+            new UserShort(id + "u", $"User{id}", $"user{id}", null, 10, "pc", false, "en", "online", null, "2026-08-01T00:00:00Z"));
+    }
+
+    [Fact]
+    public async Task Relic_slider_filters_like_mod_rank()
+    {
+        // 语义同 mod 等级：购显示精炼度 <= 档位；售显示 >= 档位
+        var orders = new[]
+        {
+            MakeRelicOrder("1", "intact", 5),
+            MakeRelicOrder("2", "radiant", 20),
+        };
+        await using var ctx = CreateCtx(orders);
+        var cut = ctx.Render<OrderTopPanel>(p => p.Add(m => m.TargetItem, MakeRelicItem()));
+
+        // 遗物：精炼度滑块 0~3（完整→光辉），标签为官方中文
+        var slider = cut.Find("input[type=range]");
+        Assert.Equal("0", slider.GetAttribute("min"));
+        Assert.Equal("3", slider.GetAttribute("max"));
+
+        // 默认售 + 档位 0（完整）：售显示 >=0 = 全部（intact + radiant 都显示）
+        Assert.Contains("完整", cut.Markup);
+        Assert.Equal(2, CountDataRows(cut));
+
+        // 滑到 3（光辉）：售显示 >=3 = 只剩 radiant
+        slider.Change("3");
+        Assert.Equal(1, CountDataRows(cut));
+        Assert.Contains("光辉", cut.Markup);
+
+        // 购：显示精炼度 <= 档位（买家求购低档，自己可提供更好）——用 buy 订单单独渲染
+        var buyOrders = new[]
+        {
+            MakeRelicOrder("1b", "intact", 5, "buy"),
+            MakeRelicOrder("2b", "radiant", 20, "buy"),
+        };
+        await using var ctxBuy = CreateCtx(buyOrders);
+        var cutBuy = ctxBuy.Render<OrderTopPanel>(p => p.Add(m => m.TargetItem, MakeRelicItem()));
+        cutBuy.FindAll("button").First(b => b.TextContent.Contains("购")).Click();
+
+        // 购 + 档位 3：购显示 <=3 = 全部
+        cutBuy.Find("input[type=range]").Change("3");
+        Assert.Equal(2, CountDataRows(cutBuy));
+
+        // 购 + 档位 0：购显示 <=0 = 只剩 intact
+        cutBuy.Find("input[type=range]").Change("0");
+        Assert.Equal(1, CountDataRows(cutBuy));
     }
 }

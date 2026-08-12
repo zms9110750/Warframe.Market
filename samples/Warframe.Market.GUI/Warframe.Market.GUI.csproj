@@ -37,6 +37,9 @@
     <None Update="赋能包配置.yaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- 官方 wfm-localization 中文本地化（子类别翻译）——始终复制到输出目录 -->
+    <Content Update="Resources\i18n\zh-hans.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsLib)' == 'true'">

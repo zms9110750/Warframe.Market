@@ -1,4 +1,4 @@
-@page "/arcane"
+﻿@page "/arcane"
 @attribute [NavItem("赋能包", "mdi-package-variant", Order = 2)]
 
 <h3>赋能包查询</h3>
@@ -39,7 +39,7 @@
 </MDataTable>
 
 @code {
-    [Inject] private ConfigService Config { get; set; } = null!;
+    [Inject] private IConfigService Config { get; set; } = null!;
     [Inject] private IArcanePackService Arcane { get; set; } = null!;
 
     private static readonly int[] PurchaseVolumes = [0, 2, 6, 15, 35];

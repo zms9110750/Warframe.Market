@@ -10,6 +10,7 @@ namespace zms9110750.Warframe.Market.Tests;
 internal sealed class FakeHttpMessageHandler : HttpMessageHandler
 {
     private readonly Dictionary<string, string> _responses = new();
+    private readonly object _lock = new();
 
     /// <summary>最近一次请求的完整 URI</summary>
     public Uri? LastRequestUri { get; private set; }
@@ -26,8 +27,11 @@ internal sealed class FakeHttpMessageHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        LastRequestUri = request.RequestUri;
-        RequestUris.Add(request.RequestUri!);
+        lock (_lock)
+        {
+            LastRequestUri = request.RequestUri;
+            RequestUris.Add(request.RequestUri!);
+        }
 
         var path = request.RequestUri!.AbsolutePath;
         if (_responses.TryGetValue(path, out var file))
