@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Caching.Memory;
+using zms9110750.WarframeMarketApi;
 using Serilog;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.TreeCollection.Trie;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>
 /// 物品搜索服务实现：内存 Trie（索引来自 items 列表，HTTP 缓存保证不重复拉取）+ 统计 + 参考价。

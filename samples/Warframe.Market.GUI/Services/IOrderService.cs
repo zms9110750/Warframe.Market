@@ -1,7 +1,8 @@
 using zms9110750.WarframeMarketApi.Models.Items;
+using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Orders;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>订单表列定义（不依赖 UI 框架，GUI 转 DataTableHeader；排序点击按 Sortable/Value 生效）</summary>
 public record OrderColumn(

@@ -2,7 +2,7 @@ using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
 using zms9110750.WarframeMarketApi.Models.Users;
-using zms9110750.WarframeMarketApi.Services;
+using zms9110750.Warframe.Market.GUI.Services;
 
 namespace zms9110750.Warframe.Market.Tests;
 

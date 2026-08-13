@@ -1,7 +1,8 @@
 using zms9110750.WarframeMarketApi.Models.Items;
+using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Orders;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>
 /// 订单服务实现：订单全量拉取 + 纯函数筛选 + 动态列定义

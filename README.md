@@ -2,7 +2,7 @@
 
 Warframe 市场（[warframe.market](https://warframe.market)）的 .NET 项目：
 
-- **库**（`src/Warframe.Market`，NuGet: `zms9110750.Warframe.Market`）— 完整 API 客户端 + 参考价/赋能包计算，内置限流/重试/缓存
+- **库**（`src/Warframe.Market`，NuGet: `zms9110750.Warframe.Market`）— Warframe.market API 的 .NET 客户端（拟合 API 文档），内置限流/重试
 - **GUI**（`samples/Warframe.Market.GUI`）— PhotinoX 桌面客户端（物品搜索/用户订单/赋能包估值/快捷回复）
 
 对应 warframe.market API **v0.25.0**（REST）/ v0.13.0（WebSocket）。
