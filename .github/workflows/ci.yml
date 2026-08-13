@@ -1,4 +1,4 @@
-name: CI
+ï»¿name: CI
 
 on:
   pull_request:
@@ -114,6 +114,7 @@ jobs:
         shell: pwsh
 
   publish-self-contained:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     strategy:
       fail-fast: false
@@ -153,7 +154,7 @@ jobs:
 
           foreach ($exe in $exes) {
             $best = Get-Highest $exe.Frameworks
-            if (-not $best) { Write-Host "Ìø¹ý $($exe.Name): ÎÞ¿ÉÓÃ¿ò¼Ü"; continue }
+            if (-not $best) { Write-Host "ï¿½ï¿½ï¿½ï¿½ $($exe.Name): ï¿½Þ¿ï¿½ï¿½Ã¿ï¿½ï¿½"; continue }
             $fw = $exe.RawFrameworks | Where-Object { $_ -match "net$($best.Major)[.$]$($best.Minor)" } | Select-Object -First 1
             if (-not $fw) { $fw = $exe.RawFrameworks | Where-Object { $_ -match "net$($best.Major)[.$]" } | Select-Object -First 1 }
             if (-not $fw) { $fw = $exe.RawFrameworks[0] }
@@ -164,7 +165,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
               Compress-Archive -Path "$outDir/*" -DestinationPath "publish/$($exe.Name)-$rid.zip" -Force
               Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue
-            } catch { Write-Host "Ìø¹ý $($exe.Name)-$rid (²»¼æÈÝ)" }
+            } catch { Write-Host "ï¿½ï¿½ï¿½ï¿½ $($exe.Name)-$rid (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)" }
           }
           $LASTEXITCODE = 0
 
@@ -174,6 +175,7 @@ jobs:
           path: publish/*.zip
 
   publish-fdd:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     strategy:
       matrix:
@@ -205,14 +207,14 @@ jobs:
           $exes = $env:EXE_JSON | ConvertFrom-Json
           $fw = '${{ matrix.fw }}'
           $matched = $exes | Where-Object { $_.RawFrameworks -contains $fw }
-          if (-not $matched) { Write-Host "ÎÞÏîÄ¿Ö§³Ö $fw"; exit 0 }
+          if (-not $matched) { Write-Host "ï¿½ï¿½ï¿½ï¿½Ä¿Ö§ï¿½ï¿½ $fw"; exit 0 }
           $projNames = ($matched | ForEach-Object { $_.Name }) -join "+"
           $outDir = "publish/tmp/fdd-$projNames-$fw"
           New-Item -ItemType Directory -Path $outDir -Force | Out-Null
           foreach ($exe in $matched) {
             Write-Host "FDD $($exe.Name) -> $fw"
             dotnet publish $exe.Path -c Release -f $fw -o $outDir
-            if ($LASTEXITCODE -ne 0) { throw "$($exe.Name)-$fw ·¢²¼Ê§°Ü" }
+            if ($LASTEXITCODE -ne 0) { throw "$($exe.Name)-$fw ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½" }
           }
           Compress-Archive -Path "$outDir/*" -DestinationPath "publish/$projNames-$fw.zip" -Force
           Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -223,6 +225,7 @@ jobs:
           path: publish/*.zip
 
   pack:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -253,7 +256,7 @@ jobs:
             try {
               dotnet pack $p -c Release -o publish/nupkg
               if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
-            } catch { Write-Host "Ìø¹ý $(Split-Path $p -Leaf) (²»¼æÈÝ)" }
+            } catch { Write-Host "ï¿½ï¿½ï¿½ï¿½ $(Split-Path $p -Leaf) (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)" }
           }
           $LASTEXITCODE = 0
 

@@ -27,8 +27,8 @@
 
   <PropertyGroup>
     <Authors>zms9110750</Authors>
-    <Version>0.2.0-a.0+v0.25.0</Version>
-    <RepositoryUrl>https://github.com/zms9110750/zms9110750Library</RepositoryUrl>
+    <Version>0.2.0-a.1+v0.25.0</Version>
+    <RepositoryUrl>https://github.com/zms9110750/Warframe.Market</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
@@ -90,9 +90,9 @@
     </Otherwise>
   </Choose>
 
-  <!-- 编译前格式化（仅当 .editorconfig 存在时执行） -->
+  <!-- 编译前格式化（仅当 .editorconfig 存在且非 CI 时执行——CI 里 build 不动源码） -->
   <Target Name="FormatCode" BeforeTargets="BeforeBuild"
-          Condition="Exists('$(MSBuildThisFileDirectory).editorconfig')">
+          Condition="Exists('$(MSBuildThisFileDirectory).editorconfig') and '$(CI)' != 'true'">
     <Exec Command="dotnet format --no-restore"
           WorkingDirectory="$(MSBuildThisFileDirectory)" />
   </Target>
