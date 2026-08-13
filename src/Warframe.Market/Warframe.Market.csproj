@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0</TargetFrameworks>
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -10,7 +10,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Title>WarframeMarketApi</Title>
-    <PackageReleaseNotes>对应 warframe.market API v0.25.0；领域服务接口、参考价算法、赋能包期望值、AyatanEndo 塑像豆子换算</PackageReleaseNotes>
+    <PackageReleaseNotes>对应 warframe.market API v0.25.0；API 客户端（物品/订单/用户/统计），内置 Polly 限流/重试</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>Warframe Market API</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -24,12 +24,24 @@
     <PackageReference Include="Refit.HttpClientFactory" Version="12.0.0" />
     <PackageReference Include="Polly" Version="8.7.0" />
     <PackageReference Include="Polly.RateLimiting" Version="8.7.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.6.0" />
-    <PackageReference Include="zms9110750.TreeCollection" Version="1.1.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-
+    <!-- 其余 PackageReference 来自 Directory.Build.props（GUI 用）；lib 只保留以上 3 个，其余全部排除 -->
+    <PackageReference Remove="ZiggyCreatures.FusionCache" />
+    <PackageReference Remove="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" />
+    <PackageReference Remove="zms9110750.TreeCollection" />
+    <PackageReference Remove="Serilog" />
+    <PackageReference Remove="Serilog.Sinks.Console" />
+    <PackageReference Remove="Serilog.Sinks.File" />
+    <PackageReference Remove="Serilog.Extensions.Logging" />
+    <PackageReference Remove="Serilog.Extensions.Hosting" />
+    <PackageReference Remove="Soenneker.HttpClients.LoggingHandler" />
+    <PackageReference Remove="Axion.Extensions.Http.Resilience.Caching.Hybrid" />
+    <PackageReference Remove="Axion.Extensions.Polly.Caching.Hybrid" />
+    <PackageReference Remove="NeoSmart.Caching.Sqlite.AspNetCore" />
+    <PackageReference Remove="NeoSmart.Caching.Sqlite" />
+    <PackageReference Remove="SQLitePCLRaw.lib.e_sqlite3" />
+    <PackageReference Remove="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Remove="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Remove="Polly.Core" />
   </ItemGroup>
 
   <ItemGroup>
