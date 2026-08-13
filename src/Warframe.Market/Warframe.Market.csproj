@@ -10,7 +10,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Title>WarframeMarketApi</Title>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageReleaseNotes>对应 warframe.market API v0.25.0；领域服务接口、参考价算法、赋能包期望值、AyatanEndo 塑像豆子换算</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>Warframe Market API</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
