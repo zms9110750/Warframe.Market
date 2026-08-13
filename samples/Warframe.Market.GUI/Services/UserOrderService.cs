@@ -1,8 +1,9 @@
 using zms9110750.WarframeMarketApi.Models.Items;
+using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Orders;
 using zms9110750.WarframeMarketApi.Models.Users;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>
 /// 用户订单查询实现：确认用户存在 → 拉订单 → 本地索引补物品（不额外走 API）→ 价格分批加载

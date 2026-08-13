@@ -5,7 +5,7 @@ using System.Reflection;
 using zms9110750.Warframe.Market.GUI.Services;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Users;
-using zms9110750.WarframeMarketApi.Services;
+using zms9110750.Warframe.Market.GUI.Services;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace zms9110750.Warframe.Market.GUI.Shared;

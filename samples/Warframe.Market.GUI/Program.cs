@@ -8,7 +8,7 @@ using Polly.RateLimiting;
 using Polly.Telemetry;
 using Serilog.Events;
 using zms9110750.WarframeMarketApi;
-using zms9110750.WarframeMarketApi.Services;
+using zms9110750.Warframe.Market.GUI.Services;
 using zms9110750.Warframe.Market.GUI.Services;
 
 namespace zms9110750.Warframe.Market.GUI;

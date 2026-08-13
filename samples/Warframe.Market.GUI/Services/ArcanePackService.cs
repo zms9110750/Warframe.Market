@@ -1,7 +1,8 @@
 using zms9110750.WarframeMarketApi.Models.Arcane;
+using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>
 /// 赋能包期望值计算实现：Σ(材料价 × 出货率 × 有效量)，购买量&gt;0 时流动性封顶

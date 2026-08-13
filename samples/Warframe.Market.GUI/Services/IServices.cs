@@ -1,10 +1,11 @@
 using zms9110750.WarframeMarketApi.Models.Arcane;
+using zms9110750.WarframeMarketApi;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Orders;
 using zms9110750.WarframeMarketApi.Models.Statistics;
 using zms9110750.WarframeMarketApi.Models.Users;
 
-namespace zms9110750.WarframeMarketApi.Services;
+namespace zms9110750.Warframe.Market.GUI.Services;
 
 /// <summary>用户搜索结果（UserOrderService.SearchUserAsync 的返回值）</summary>
 public class UserSearchResult

@@ -4,7 +4,7 @@ using Xunit;
 using zms9110750.WarframeMarketApi.Models.Arcane;
 using zms9110750.WarframeMarketApi.Models.Items;
 using zms9110750.WarframeMarketApi.Models.Statistics;
-using zms9110750.WarframeMarketApi.Services;
+using zms9110750.Warframe.Market.GUI.Services;
 using ArcanePacksPanel = zms9110750.Warframe.Market.GUI.Pages.ArcanePacks;
 using ArcaneTablePanel = zms9110750.Warframe.Market.GUI.Pages.ArcaneTable;
 
