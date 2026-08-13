@@ -154,7 +154,7 @@ jobs:
 
           foreach ($exe in $exes) {
             $best = Get-Highest $exe.Frameworks
-            if (-not $best) { Write-Host "���� $($exe.Name): �޿��ÿ��"; continue }
+            if (-not $best) { Write-Host "跳过 $($exe.Name): 无可用框架"; continue }
             $fw = $exe.RawFrameworks | Where-Object { $_ -match "net$($best.Major)[.$]$($best.Minor)" } | Select-Object -First 1
             if (-not $fw) { $fw = $exe.RawFrameworks | Where-Object { $_ -match "net$($best.Major)[.$]" } | Select-Object -First 1 }
             if (-not $fw) { $fw = $exe.RawFrameworks[0] }
@@ -165,7 +165,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
               Compress-Archive -Path "$outDir/*" -DestinationPath "publish/$($exe.Name)-$rid.zip" -Force
               Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue
-            } catch { Write-Host "���� $($exe.Name)-$rid (������)" }
+            } catch { Write-Host "跳过 $($exe.Name)-$rid (不兼容)" }
           }
           $LASTEXITCODE = 0
 
@@ -207,14 +207,14 @@ jobs:
           $exes = $env:EXE_JSON | ConvertFrom-Json
           $fw = '${{ matrix.fw }}'
           $matched = $exes | Where-Object { $_.RawFrameworks -contains $fw }
-          if (-not $matched) { Write-Host "����Ŀ֧�� $fw"; exit 0 }
+          if (-not $matched) { Write-Host "无项目支持 $fw"; exit 0 }
           $projNames = ($matched | ForEach-Object { $_.Name }) -join "+"
           $outDir = "publish/tmp/fdd-$projNames-$fw"
           New-Item -ItemType Directory -Path $outDir -Force | Out-Null
           foreach ($exe in $matched) {
             Write-Host "FDD $($exe.Name) -> $fw"
             dotnet publish $exe.Path -c Release -f $fw -o $outDir
-            if ($LASTEXITCODE -ne 0) { throw "$($exe.Name)-$fw ����ʧ��" }
+            if ($LASTEXITCODE -ne 0) { throw "$($exe.Name)-$fw 发布失败" }
           }
           Compress-Archive -Path "$outDir/*" -DestinationPath "publish/$projNames-$fw.zip" -Force
           Remove-Item $outDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -256,7 +256,7 @@ jobs:
             try {
               dotnet pack $p -c Release -o publish/nupkg
               if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
-            } catch { Write-Host "���� $(Split-Path $p -Leaf) (������)" }
+            } catch { Write-Host "跳过 $(Split-Path $p -Leaf) (不兼容)" }
           }
           $LASTEXITCODE = 0
 
