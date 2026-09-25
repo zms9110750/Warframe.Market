@@ -26,9 +26,7 @@ public class ConfigService : IConfigService
 
     public ConfigService(string? baseDir = null)
     {
-        _appDir = baseDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WarframeMarket");
+        _appDir = baseDir ?? AppContext.BaseDirectory;
         Directory.CreateDirectory(_appDir);
         _appConfigPath = Path.Combine(_appDir, "config.yaml");
         _arcaneConfigPath = Path.Combine(_appDir, "赋能包配置.yaml");

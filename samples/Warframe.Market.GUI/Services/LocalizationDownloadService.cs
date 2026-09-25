@@ -13,7 +13,7 @@ public class LocalizationDownloadService : ILocalizationDownloadService
 
     /// <summary>本地语言包目录（默认程序数据目录下 locales/；测试可注入 baseDir）</summary>
     private readonly string _localesDir;
-    public static string LocalesDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WarframeMarket", "locales");
+    public static string LocalesDir => Path.Combine(AppContext.BaseDirectory, "locales");
 
     private readonly HttpClient _http;
 

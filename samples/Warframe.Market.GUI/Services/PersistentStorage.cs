@@ -23,9 +23,8 @@ public class PersistentStorage : IPersistentStorage
 
     public PersistentStorage(string? baseDir = null)
     {
-        var dir = baseDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WarframeMarket");
+        // 默认写应用目录（卸载/删除应用即清），不写 %LocalAppData%（卸载留垃圾）
+        var dir = baseDir ?? AppContext.BaseDirectory;
         Directory.CreateDirectory(dir);
         _path = Path.Combine(dir, "persistent.yaml");
     }
